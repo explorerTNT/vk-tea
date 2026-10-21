@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">VK Tea</string>
+    <string name="status_wip">Проект в ранней разработке. Чай заваривается…</string>
+    <string name="credits_original">Идейный наследник клиента VK Coffee\nот OPERATOR_555 (Reversing Solutions)</string>
+</resources>
