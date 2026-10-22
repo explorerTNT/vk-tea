@@ -11,6 +11,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.view.View;
+import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
 
@@ -18,6 +19,7 @@ import com.vktea.MainActivity;
 import com.vktea.R;
 import com.vktea.api.VKApi;
 import com.vktea.audio.AudioPlaybackService;
+import com.vktea.auth.AuthActivity;
 import com.vktea.auth.Session;
 import com.vktea.menu.MenuEntry;
 
@@ -58,7 +60,7 @@ public class AudioNavigationTest {
     @After
     public void destroyActivity() {
         if (activityController != null) {
-            activityController.pause().stop().destroy();
+            activityController.close();
         }
         RuntimeEnvironment.getApplication().getSharedPreferences("session", Context.MODE_PRIVATE)
                 .edit().clear().commit();
@@ -75,7 +77,7 @@ public class AudioNavigationTest {
 
         assertTrue(currentFragment() instanceof AudioFragment);
         assertEquals(activity().getString(R.string.section_audios),
-                activity().getSupportActionBar().getTitle());
+                toolbarTitle());
     }
 
     @Test
@@ -90,7 +92,7 @@ public class AudioNavigationTest {
 
         assertTrue(currentFragment() instanceof SettingsFragment);
         assertEquals(activity().getString(R.string.section_settings),
-                activity().getSupportActionBar().getTitle());
+                toolbarTitle());
     }
 
     @Test
@@ -122,6 +124,22 @@ public class AudioNavigationTest {
         assertEquals(View.GONE, root.findViewById(R.id.audio_controls).getVisibility());
     }
 
+    @Test
+    public void unauthorizedLaunchRedirectsBeforeProfileOrFeedRequest() {
+        RuntimeEnvironment.getApplication().getSharedPreferences("session", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+        Intent intent = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class)
+                .setAction(OPEN_AUDIO);
+        activityController = Robolectric.buildActivity(MainActivity.class, intent).create();
+
+        Intent redirect = shadowOf(activity()).getNextStartedActivity();
+        assertNotNull(redirect);
+        assertNotNull(redirect.getComponent());
+        assertEquals(AuthActivity.class.getName(), redirect.getComponent().getClassName());
+        assertTrue(activity().isFinishing());
+        assertEquals(0, ShadowVKApi.calls);
+    }
+
     private void launch(String action) {
         Intent intent = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class);
         intent.setAction(action);
@@ -145,6 +163,10 @@ public class AudioNavigationTest {
 
     private MainActivity activity() {
         return activityController.get();
+    }
+
+    private String toolbarTitle() {
+        return ((TextView) activity().findViewById(R.id.toolbar_title)).getText().toString();
     }
 
     /** Completes profile/feed loading locally; no transport or image URL is used. */

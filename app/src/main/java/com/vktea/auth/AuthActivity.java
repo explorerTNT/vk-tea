@@ -32,8 +32,8 @@ public class AuthActivity extends AppCompatActivity {
     private static final String TOKEN_URL = "https://oauth.vk.com/token";
     private static final String CLIENT_ID = "2274003";
     private static final String CLIENT_SECRET = "hHbZxrka2uZ6jB1inYsH";
-    private static final String SCOPE = "offline,friends,photos,audio,video,wall,messages,docs,groups,status,notifications";
-    private static final String API_V = "5.131";
+    private static final String SCOPE = "nohttps,all";
+    private static final String API_V = "5.82";
 
     private EditText loginField;
     private EditText passField;
@@ -86,6 +86,10 @@ public class AuthActivity extends AppCompatActivity {
                     url.append("&captcha_sid=").append(captchaSid)
                        .append("&captcha_key=").append(URLEncoder.encode(captchaKey, "UTF-8"));
                 }
+                String trustedHash = getSharedPreferences("auth", MODE_PRIVATE).getString("trusted_hash", null);
+                if (trustedHash != null && !trustedHash.isEmpty()) {
+                    url.append("&trusted_hash=").append(URLEncoder.encode(trustedHash, "UTF-8"));
+                }
                 HttpURLConnection conn = (HttpURLConnection) new URL(url.toString()).openConnection();
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
@@ -94,10 +98,15 @@ public class AuthActivity extends AppCompatActivity {
                 Scanner scanner = new Scanner(stream, "UTF-8").useDelimiter("\\A");
                 String body = scanner.hasNext() ? scanner.next() : "";
                 scanner.close();
+                android.util.Log.e("VKTea", "auth response " + code + ": " + body);
                 JSONObject json = new JSONObject(body);
                 if (json.has("access_token")) {
                     String token = json.getString("access_token");
                     String userId = String.valueOf(json.getLong("user_id"));
+                    if (json.has("trusted_hash")) {
+                        getSharedPreferences("auth", MODE_PRIVATE).edit()
+                                .putString("trusted_hash", json.getString("trusted_hash")).apply();
+                    }
                     runOnUiThread(() -> {
                         Session.save(this, token, userId);
                         TokenRevealDialog.show(this, token);
@@ -148,14 +157,27 @@ public class AuthActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void checkToken(String token) {
-        if (token.isEmpty()) {
+    private void checkToken(String input) {
+        if (input.isEmpty()) {
             return;
         }
+        String[] parts = input.trim().split("\\s+");
+        String token = parts[0];
+        String secret = parts.length > 1 ? parts[1] : null;
         new Thread(() -> {
             try {
-                HttpURLConnection conn = (HttpURLConnection) new URL(
-                        "https://api.vk.ru/method/users.get?access_token=" + token + "&v=5.199").openConnection();
+                String query = "v=5.82&lang=ru&https=1&access_token=" + token;
+                String url = "https://api.vk.com/method/users.get?" + query;
+                if (secret != null && !secret.isEmpty()) {
+                    java.security.MessageDigest digest = java.security.MessageDigest.getInstance("MD5");
+                    byte[] hash = digest.digest(("/method/users.get?" + query + secret).getBytes("UTF-8"));
+                    StringBuilder sb = new StringBuilder();
+                    for (byte b : hash) {
+                        sb.append(String.format("%02x", b));
+                    }
+                    url = url + "&sig=" + sb;
+                }
+                HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
                 Scanner scanner = new Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
@@ -166,7 +188,7 @@ public class AuthActivity extends AppCompatActivity {
                     JSONObject user = json.getJSONArray("response").getJSONObject(0);
                     String userId = String.valueOf(user.getLong("id"));
                     runOnUiThread(() -> {
-                        Session.save(this, token, userId);
+                        Session.save(this, token, userId, secret);
                         TokenRevealDialog.show(this, token);
                     });
                 } else {

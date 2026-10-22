@@ -30,6 +30,34 @@
 
         <activity
             android:name=".auth.AuthWebViewActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="vk.ru"
+                    android:path="/blank.html"
+                    android:scheme="vk2274003" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".msg.ChatActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".feed.PostActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".feed.PhotoViewerActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".feed.VideoPlayerActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false" />
 
         <service

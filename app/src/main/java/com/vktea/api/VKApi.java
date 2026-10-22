@@ -11,7 +11,7 @@ import org.json.JSONObject;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
+import java.security.MessageDigest;
 import java.util.Locale;
 import java.util.Scanner;
 
@@ -24,9 +24,10 @@ public class VKApi {
     }
 
     private static final String API_HOST = "api.vk.com";
-    private static final String API_VERSION = "5.199";
+    private static final String API_VERSION = "5.82";
     private static final String OFFICIAL_APP_VERSION = "8.185-55039";
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static final okhttp3.OkHttpClient CLIENT = new okhttp3.OkHttpClient();
 
     public static final String USER_AGENT = String.format(Locale.US,
             "VKAndroidApp/%s (Android %s; SDK %d; %s; %s %s; %s)",
@@ -40,25 +41,27 @@ public class VKApi {
 
     public static void get(Context context, String method, String params, Callback callback) {
         String token = Session.getToken(context);
+        String secret = Session.getSecret(context);
         new Thread(() -> {
             try {
-                StringBuilder url = new StringBuilder("https://")
-                        .append(API_HOST).append("/method/").append(method)
-                        .append("?access_token=").append(token)
-                        .append("&lang=").append(Locale.getDefault().getLanguage())
-                        .append("&https=1")
-                        .append("&v=").append(API_VERSION);
-                if (params != null && !params.isEmpty()) {
-                    url.append("&").append(params);
+                String query = "v=" + API_VERSION
+                        + "&lang=" + Locale.getDefault().getLanguage()
+                        + "&https=1"
+                        + "&access_token=" + token
+                        + (params == null || params.isEmpty() ? "" : "&" + params);
+                String url;
+                if (secret != null && !secret.isEmpty()) {
+                    String sigSource = "/method/" + method + "?" + query + secret;
+                    url = "https://" + API_HOST + "/method/" + method + "?" + query + "&sig=" + md5(sigSource);
+                } else {
+                    url = "https://" + API_HOST + "/method/" + method + "?" + query;
                 }
-                HttpURLConnection conn = (HttpURLConnection) new URL(url.toString()).openConnection();
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(15000);
-                conn.setRequestProperty("User-Agent", USER_AGENT);
-                int code = conn.getResponseCode();
-                Scanner scanner = new Scanner(code < 400 ? conn.getInputStream() : conn.getErrorStream(), "UTF-8").useDelimiter("\\A");
-                String body = scanner.hasNext() ? scanner.next() : "";
-                scanner.close();
+                okhttp3.Request request = new okhttp3.Request.Builder()
+                        .url(url)
+                        .header("User-Agent", USER_AGENT)
+                        .build();
+                okhttp3.Response response = CLIENT.newCall(request).execute();
+                String body = response.body() != null ? response.body().string() : "";
                 JSONObject root = new JSONObject(body);
                 if (root.has("response")) {
                     MAIN.post(() -> callback.success(root));
@@ -71,5 +74,15 @@ public class VKApi {
                 MAIN.post(() -> callback.error(e));
             }
         }).start();
+    }
+
+    private static String md5(String s) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("MD5");
+        byte[] hash = digest.digest(s.getBytes("UTF-8"));
+        StringBuilder sb = new StringBuilder();
+        for (byte b : hash) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }
