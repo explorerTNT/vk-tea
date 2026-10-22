@@ -107,9 +107,15 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 currentId = menuId;
                 getSupportActionBar().setTitle(entry.titleRes);
                 menuAdapter.setSelectedId(menuId);
+                androidx.fragment.app.Fragment fragment;
+                if (menuId == R.id.menu_settings) {
+                    fragment = new com.vktea.ui.SettingsFragment();
+                } else {
+                    fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
+                }
                 getSupportFragmentManager()
                         .beginTransaction()
-                        .replace(R.id.content, PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes))
+                        .replace(R.id.content, fragment)
                         .commit();
                 return;
             }

@@ -41,5 +41,8 @@
     <string name="copy_token">Скопировать</string>
     <string name="continue_btn">Продолжить</string>
     <string name="token_copied">Токен скопирован в буфер обмена</string>
+    <string name="settings_account">Аккаунт</string>
+    <string name="settings_logout">Выйти из аккаунта</string>
+    <string name="settings_logout_confirm">Точно выйти?</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>
