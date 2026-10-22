@@ -63,9 +63,11 @@ public class VKApi {
                 if (root.has("response")) {
                     MAIN.post(() -> callback.success(root));
                 } else {
+                    android.util.Log.e("VKTea", "api error " + method + ": " + root);
                     MAIN.post(() -> callback.error(new Exception(root.optString("error_description", "api error"))));
                 }
             } catch (Exception e) {
+                android.util.Log.e("VKTea", "api fail " + method, e);
                 MAIN.post(() -> callback.error(e));
             }
         }).start();
