@@ -157,14 +157,27 @@ public class AuthActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void checkToken(String token) {
-        if (token.isEmpty()) {
+    private void checkToken(String input) {
+        if (input.isEmpty()) {
             return;
         }
+        String[] parts = input.trim().split("\\s+");
+        String token = parts[0];
+        String secret = parts.length > 1 ? parts[1] : null;
         new Thread(() -> {
             try {
-                HttpURLConnection conn = (HttpURLConnection) new URL(
-                        "https://api.vk.ru/method/users.get?access_token=" + token + "&v=5.199").openConnection();
+                String query = "v=5.82&lang=ru&https=1&access_token=" + token;
+                String url = "https://api.vk.com/method/users.get?" + query;
+                if (secret != null && !secret.isEmpty()) {
+                    java.security.MessageDigest digest = java.security.MessageDigest.getInstance("MD5");
+                    byte[] hash = digest.digest(("/method/users.get?" + query + secret).getBytes("UTF-8"));
+                    StringBuilder sb = new StringBuilder();
+                    for (byte b : hash) {
+                        sb.append(String.format("%02x", b));
+                    }
+                    url = url + "&sig=" + sb;
+                }
+                HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
                 Scanner scanner = new Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
@@ -175,7 +188,7 @@ public class AuthActivity extends AppCompatActivity {
                     JSONObject user = json.getJSONArray("response").getJSONObject(0);
                     String userId = String.valueOf(user.getLong("id"));
                     runOnUiThread(() -> {
-                        Session.save(this, token, userId);
+                        Session.save(this, token, userId, secret);
                         TokenRevealDialog.show(this, token);
                     });
                 } else {
