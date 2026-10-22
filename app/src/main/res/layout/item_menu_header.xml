@@ -32,6 +32,7 @@
         android:layout_marginRight="16dp"
         android:layout_toLeftOf="@id/menu_header_search"
         android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
         android:singleLine="true"
         android:text="@string/menu_user_name"
         android:textColor="@android:color/white"

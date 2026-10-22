@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="?attr/selectableItemBackground"
@@ -14,7 +15,8 @@
         android:layout_marginRight="32dp"
         android:paddingTop="12dp"
         android:paddingBottom="12dp"
-        android:scaleType="center" />
+        android:scaleType="center"
+        app:tint="@color/menu_icon" />
 
     <TextView
         android:id="@+id/menu_title"
@@ -23,10 +25,10 @@
         android:layout_marginRight="16dp"
         android:layout_weight="1"
         android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
         android:singleLine="true"
-        android:textColor="@color/almost_black"
-        android:textSize="14sp"
-        android:textStyle="bold" />
+        android:textColor="@color/menu_text"
+        android:textSize="14sp" />
 
     <TextView
         android:id="@+id/menu_counter"

@@ -1,7 +1,24 @@
 <resources>
     <style name="Theme.VKTea" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/vk_blue</item>
-        <item name="android:statusBarColor">@color/toolbar_bg</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@color/vk_blue</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="ThemeOverlay.VKTea.Toolbar" parent="ThemeOverlay.Material3.Dark">
+        <item name="android:textColorPrimary">@android:color/white</item>
+        <item name="toolbarStyle">@style/Widget.VKTea.Toolbar</item>
+    </style>
+
+    <style name="Widget.VKTea.Toolbar" parent="Widget.Material3.Toolbar">
+        <item name="titleTextAppearance">@style/TextAppearance.VKTea.Toolbar.Title</item>
+        <item name="android:background">@color/vk_blue</item>
+        <item name="titleTextColor">@android:color/white</item>
+    </style>
+
+    <style name="TextAppearance.VKTea.Toolbar.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textColor">@android:color/white</item>
     </style>
 </resources>
