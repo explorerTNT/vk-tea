@@ -210,8 +210,10 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(width, height);
         lp.setMargins(1, 1, 1, 1);
         iv.setLayoutParams(lp);
+        iv.setAdjustViewBounds(true);
         iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        Glide.with(iv).load(url).override(com.bumptech.glide.request.target.Target.SIZE_ORIGINAL).into(iv);
+        int target = ctx.getResources().getDisplayMetrics().widthPixels;
+        Glide.with(iv).load(url).override(target, com.bumptech.glide.request.target.Target.SIZE_ORIGINAL).into(iv);
         return iv;
     }
 
@@ -222,7 +224,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         lp.setMargins(gap, gap, gap, gap);
         iv.setLayoutParams(lp);
         iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        Glide.with(iv).load(url).override(com.bumptech.glide.request.target.Target.SIZE_ORIGINAL).into(iv);
+        int target = (int) (200 * ctx.getResources().getDisplayMetrics().density);
+        Glide.with(iv).load(url).override(target, target).into(iv);
         return iv;
     }
 

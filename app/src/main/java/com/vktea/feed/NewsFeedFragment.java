@@ -31,7 +31,7 @@ public class NewsFeedFragment extends Fragment {
     private SwipeRefreshLayout refresh;
     private RecyclerView list;
     private boolean loading;
-    private int offset;
+    private String nextFrom = "";
 
     @Nullable
     @Override
@@ -54,7 +54,7 @@ public class NewsFeedFragment extends Fragment {
         list.setAdapter(adapter);
 
         refresh.setOnRefreshListener(() -> {
-            offset = 0;
+            nextFrom = "";
             load();
         });
         list.addOnScrollListener(new RecyclerView.OnScrollListener() {
@@ -77,13 +77,15 @@ public class NewsFeedFragment extends Fragment {
 
     private void load() {
         loading = true;
-        VKApi.get(requireContext(), "newsfeed.get",
-                "filters=post,photo&count=" + PAGE_SIZE + "&offset=" + offset + "&max_photos=1",
+        String params = "filters=post,photo&count=" + PAGE_SIZE + "&max_photos=1"
+                + (nextFrom.isEmpty() ? "" : "&start_from=" + nextFrom);
+        VKApi.get(requireContext(), "newsfeed.get", params,
                 new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
                         try {
                             JSONObject data = response.getJSONObject("response");
+                            nextFrom = data.optString("next_from", "");
                             Map<Long, Source> sources = parseSources(data);
                             List<Post> posts = new ArrayList<>();
                             JSONArray items = data.getJSONArray("items");
@@ -93,7 +95,6 @@ public class NewsFeedFragment extends Fragment {
                                     posts.add(post);
                                 }
                             }
-                            offset += posts.size();
                             if (refresh.isRefreshing()) {
                                 adapter.clear();
                             }
