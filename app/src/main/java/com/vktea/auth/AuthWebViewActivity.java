@@ -154,6 +154,7 @@ public class AuthWebViewActivity extends AppCompatActivity {
     }
 
     private void onVkIdRedirect(String url) {
+        android.util.Log.d("VKTea", "redirect: " + url);
         Map<String, String> params = parseQuery(url.substring(url.indexOf('?') + 1));
         String code = params.get("code");
         String state = params.get("state");
@@ -165,6 +166,7 @@ public class AuthWebViewActivity extends AppCompatActivity {
         if (code != null && STATE.equals(state)) {
             exchangeCode(code);
         } else {
+            android.util.Log.e("VKTea", "redirect rejected: code=" + code + " state=" + state);
             Toast.makeText(this, R.string.auth_failed, Toast.LENGTH_LONG).show();
             finish();
         }

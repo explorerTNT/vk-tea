@@ -51,12 +51,6 @@ public class AuthActivity extends AppCompatActivity {
         View forgotButton = findViewById(R.id.auth_forgot);
 
         loginButton.setOnClickListener(v -> doAuth());
-        View vkIdButton = findViewById(R.id.auth_vk_id_btn);
-        vkIdButton.setOnClickListener(v -> {
-            Intent intent = new Intent(this, AuthWebViewActivity.class);
-            intent.putExtra(AuthWebViewActivity.EXTRA_MODE, AuthWebViewActivity.MODE_VK_ID);
-            startActivity(intent);
-        });
         View tokenButton = findViewById(R.id.auth_token_btn);
         tokenButton.setOnClickListener(v -> showTokenLogin());
         forgotButton.setOnClickListener(v ->
@@ -100,6 +94,7 @@ public class AuthActivity extends AppCompatActivity {
                 Scanner scanner = new Scanner(stream, "UTF-8").useDelimiter("\\A");
                 String body = scanner.hasNext() ? scanner.next() : "";
                 scanner.close();
+                android.util.Log.e("VKTea", "auth response " + code + ": " + body);
                 JSONObject json = new JSONObject(body);
                 if (json.has("access_token")) {
                     String token = json.getString("access_token");
