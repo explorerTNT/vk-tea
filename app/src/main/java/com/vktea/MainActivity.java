@@ -6,6 +6,9 @@ import android.view.View;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -53,6 +56,11 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         currentId = R.id.menu_news;
         menuAdapter = new LeftMenuAdapter(menu, this, currentId);
         menuView.setAdapter(menuAdapter);
+        ViewCompat.setOnApplyWindowInsetsListener(menuView, (v, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            menuAdapter.setSystemInsets(bars.top, bars.bottom);
+            return insets;
+        });
 
         if (savedInstanceState == null) {
             showSection(R.id.menu_news);
