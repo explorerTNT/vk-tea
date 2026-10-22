@@ -47,6 +47,10 @@
         <activity
             android:name=".feed.PostActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".feed.PhotoViewerActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

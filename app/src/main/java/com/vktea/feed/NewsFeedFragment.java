@@ -149,6 +149,9 @@ public class NewsFeedFragment extends Fragment {
         long likeItemId = item.optLong("post_id", item.optLong("id", 0));
 
         String type = item.optString("type", "post");
+        String videoPreview = null;
+        long videoOwner = 0;
+        long videoId = 0;
         if ("photo".equals(type)) {
             JSONObject photosWrap = item.optJSONObject("photos");
             JSONArray photoItems = photosWrap != null ? photosWrap.optJSONArray("items") : null;
@@ -170,11 +173,24 @@ public class NewsFeedFragment extends Fragment {
             if (attachments != null) {
                 for (int i = 0; i < attachments.length(); i++) {
                     JSONObject att = attachments.getJSONObject(i);
-                    if ("photo".equals(att.optString("type"))) {
+                    String attType = att.optString("type");
+                    if ("photo".equals(attType)) {
                         String u = pickPhotoUrl(att.getJSONObject("photo"));
                         if (u != null && photoUrls.size() < 10) {
                             photoUrls.add(u);
                         }
+                    } else if ("video".equals(attType) && videoPreview == null) {
+                        JSONObject video = att.getJSONObject("video");
+                        String[] vc = {"photo_800", "photo_640", "photo_320", "first_frame_800", "first_frame_320"};
+                        for (String key : vc) {
+                            String u = video.optString(key, null);
+                            if (u != null && !u.isEmpty()) {
+                                videoPreview = u;
+                                break;
+                            }
+                        }
+                        videoOwner = video.optLong("owner_id", 0);
+                        videoId = video.optLong("id", 0);
                     }
                 }
             }
@@ -184,7 +200,7 @@ public class NewsFeedFragment extends Fragment {
         JSONObject comments = countsHolder.optJSONObject("comments");
         JSONObject reposts = countsHolder.optJSONObject("reposts");
         JSONObject views = countsHolder.optJSONObject("views");
-        return new Post(
+        Post post = new Post(
                 sourceId,
                 source.name,
                 source.photo,
@@ -199,6 +215,38 @@ public class NewsFeedFragment extends Fragment {
                 likeType,
                 likeOwnerId,
                 likeItemId);
+
+        post.videoPreview = videoPreview;
+        post.videoOwner = videoOwner;
+        post.videoId = videoId;
+
+        JSONArray copyHistory = item.optJSONArray("copy_history");
+        if (copyHistory != null && copyHistory.length() > 0) {
+            JSONObject orig = copyHistory.getJSONObject(0);
+            long fromId = orig.optLong("from_id", orig.optLong("owner_id", 0));
+            Source origSource = sources.get(fromId);
+            if (origSource != null) {
+                post.repostAuthorName = origSource.name;
+                post.repostAuthorPhoto = origSource.photo;
+            }
+            post.repostDate = orig.optLong("date", 0);
+            post.repostText = orig.optString("text", "");
+            post.repostOwnerId = orig.optLong("owner_id", fromId);
+            post.repostPostId = orig.optLong("id", 0);
+            JSONArray origAtt = orig.optJSONArray("attachments");
+            if (origAtt != null) {
+                for (int i = 0; i < origAtt.length() && post.repostPhotos.size() < 10; i++) {
+                    JSONObject att = origAtt.getJSONObject(i);
+                    if ("photo".equals(att.optString("type"))) {
+                        String u = pickPhotoUrl(att.getJSONObject("photo"));
+                        if (u != null) {
+                            post.repostPhotos.add(u);
+                        }
+                    }
+                }
+            }
+        }
+        return post;
     }
 
     private String pickPhotoUrl(JSONObject photo) {

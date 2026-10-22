@@ -24,6 +24,20 @@ public class Post {
     public final long likeItemId;
     public boolean expanded;
 
+    public String repostAuthorName = "";
+    public String repostAuthorPhoto = "";
+    public long repostDate;
+    public String repostText = "";
+    public List<String> repostPhotos = new ArrayList<>();
+    public long repostOwnerId;
+    public long repostPostId;
+
+    public String videoPreview;
+    public String videoTitle = "";
+    public long videoOwner;
+    public long videoId;
+    public int videoDuration;
+
     public Post(long sourceId, String sourceName, String sourcePhoto, String text, long date,
                 List<String> photoUrls, int likes, int comments, int reposts, int views,
                 boolean userLikes, int likeType, long likeOwnerId, long likeItemId) {
@@ -41,5 +55,13 @@ public class Post {
         this.likeType = likeType;
         this.likeOwnerId = likeOwnerId;
         this.likeItemId = likeItemId;
+    }
+
+    public boolean isRepost() {
+        return !repostAuthorName.isEmpty() || !repostText.isEmpty() || !repostPhotos.isEmpty();
+    }
+
+    public boolean hasVideo() {
+        return videoPreview != null && !videoPreview.isEmpty();
     }
 }

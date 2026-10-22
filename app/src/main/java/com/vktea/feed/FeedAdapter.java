@@ -2,6 +2,8 @@ package com.vktea.feed;
 
 import android.content.Intent;
 import android.content.res.ColorStateList;
+import android.net.Uri;
+import android.text.method.LinkMovementMethod;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,6 +20,8 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.vktea.R;
 import com.vktea.api.VKApi;
+import com.vktea.auth.AuthWebViewActivity;
+import com.vktea.util.VkTextUtils;
 
 import org.json.JSONObject;
 
@@ -60,12 +64,15 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
     @Override
     public void onBindViewHolder(@NonNull PostViewHolder holder, int position) {
         Post post = posts.get(position);
+        int linkColor = ContextCompat.getColor(holder.text.getContext(), R.color.post_name);
 
         holder.name.setText(post.sourceName);
         holder.time.setText(com.vktea.util.RuDate.format(post.date));
 
         boolean cut = post.text.length() > 300;
-        holder.text.setText(post.text);
+        holder.text.setText(VkTextUtils.parse(cut && !post.expanded ? post.text : post.text,
+                linkColor, url -> openUrl(holder.text, url)));
+        holder.text.setMovementMethod(LinkMovementMethod.getInstance());
         holder.text.setMaxLines(cut && !post.expanded ? 7 : Integer.MAX_VALUE);
         holder.text.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
         holder.more.setVisibility(cut && !post.expanded ? View.VISIBLE : View.GONE);
@@ -78,6 +85,9 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         } else {
             holder.photoContainer.setVisibility(View.GONE);
         }
+
+        bindRepost(holder, post, linkColor);
+        bindVideo(holder, post);
 
         if (post.sourcePhoto != null) {
             Glide.with(holder.avatar).load(post.sourcePhoto)
@@ -100,6 +110,51 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
                 listener.onAuthorClick(post.sourceId);
             }
         });
+    }
+
+    private void bindRepost(PostViewHolder holder, Post post, int linkColor) {
+        if (!post.isRepost()) {
+            holder.repostBlock.setVisibility(View.GONE);
+            return;
+        }
+        holder.repostBlock.setVisibility(View.VISIBLE);
+        holder.repostName.setText(post.repostAuthorName);
+        holder.repostTime.setText(com.vktea.util.RuDate.format(post.repostDate));
+        holder.repostText.setText(VkTextUtils.parse(post.repostText, linkColor,
+                url -> openUrl(holder.repostText, url)));
+        holder.repostText.setMovementMethod(LinkMovementMethod.getInstance());
+        if (post.repostAuthorPhoto != null && !post.repostAuthorPhoto.isEmpty()) {
+            Glide.with(holder.repostAvatar).load(post.repostAuthorPhoto)
+                    .apply(RequestOptions.circleCropTransform())
+                    .into(holder.repostAvatar);
+        }
+        holder.repostPhotos.removeAllViews();
+        if (!post.repostPhotos.isEmpty()) {
+            buildPhotoGrid(holder.repostPhotos, post.repostPhotos);
+        }
+        holder.repostBlock.setOnClickListener(v -> {
+            Intent intent = new Intent(v.getContext(), AuthWebViewActivity.class);
+            intent.setData(Uri.parse("https://m.vk.com/wall" + post.repostOwnerId + "_" + post.repostPostId));
+            v.getContext().startActivity(intent);
+        });
+    }
+
+    private void bindVideo(PostViewHolder holder, Post post) {
+        if (!post.hasVideo()) {
+            holder.videoBlock.setVisibility(View.GONE);
+            return;
+        }
+        holder.videoBlock.setVisibility(View.VISIBLE);
+        Glide.with(holder.videoPreview).load(post.videoPreview).into(holder.videoPreview);
+        holder.videoBlock.setOnClickListener(v -> {
+            Intent intent = new Intent(v.getContext(), AuthWebViewActivity.class);
+            intent.setData(Uri.parse("https://m.vk.com/video" + post.videoOwner + "_" + post.videoId));
+            v.getContext().startActivity(intent);
+        });
+    }
+
+    private void openUrl(View view, String url) {
+        view.getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
     }
 
     private void applyLikeState(TextView view, Post post) {
@@ -167,8 +222,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         int gap = 1;
         android.content.Context ctx = container.getContext();
         if (n == 1) {
-            container.addView(makePhoto(ctx, urls.get(0), ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT));
+            container.addView(makePhoto(ctx, urls.get(0), 0, urls));
             return;
         }
         int index = 0;
@@ -184,40 +238,40 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
                 perRow = remaining;
             }
             if (perRow == 1) {
-                container.addView(makePhoto(ctx, urls.get(index), ViewGroup.LayoutParams.MATCH_PARENT,
-                        firstRow ? 0 : gap));
+                container.addView(makePhoto(ctx, urls.get(index), index, urls));
                 index++;
             } else {
-                container.addView(makeRow(ctx, urls.subList(index, index + perRow), gap, firstRow ? 0 : gap));
+                container.addView(makeRow(ctx, urls.subList(index, index + perRow), index, urls, gap));
                 index += perRow;
             }
             firstRow = false;
         }
     }
 
-    private LinearLayout makeRow(android.content.Context ctx, List<String> urls, int gap, int topMargin) {
+    private LinearLayout makeRow(android.content.Context ctx, List<String> urls, int offset, List<String> all, int gap) {
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setPadding(0, topMargin, 0, 0);
-        for (String url : urls) {
-            row.addView(makeCell(ctx, url, gap));
+        for (int i = 0; i < urls.size(); i++) {
+            row.addView(makeCell(ctx, urls.get(i), offset + i, all, gap));
         }
         return row;
     }
 
-    private ImageView makePhoto(android.content.Context ctx, String url, int width, int height) {
+    private ImageView makePhoto(android.content.Context ctx, String url, int index, List<String> all) {
         ImageView iv = new ImageView(ctx);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(width, height);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMargins(1, 1, 1, 1);
         iv.setLayoutParams(lp);
         iv.setAdjustViewBounds(true);
         iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
         int target = ctx.getResources().getDisplayMetrics().widthPixels;
         Glide.with(iv).load(url).override(target, com.bumptech.glide.request.target.Target.SIZE_ORIGINAL).into(iv);
+        iv.setOnClickListener(v -> openViewer(ctx, all, index));
         return iv;
     }
 
-    private ImageView makeCell(android.content.Context ctx, String url, int gap) {
+    private ImageView makeCell(android.content.Context ctx, String url, int index, List<String> all, int gap) {
         ImageView iv = new ImageView(ctx);
         int h = (int) (160 * ctx.getResources().getDisplayMetrics().density);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, h, 1f);
@@ -226,7 +280,14 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
         int target = (int) (200 * ctx.getResources().getDisplayMetrics().density);
         Glide.with(iv).load(url).override(target, target).into(iv);
+        iv.setOnClickListener(v -> openViewer(ctx, all, index));
         return iv;
+    }
+
+    private void openViewer(android.content.Context ctx, List<String> urls, int index) {
+        ctx.startActivity(new Intent(ctx, PhotoViewerActivity.class)
+                .putStringArrayListExtra("photos", new ArrayList<>(urls))
+                .putExtra("index", index));
     }
 
     @Override
@@ -247,6 +308,14 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         final TextView reposts;
         final TextView views;
         final View header;
+        final View repostBlock;
+        final ImageView repostAvatar;
+        final TextView repostName;
+        final TextView repostTime;
+        final TextView repostText;
+        final LinearLayout repostPhotos;
+        final View videoBlock;
+        final ImageView videoPreview;
 
         PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -261,6 +330,14 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             reposts = itemView.findViewById(R.id.post_reposts);
             views = itemView.findViewById(R.id.post_views);
             header = itemView.findViewById(R.id.post_header_btn);
+            repostBlock = itemView.findViewById(R.id.post_repost);
+            repostAvatar = itemView.findViewById(R.id.repost_avatar);
+            repostName = itemView.findViewById(R.id.repost_name);
+            repostTime = itemView.findViewById(R.id.repost_time);
+            repostText = itemView.findViewById(R.id.repost_text);
+            repostPhotos = itemView.findViewById(R.id.repost_photos);
+            videoBlock = itemView.findViewById(R.id.post_video);
+            videoPreview = itemView.findViewById(R.id.video_preview);
         }
     }
 }
