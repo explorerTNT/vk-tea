@@ -1,5 +1,6 @@
 package com.vktea;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 
@@ -14,6 +15,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.vktea.auth.AuthActivity;
+import com.vktea.auth.Session;
 import com.vktea.menu.LeftMenuAdapter;
 import com.vktea.menu.MenuEntry;
 import com.vktea.ui.PlaceholderFragment;
@@ -32,6 +35,13 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (!Session.isAuthorized(this)) {
+            startActivity(new Intent(this, AuthActivity.class));
+            finish();
+            return;
+        }
+
         setContentView(R.layout.activity_main);
 
         menu = buildMenu();

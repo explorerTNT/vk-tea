@@ -45,6 +45,24 @@
 
 Debug APK кладётся в `app/build/outputs/apk/debug/`.
 
+## Авторизация (VK ID)
+
+Приложение входит через официальный **VK ID** (замена старым AuthActivity/CaptchaActivity из VK Coffee).
+
+Чтобы вход заработал, нужно создать своё приложение VK и указать его ключи:
+
+1. Открой [id.vk.ru/about/business/go](https://id.vk.ru/about/business/go) → создай приложение (VK ID)
+2. Платформа — Android; укажи package `com.vktea` и SHA256 отпечаток подписи (для отладки — из `debug.keystore` в корне репозитория)
+3. Скопируй `ID приложения` и `Защищённый ключ`
+4. Добавь в `local.properties` (не коммитится):
+
+```properties
+vk.clientId=1234567
+vk.clientSecret=xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Без ключей приложение собирается, но кнопка входа вернёт ошибку.
+
 ## CI/CD
 
 GitHub Actions (`.github/workflows/android.yml`):

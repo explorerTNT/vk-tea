@@ -20,4 +20,10 @@
     <string name="section_wip">Раздел в разработке</string>
     <string name="menu_user_name">VK Tea</string>
     <string name="menu_user_status">Завариваем чай…</string>
+
+    <string name="auth_vk_id_hint">Вход через VK ID —\nсовременная и безопасная авторизация</string>
+    <string name="log_in">Войти</string>
+    <string name="register">Регистрация</string>
+    <string name="forgot_pass_button">Забыли пароль?</string>
+    <string name="auth_failed">Не удалось войти. Попробуйте ещё раз.</string>
 </resources>

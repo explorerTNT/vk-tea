@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/vk_blue"
+    android:fillViewport="true"
+    android:fadingEdge="none"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingLeft="24dp"
+        android:paddingRight="24dp"
+        android:paddingBottom="16dp">
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="64dp" />
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:layout_marginBottom="32dp"
+            android:alpha="0.9"
+            android:src="@drawable/login_logo" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:gravity="center"
+            android:text="@string/auth_vk_id_hint"
+            android:textColor="#B3FFFFFF"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/auth_login_btn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_login_button"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:minHeight="48dp"
+            android:text="@string/log_in"
+            android:textColor="@color/vk_blue"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/auth_signup_btn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:minHeight="48dp"
+            android:text="@string/register"
+            android:textColor="@android:color/white"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/auth_forgot"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:padding="8dp"
+            android:text="@string/forgot_pass_button"
+            android:textColor="#B3FFFFFF"
+            android:textSize="14sp" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="64dp" />
+    </LinearLayout>
+</ScrollView>
