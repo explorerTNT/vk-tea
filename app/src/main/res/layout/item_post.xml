@@ -99,25 +99,10 @@
             android:background="@color/post_divider" />
 
         <TextView
-            android:id="@+id/post_views"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:layout_alignParentLeft="true"
-            android:layout_marginLeft="16dp"
-            android:drawableLeft="@drawable/ic_viewers_24dp"
-            android:drawablePadding="4dp"
-            android:drawableTint="@color/post_icons"
-            android:fontFamily="sans-serif-medium"
-            android:gravity="center"
-            android:paddingRight="18dp"
-            android:textColor="@color/post_icons"
-            android:textSize="15sp" />
-
-        <TextView
             android:id="@+id/post_likes"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
-            android:layout_alignParentRight="true"
+            android:layout_alignParentLeft="true"
             android:drawableLeft="@drawable/ic_like_24dp"
             android:drawablePadding="4dp"
             android:drawableTint="@color/post_icons"
@@ -132,7 +117,7 @@
             android:id="@+id/post_comments"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
-            android:layout_toLeftOf="@id/post_likes"
+            android:layout_toRightOf="@id/post_likes"
             android:drawableLeft="@drawable/ic_comment_24dp"
             android:drawablePadding="4dp"
             android:drawableTint="@color/post_icons"
@@ -147,8 +132,23 @@
             android:id="@+id/post_reposts"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
-            android:layout_toLeftOf="@id/post_comments"
+            android:layout_toRightOf="@id/post_comments"
             android:drawableLeft="@drawable/ic_share_24dp"
+            android:drawablePadding="4dp"
+            android:drawableTint="@color/post_icons"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:paddingLeft="16dp"
+            android:paddingRight="18dp"
+            android:textColor="@color/post_icons"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/post_views"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_alignParentRight="true"
+            android:drawableLeft="@drawable/ic_viewers_24dp"
             android:drawablePadding="4dp"
             android:drawableTint="@color/post_icons"
             android:fontFamily="sans-serif-medium"

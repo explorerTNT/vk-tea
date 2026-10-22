@@ -181,19 +181,30 @@ public class NewsFeedFragment extends Fragment {
             }
         }
         JSONArray sizes = photo.optJSONArray("sizes");
-        if (sizes != null) {
+        if (sizes != null && sizes.length() > 0) {
+            String[] typeOrder = {"w", "z", "y", "r", "q", "p", "x", "m", "s"};
             String best = null;
-            int bestArea = 0;
+            int bestRank = -1;
             for (int i = 0; i < sizes.length(); i++) {
                 JSONObject s = sizes.optJSONObject(i);
                 if (s == null) {
                     continue;
                 }
-                int area = s.optInt("width", 0) * s.optInt("height", 0);
-                if (area > bestArea) {
-                    bestArea = area;
+                String type = s.optString("type", "");
+                int rank = -1;
+                for (int t = 0; t < typeOrder.length; t++) {
+                    if (typeOrder[t].equals(type)) {
+                        rank = t;
+                        break;
+                    }
+                }
+                if (rank > bestRank) {
+                    bestRank = rank;
                     best = s.optString("url", null);
                 }
+            }
+            if (best == null) {
+                best = sizes.optJSONObject(sizes.length() - 1).optString("url", null);
             }
             return best;
         }
