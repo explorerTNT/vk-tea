@@ -192,6 +192,9 @@ public class ProfileFragment extends Fragment {
         if (best == null) {
             best = sizes.optJSONObject(sizes.length() - 1).optString("url", null);
         }
+        if (best != null) {
+            best = best.replaceAll("&cs=\\d+x\\d+", "");
+        }
         return best;
     }
 }

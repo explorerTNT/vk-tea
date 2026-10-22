@@ -155,6 +155,9 @@ public class NewsFeedFragment extends Fragment {
         if (photoUrl == null && "photo".equals(item.optString("type"))) {
             photoUrl = pickPhotoUrl(item.optJSONObject("photo"));
         }
+        if (photoUrl != null) {
+            android.util.Log.d("VKTea", "picked: " + photoUrl);
+        }
         JSONObject likes = item.optJSONObject("likes");
         JSONObject comments = item.optJSONObject("comments");
         JSONObject reposts = item.optJSONObject("reposts");
@@ -205,6 +208,9 @@ public class NewsFeedFragment extends Fragment {
             }
             if (best == null) {
                 best = sizes.optJSONObject(sizes.length() - 1).optString("url", null);
+            }
+            if (best != null) {
+                best = best.replaceAll("&cs=\\d+x\\d+", "");
             }
             return best;
         }

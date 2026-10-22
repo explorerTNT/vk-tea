@@ -47,5 +47,7 @@
     <string name="message_hint">Написать сообщение…</string>
     <string name="send_failed">Не отправилось</string>
     <string name="profile_title">Профиль</string>
+    <string name="panel_story">История</string>
+    <string name="panel_post">Запись</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>

@@ -54,9 +54,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         Post post = posts.get(position);
 
         holder.name.setText(post.sourceName);
-        CharSequence time = DateUtils.getRelativeTimeSpanString(post.date * 1000L,
-                System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS);
-        holder.time.setText(time);
+        holder.time.setText(com.vktea.util.RuDate.format(post.date));
 
         if (post.text == null || post.text.isEmpty()) {
             holder.text.setVisibility(View.GONE);
@@ -67,7 +65,11 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
 
         if (post.photoUrl != null) {
             holder.photo.setVisibility(View.VISIBLE);
-            Glide.with(holder.photo).load(post.photoUrl).into(holder.photo);
+            android.util.Log.d("VKTea", "photo url: " + post.photoUrl);
+            Glide.with(holder.photo)
+                    .load(post.photoUrl)
+                    .override(com.bumptech.glide.request.target.Target.SIZE_ORIGINAL)
+                    .into(holder.photo);
         } else {
             holder.photo.setVisibility(View.GONE);
         }
