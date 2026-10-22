@@ -73,5 +73,13 @@
     <string name="list_photos">Фотографии</string>
     <string name="list_videos">Видео</string>
     <string name="action_failed">Не получилось. Попробуйте позже</string>
+    <string name="poll_voted_suffix">проголосовало</string>
+    <string name="poll_anonymous">анонимный опрос</string>
+    <string name="att_doc">Документ</string>
+    <string name="att_geo">Местоположение</string>
+    <string name="audio_unavailable">Аудио недоступно в этой записи</string>
+    <string name="offline_mode">Офлайн-режим: показана сохранённая лента</string>
+    <string name="new_posts_fmt">↑ %1$d новых записей</string>
+    <string name="stories_title">Истории</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>

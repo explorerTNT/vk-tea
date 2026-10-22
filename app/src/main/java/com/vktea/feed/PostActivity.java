@@ -1,12 +1,15 @@
 package com.vktea.feed;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.text.method.LinkMovementMethod;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
-import android.widget.ImageView;
+import android.widget.LinearLayout;
+ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,6 +23,9 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.vktea.R;
 import com.vktea.api.VKApi;
+import com.vktea.auth.AuthWebViewActivity;
+import com.vktea.util.RuDate;
+import com.vktea.util.VkTextUtils;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -32,43 +38,29 @@ import java.util.Map;
 
 public class PostActivity extends AppCompatActivity {
 
+    public static Post currentPost;
+
     public static void start(android.content.Context ctx, Post post) {
-        Intent intent = new Intent(ctx, PostActivity.class);
-        intent.putExtra("type", post.likeType);
-        intent.putExtra("ownerId", post.likeOwnerId);
-        intent.putExtra("itemId", post.likeItemId);
-        intent.putExtra("name", post.sourceName);
-        intent.putExtra("photo", post.sourcePhoto);
-        intent.putExtra("date", post.date);
-        intent.putExtra("text", post.text);
-        intent.putStringArrayListExtra("photos", new ArrayList<>(post.photoUrls));
-        intent.putExtra("likes", post.likes);
-        intent.putExtra("comments", post.comments);
-        intent.putExtra("reposts", post.reposts);
-        intent.putExtra("views", post.views);
-        intent.putExtra("userLikes", post.userLikes);
-        ctx.startActivity(intent);
+        currentPost = post;
+        ctx.startActivity(new Intent(ctx, PostActivity.class));
     }
 
-    private int type;
-    private long ownerId;
-    private long itemId;
+    private Post post;
     private PostAdapter adapter;
     private RecyclerView list;
-
-    private int likes;
-    private boolean userLikes;
+    private long replyToComment = 0;
+    private String replyToName = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_post);
 
-        type = getIntent().getIntExtra("type", Post.TYPE_POST);
-        ownerId = getIntent().getLongExtra("ownerId", 0);
-        itemId = getIntent().getLongExtra("itemId", 0);
-        likes = getIntent().getIntExtra("likes", 0);
-        userLikes = getIntent().getBooleanExtra("userLikes", false);
+        post = currentPost;
+        if (post == null) {
+            finish();
+            return;
+        }
 
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.post_toolbar);
         toolbar.setTitle(R.string.post_title);
@@ -98,16 +90,17 @@ public class PostActivity extends AppCompatActivity {
     }
 
     private String listMethod() {
-        return type == Post.TYPE_PHOTO ? "photos.getComments" : "wall.getComments";
+        return post.likeType == Post.TYPE_PHOTO ? "photos.getComments" : "wall.getComments";
     }
 
     private String idParam() {
-        return type == Post.TYPE_PHOTO ? "photo_id" : "post_id";
+        return post.likeType == Post.TYPE_PHOTO ? "photo_id" : "post_id";
     }
 
     private void loadComments() {
         VKApi.get(this, listMethod(),
-                "owner_id=" + ownerId + "&" + idParam() + "=" + itemId + "&need_likes=1&count=50&extended=1&sort=asc",
+                "owner_id=" + post.likeOwnerId + "&" + idParam() + "=" + post.likeItemId
+                        + "&need_likes=1&count=50&extended=1&sort=asc",
                 new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
@@ -138,10 +131,18 @@ public class PostActivity extends AppCompatActivity {
                                 long fromId = c.optLong("from_id", 0);
                                 String[] src = profiles.containsKey(fromId) ? profiles.get(fromId) : new String[]{"", ""};
                                 JSONObject cl = c.optJSONObject("likes");
-                                comments.add(new Comment(src[0], src[1], c.optString("text", ""),
-                                        c.optLong("date", 0), cl != null ? cl.optInt("count", 0) : 0));
+                                comments.add(new Comment(c.getLong("id"), fromId,
+                                        src[0], src[1], c.optString("text", ""),
+                                        c.optLong("date", 0),
+                                        cl != null ? cl.optInt("count", 0) : 0,
+                                        cl != null && cl.optInt("user_likes", 0) == 1));
                             }
-                            runOnUiThread(() -> adapter.setComments(comments));
+                            runOnUiThread(() -> {
+                                adapter.setComments(comments);
+                                if (!comments.isEmpty()) {
+                                    list.scrollToPosition(comments.size());
+                                }
+                            });
                         } catch (Exception ignored) {
                         }
                     }
@@ -153,12 +154,16 @@ public class PostActivity extends AppCompatActivity {
     }
 
     private void sendComment(String text) {
-        String method = type == Post.TYPE_PHOTO ? "photos.createComment" : "wall.createComment";
+        String method = post.likeType == Post.TYPE_PHOTO ? "photos.createComment" : "wall.createComment";
         VKApi.get(this, method,
-                "owner_id=" + ownerId + "&" + idParam() + "=" + itemId + "&message=" + urlEncode(text),
+                "owner_id=" + post.likeOwnerId + "&" + idParam() + "=" + post.likeItemId
+                        + (replyToComment > 0 ? "&reply_to_comment=" + replyToComment : "")
+                        + "&message=" + urlEncode(text),
                 new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
+                        replyToComment = 0;
+                        replyToName = "";
                         loadComments();
                     }
 
@@ -166,27 +171,6 @@ public class PostActivity extends AppCompatActivity {
                     public void error(Exception e) {
                         runOnUiThread(() -> Toast.makeText(PostActivity.this,
                                 R.string.send_failed, Toast.LENGTH_SHORT).show());
-                    }
-                });
-    }
-
-    private void toggleLike(View view) {
-        String typeStr = type == Post.TYPE_PHOTO ? "photo" : "post";
-        String method = userLikes ? "likes.delete" : "likes.add";
-        userLikes = !userLikes;
-        likes += userLikes ? 1 : -1;
-        adapter.notifyItemChanged(0);
-        VKApi.get(this, method, "type=" + typeStr + "&owner_id=" + ownerId + "&item_id=" + itemId,
-                new VKApi.Callback() {
-                    @Override
-                    public void success(JSONObject response) {
-                    }
-
-                    @Override
-                    public void error(Exception e) {
-                        userLikes = !userLikes;
-                        likes += userLikes ? 1 : -1;
-                        runOnUiThread(() -> adapter.notifyItemChanged(0));
                     }
                 });
     }
@@ -200,18 +184,25 @@ public class PostActivity extends AppCompatActivity {
     }
 
     static class Comment {
+        final long id;
+        final long fromId;
         final String author;
         final String avatar;
         final String text;
         final long date;
-        final int likes;
+        int likes;
+        boolean liked;
 
-        Comment(String author, String avatar, String text, long date, int likes) {
+        Comment(long id, long fromId, String author, String avatar, String text,
+                long date, int likes, boolean liked) {
+            this.id = id;
+            this.fromId = fromId;
             this.author = author;
             this.avatar = avatar;
             this.text = text;
             this.date = date;
             this.likes = likes;
+            this.liked = liked;
         }
     }
 
@@ -246,9 +237,24 @@ public class PostActivity extends AppCompatActivity {
                 Comment c = comments.get(position - 1);
                 CommentHolder ch = (CommentHolder) holder;
                 ch.author.setText(c.author);
-                ch.text.setText(c.text);
-                ch.time.setText(com.vktea.util.RuDate.format(c.date));
+                ch.text.setText(VkTextUtils.parse(c.text,
+                        ContextCompat.getColor(ch.text.getContext(), R.color.post_name),
+                        url -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)))));
+                ch.text.setMovementMethod(LinkMovementMethod.getInstance());
+                ch.time.setText(RuDate.format(c.date));
                 ch.likes.setText(c.likes > 0 ? FeedAdapter.formatCount(c.likes) : "");
+                int color = ContextCompat.getColor(ch.likes.getContext(),
+                        c.liked ? R.color.vk_blue : R.color.post_icons);
+                ch.likes.setTextColor(color);
+                ch.likes.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(color));
+                ch.likes.setOnClickListener(v -> toggleCommentLike(c, ch));
+                ch.itemView.setOnClickListener(v -> {
+                    replyToComment = c.id;
+                    replyToName = c.author;
+                    EditText input = findViewById(R.id.post_input);
+                    input.setText(c.author.split(" ")[0] + ", " + input.getText().toString());
+                    input.requestFocus();
+                });
                 if (!c.avatar.isEmpty()) {
                     Glide.with(ch.avatar).load(c.avatar)
                             .apply(RequestOptions.circleCropTransform())
@@ -257,61 +263,127 @@ public class PostActivity extends AppCompatActivity {
             }
         }
 
-        private void bindPostCard(PostCardHolder holder) {
-            Intent data = getIntent();
-            holder.name.setText(data.getStringExtra("name"));
-            holder.time.setText(com.vktea.util.RuDate.format(data.getLongExtra("date", 0)));
+        private void toggleCommentLike(Comment c, CommentHolder ch) {
+            VKApi.get(PostActivity.this, c.liked ? "likes.delete" : "likes.add",
+                    "type=comment&owner_id=" + c.fromId + "&item_id=" + c.id,
+                    new VKApi.Callback() {
+                        @Override
+                        public void success(JSONObject response) {
+                            c.liked = !c.liked;
+                            c.likes += c.liked ? 1 : -1;
+                            runOnUiThread(() -> notifyItemChanged(comments.indexOf(c) + 1));
+                        }
 
-            String text = data.getStringExtra("text");
-            holder.text.setText(text != null ? text : "");
+                        @Override
+                        public void error(Exception e) {
+                            Toast.makeText(PostActivity.this, R.string.action_failed, Toast.LENGTH_SHORT).show();
+                        }
+                    });
+        }
+
+        private void bindPostCard(PostCardHolder holder) {
+            int linkColor = ContextCompat.getColor(PostActivity.this, R.color.post_name);
+            holder.name.setText(post.sourceName);
+            holder.time.setText(RuDate.format(post.date));
+
+            holder.text.setText(VkTextUtils.parse(post.text, linkColor,
+                    url -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)))));
+            holder.text.setMovementMethod(LinkMovementMethod.getInstance());
             holder.text.setMaxLines(Integer.MAX_VALUE);
-            holder.more.setVisibility(View.GONE);
             holder.text.setOnClickListener(null);
+            holder.more.setVisibility(View.GONE);
+            holder.itemView.setOnClickListener(null);
             holder.header.setOnClickListener(null);
 
             holder.photoContainer.removeAllViews();
-            List<String> photos = data.getStringArrayListExtra("photos");
-            if (photos != null && !photos.isEmpty()) {
+            if (post.photoUrls != null && !post.photoUrls.isEmpty()) {
                 holder.photoContainer.setVisibility(View.VISIBLE);
-                appendPhotos(holder.photoContainer, photos);
+                appendPhotos(holder.photoContainer, post.photoUrls);
             } else {
                 holder.photoContainer.setVisibility(View.GONE);
             }
 
-            String srcPhoto = data.getStringExtra("photo");
-            if (srcPhoto != null) {
-                Glide.with(holder.avatar).load(srcPhoto)
+            if (post.isRepost()) {
+                holder.repostBlock.setVisibility(View.VISIBLE);
+                holder.repostName.setText(post.repostAuthorName);
+                holder.repostTime.setText(RuDate.format(post.repostDate));
+                holder.repostText.setText(VkTextUtils.parse(post.repostText, linkColor,
+                        url -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)))));
+                holder.repostText.setMovementMethod(LinkMovementMethod.getInstance());
+                if (post.repostAuthorPhoto != null && !post.repostAuthorPhoto.isEmpty()) {
+                    Glide.with(holder.repostAvatar).load(post.repostAuthorPhoto)
+                            .apply(RequestOptions.circleCropTransform())
+                            .into(holder.repostAvatar);
+                }
+                holder.repostPhotos.removeAllViews();
+                if (!post.repostPhotos.isEmpty()) {
+                    appendPhotos(holder.repostPhotos, post.repostPhotos);
+                }
+            } else {
+                holder.repostBlock.setVisibility(View.GONE);
+            }
+
+            if (post.hasVideo()) {
+                holder.videoBlock.setVisibility(View.VISIBLE);
+                Glide.with(holder.videoPreview).load(post.videoPreview).into(holder.videoPreview);
+                holder.videoBlock.setOnClickListener(v ->
+                        VideoPlayerActivity.start(PostActivity.this, post.videoOwner, post.videoId));
+            } else {
+                holder.videoBlock.setVisibility(View.GONE);
+            }
+
+            if (!post.cards.isEmpty()) {
+                holder.cards.setVisibility(View.VISIBLE);
+                CardsRenderer.render(holder.cards, post, linkColor);
+            } else {
+                holder.cards.setVisibility(View.GONE);
+            }
+
+            if (post.sourcePhoto != null) {
+                Glide.with(holder.avatar).load(post.sourcePhoto)
                         .apply(RequestOptions.circleCropTransform())
                         .into(holder.avatar);
             }
 
             int color = ContextCompat.getColor(PostActivity.this,
-                    userLikes ? R.color.vk_blue : R.color.post_icons);
+                    post.userLikes ? R.color.vk_blue : R.color.post_icons);
             holder.likes.setTextColor(color);
             holder.likes.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(color));
-            holder.likes.setText(likes > 0 ? FeedAdapter.formatCount(likes) : "");
-            holder.likes.setOnClickListener(v -> toggleLike(v));
-            int commentsCount = data.getIntExtra("comments", 0);
-            holder.comments.setText(commentsCount > 0 ? FeedAdapter.formatCount(commentsCount) : "");
-            holder.comments.setOnClickListener(null);
-            int repostsCount = data.getIntExtra("reposts", 0);
-            holder.reposts.setText(repostsCount > 0 ? FeedAdapter.formatCount(repostsCount) : "");
-            int viewsCount = data.getIntExtra("views", 0);
-            holder.views.setText(viewsCount > 0 ? FeedAdapter.formatCount(viewsCount) : "");
+            holder.likes.setText(post.likes > 0 ? FeedAdapter.formatCount(post.likes) : "");
+            holder.likes.setOnClickListener(v -> {
+                String typeStr = post.likeType == Post.TYPE_PHOTO ? "photo" : "post";
+                String method = post.userLikes ? "likes.delete" : "likes.add";
+                post.userLikes = !post.userLikes;
+                post.likes += post.userLikes ? 1 : -1;
+                notifyItemChanged(0);
+                VKApi.get(PostActivity.this, method,
+                        "type=" + typeStr + "&owner_id=" + post.likeOwnerId + "&item_id=" + post.likeItemId,
+                        new VKApi.Callback() {
+                            @Override
+                            public void success(JSONObject response) {
+                            }
+
+                            @Override
+                            public void error(Exception e) {
+                                post.userLikes = !post.userLikes;
+                                post.likes += post.userLikes ? 1 : -1;
+                                runOnUiThread(() -> notifyItemChanged(0));
+                            }
+                        });
+            });
+            holder.comments.setText(post.comments > 0 ? FeedAdapter.formatCount(post.comments) : "");
+            holder.reposts.setText(post.reposts > 0 ? FeedAdapter.formatCount(post.reposts) : "");
+            holder.views.setText(post.views > 0 ? FeedAdapter.formatCount(post.views) : "");
+            holder.showComments.setVisibility(View.GONE);
+            holder.options.setOnClickListener(null);
+            holder.options.setVisibility(View.INVISIBLE);
         }
 
         private void appendPhotos(ViewGroup container, List<String> urls) {
             android.content.Context ctx = container.getContext();
             int n = urls.size();
             if (n == 1) {
-                ImageView iv = new ImageView(ctx);
-                iv.setLayoutParams(new ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-                iv.setAdjustViewBounds(true);
-                iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                Glide.with(iv).load(urls.get(0))
-                        .override(com.bumptech.glide.request.target.Target.SIZE_ORIGINAL).into(iv);
-                container.addView(iv);
+                container.addView(viewerPhoto(ctx, urls.get(0), 0, urls));
                 return;
             }
             int cols = n >= 3 ? 3 : 2;
@@ -333,11 +405,31 @@ public class PostActivity extends AppCompatActivity {
                             new android.widget.LinearLayout.LayoutParams(0, cell, 1f);
                     iv.setLayoutParams(lp);
                     iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                    final int index = idx;
+                    iv.setOnClickListener(v -> startActivity(new Intent(PostActivity.this, PhotoViewerActivity.class)
+                            .putStringArrayListExtra("photos", new ArrayList<>(urls))
+                            .putExtra("index", index)));
                     Glide.with(iv).load(urls.get(idx)).into(iv);
                     row.addView(iv);
                 }
                 container.addView(row);
             }
+        }
+
+        private ImageView viewerPhoto(android.content.Context ctx, String url, int index, List<String> urls) {
+            ImageView iv = new ImageView(ctx);
+            iv.setLayoutParams(new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            iv.setAdjustViewBounds(true);
+            iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            iv.setOnClickListener(v -> startActivity(new Intent(PostActivity.this, PhotoViewerActivity.class)
+                    .putStringArrayListExtra("photos", new ArrayList<>(urls))
+                    .putExtra("index", index)));
+            Glide.with(iv).load(url)
+                    .override(ctx.getResources().getDisplayMetrics().widthPixels,
+                            com.bumptech.glide.request.target.Target.SIZE_ORIGINAL)
+                    .into(iv);
+            return iv;
         }
 
         @Override
@@ -364,6 +456,17 @@ public class PostActivity extends AppCompatActivity {
         final TextView reposts;
         final TextView views;
         final View header;
+        final View repostBlock;
+        final ImageView repostAvatar;
+        final TextView repostName;
+        final TextView repostTime;
+        final TextView repostText;
+        final LinearLayout repostPhotos;
+        final View videoBlock;
+        final ImageView videoPreview;
+        final View options;
+        final TextView showComments;
+        final LinearLayout cards;
 
         PostCardHolder(@NonNull View itemView) {
             super(itemView);
@@ -378,6 +481,17 @@ public class PostActivity extends AppCompatActivity {
             reposts = itemView.findViewById(R.id.post_reposts);
             views = itemView.findViewById(R.id.post_views);
             header = itemView.findViewById(R.id.post_header_btn);
+            repostBlock = itemView.findViewById(R.id.post_repost);
+            repostAvatar = itemView.findViewById(R.id.repost_avatar);
+            repostName = itemView.findViewById(R.id.repost_name);
+            repostTime = itemView.findViewById(R.id.repost_time);
+            repostText = itemView.findViewById(R.id.repost_text);
+            repostPhotos = itemView.findViewById(R.id.repost_photos);
+            videoBlock = itemView.findViewById(R.id.post_video);
+            videoPreview = itemView.findViewById(R.id.video_preview);
+            options = itemView.findViewById(R.id.post_options);
+            showComments = itemView.findViewById(R.id.post_show_comments);
+            cards = itemView.findViewById(R.id.post_cards);
         }
     }
 

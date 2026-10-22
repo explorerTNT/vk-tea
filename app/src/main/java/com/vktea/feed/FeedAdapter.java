@@ -88,6 +88,12 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
 
         bindRepost(holder, post, linkColor);
         bindVideo(holder, post);
+        if (!post.cards.isEmpty()) {
+            holder.cards.setVisibility(View.VISIBLE);
+            CardsRenderer.render(holder.cards, post, linkColor);
+        } else {
+            holder.cards.setVisibility(View.GONE);
+        }
 
         if (post.sourcePhoto != null) {
             Glide.with(holder.avatar).load(post.sourcePhoto)
@@ -416,6 +422,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         final ImageView videoPreview;
         final View options;
         final TextView showComments;
+        final LinearLayout cards;
 
         PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -440,6 +447,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             videoPreview = itemView.findViewById(R.id.video_preview);
             options = itemView.findViewById(R.id.post_options);
             showComments = itemView.findViewById(R.id.post_show_comments);
+            cards = itemView.findViewById(R.id.post_cards);
         }
     }
 }

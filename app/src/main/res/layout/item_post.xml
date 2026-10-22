@@ -173,6 +173,12 @@
             android:src="@drawable/exo_controls_play" />
     </FrameLayout>
 
+    <LinearLayout
+        android:id="@+id/post_cards"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+
     <TextView
         android:id="@+id/post_more"
         android:layout_width="match_parent"

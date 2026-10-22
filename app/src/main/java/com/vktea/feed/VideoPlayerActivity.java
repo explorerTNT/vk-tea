@@ -61,6 +61,11 @@ public class VideoPlayerActivity extends AppCompatActivity {
     }
 
     private void loadVideoUrl() {
+        String direct = getIntent().getStringExtra("direct_url");
+        if (direct != null && !direct.isEmpty()) {
+            play(direct);
+            return;
+        }
         VKApi.get(this, "video.get", "videos=" + ownerId + "_" + videoId, new VKApi.Callback() {
             @Override
             public void success(JSONObject response) {

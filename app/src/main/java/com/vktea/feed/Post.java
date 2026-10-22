@@ -36,7 +36,42 @@ public class Post {
     public String videoTitle = "";
     public long videoOwner;
     public long videoId;
-    public int videoDuration;
+
+    public final List<Card> cards = new ArrayList<>();
+
+    public static class PollOption {
+        public final long id;
+        public final String text;
+        public double rate;
+        public int votes;
+
+        public PollOption(long id, String text, double rate, int votes) {
+            this.id = id;
+            this.text = text;
+            this.rate = rate;
+            this.votes = votes;
+        }
+    }
+
+    public static class Card {
+        public String type;
+        public String title = "";
+        public String subtitle = "";
+        public String imageUrl = "";
+        public String linkUrl = "";
+        public String audioUrl = "";
+        public int duration;
+        public List<String> photos = new ArrayList<>();
+
+        public long pollId;
+        public long pollOwnerId;
+        public boolean pollVoted;
+        public long pollAnswerId = -1;
+        public boolean pollAnonymous;
+        public int pollTotal;
+        public boolean pollMultiple;
+        public List<PollOption> options = new ArrayList<>();
+    }
 
     public Post(long sourceId, String sourceName, String sourcePhoto, String text, long date,
                 List<String> photoUrls, int likes, int comments, int reposts, int views,

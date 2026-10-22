@@ -83,6 +83,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
         toolbarTitle.setText(getString(R.string.section_news));
 
+        loadUserFeedLists();
+
         com.vktea.api.VKApi.get(this, "users.get", "fields=photo_200,status,counters", new com.vktea.api.VKApi.Callback() {
             @Override
             public void success(org.json.JSONObject response) {
@@ -130,12 +132,15 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
     private void showSectionDropdown(View anchor) {
         PopupMenu popup = new PopupMenu(this, anchor);
-        long current = feedListId;
         popup.getMenu().add(0, 0, 0, R.string.list_newsfeed);
         popup.getMenu().add(0, -1, 1, R.string.list_recommendations);
         popup.getMenu().add(0, -2, 2, R.string.list_friends);
         popup.getMenu().add(0, -4, 3, R.string.list_photos);
         popup.getMenu().add(0, -5, 4, R.string.list_videos);
+        int order = 5;
+        for (int i = 0; i < userFeedLists.size(); i++) {
+            popup.getMenu().add(0, userFeedLists.keyAt(i), order++, userFeedLists.valueAt(i));
+        }
         popup.setOnMenuItemClickListener(item -> {
             feedListId = item.getItemId();
             toolbarTitle.setText(item.getTitle());
@@ -143,6 +148,28 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             return true;
         });
         popup.show();
+    }
+
+    private final android.util.SparseArray<String> userFeedLists = new android.util.SparseArray<>();
+
+    private void loadUserFeedLists() {
+        com.vktea.api.VKApi.get(this, "newsfeed.getLists", "", new com.vktea.api.VKApi.Callback() {
+            @Override
+            public void success(org.json.JSONObject response) {
+                try {
+                    org.json.JSONArray items = response.getJSONObject("response").getJSONArray("items");
+                    for (int i = 0; i < items.length(); i++) {
+                        org.json.JSONObject l = items.getJSONObject(i);
+                        userFeedLists.put((int) l.getLong("id"), l.optString("title", ""));
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+
+            @Override
+            public void error(Exception e) {
+            }
+        });
     }
 
     private List<MenuEntry> buildMenu() {
