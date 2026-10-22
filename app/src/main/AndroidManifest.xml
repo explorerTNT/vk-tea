@@ -24,6 +24,10 @@
         <activity
             android:name=".auth.AuthActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".auth.AuthWebViewActivity"
+            android:exported="false" />
     </application>
 
 </manifest>
