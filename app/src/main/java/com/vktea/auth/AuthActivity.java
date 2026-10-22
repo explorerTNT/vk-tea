@@ -51,6 +51,12 @@ public class AuthActivity extends AppCompatActivity {
         View forgotButton = findViewById(R.id.auth_forgot);
 
         loginButton.setOnClickListener(v -> doAuth());
+        View vkIdButton = findViewById(R.id.auth_vk_id_btn);
+        vkIdButton.setOnClickListener(v -> {
+            Intent intent = new Intent(this, AuthWebViewActivity.class);
+            intent.putExtra(AuthWebViewActivity.EXTRA_MODE, AuthWebViewActivity.MODE_VK_ID);
+            startActivity(intent);
+        });
         View tokenButton = findViewById(R.id.auth_token_btn);
         tokenButton.setOnClickListener(v -> showTokenLogin());
         forgotButton.setOnClickListener(v ->

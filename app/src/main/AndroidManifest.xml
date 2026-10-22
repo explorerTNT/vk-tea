@@ -27,7 +27,18 @@
 
         <activity
             android:name=".auth.AuthWebViewActivity"
-            android:exported="false" />
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="vk.ru"
+                    android:path="/blank.html"
+                    android:scheme="vk2274003" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

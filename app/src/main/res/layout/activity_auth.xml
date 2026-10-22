@@ -71,6 +71,19 @@
             android:textSize="16sp" />
 
         <TextView
+            android:id="@+id/auth_vk_id_btn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_login_button"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:minHeight="48dp"
+            android:text="@string/log_in_vk_id"
+            android:textColor="@color/vk_blue"
+            android:textSize="16sp" />
+
+        <TextView
             android:id="@+id/auth_token_btn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

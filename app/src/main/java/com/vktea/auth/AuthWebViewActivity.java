@@ -35,6 +35,8 @@ public class AuthWebViewActivity extends AppCompatActivity {
     public static final String EXTRA_MODE = "mode";
     public static final String MODE_VK_ID = "vk_id";
 
+    public static final String CLIENT_ID = "2274003";
+
     private static final String AUTHORIZE_URL = "https://id.vk.ru/authorize";
     private static final String TOKEN_URL = "https://id.vk.ru/oauth2/auth";
     private static final String SCOPE = "offline,friends,photos,audio,video,docs,wall,messages,groups,status,notifications";
@@ -70,37 +72,75 @@ public class AuthWebViewActivity extends AppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return shouldOverrideUrlLoading(view, request.getUrl().toString());
             }
+
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                android.util.Log.d("VKTea", "auth page: " + url);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                view.evaluateJavascript("(function(){return document.body ? document.body.innerText.substring(0,400) : ''})()", value -> android.util.Log.d("VKTea", "auth page text: " + value));
+            }
         });
 
         Uri data = getIntent().getData();
-        if (data != null) {
+        if (data != null && data.toString().startsWith(redirectUri())) {
+            codeVerifier = loadCodeVerifier();
+            deviceId = loadDeviceId();
+            onVkIdRedirect(data.toString());
+        } else if (data != null) {
             if (savedInstanceState == null) {
                 webView.loadUrl(data.toString());
             }
         } else if (MODE_VK_ID.equals(getIntent().getStringExtra(EXTRA_MODE))) {
-            if (BuildConfig.VK_CLIENT_ID == null || BuildConfig.VK_CLIENT_ID.isEmpty()) {
-                Toast.makeText(this, R.string.vk_id_not_configured, Toast.LENGTH_LONG).show();
-                finish();
-                return;
-            }
             codeVerifier = makeVerifier();
+            saveCodeVerifier(codeVerifier);
             deviceId = loadDeviceId();
-            if (savedInstanceState == null) {
-                webView.loadUrl(buildAuthUrl());
-            }
+            openInBrowser(buildAuthUrl());
+            finish();
         } else {
             finish();
         }
     }
 
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        Uri data = intent.getData();
+        if (data != null && data.toString().startsWith(redirectUri())) {
+            codeVerifier = loadCodeVerifier();
+            deviceId = loadDeviceId();
+            onVkIdRedirect(data.toString());
+        }
+    }
+
+    private void openInBrowser(String url) {
+        try {
+            androidx.browser.customtabs.CustomTabsIntent tabs =
+                    new androidx.browser.customtabs.CustomTabsIntent.Builder().build();
+            tabs.launchUrl(this, Uri.parse(url));
+        } catch (Exception e) {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        }
+    }
+
+    private void saveCodeVerifier(String verifier) {
+        getSharedPreferences("auth", MODE_PRIVATE).edit().putString("code_verifier", verifier).apply();
+    }
+
+    private String loadCodeVerifier() {
+        return getSharedPreferences("auth", MODE_PRIVATE).getString("code_verifier", "");
+    }
+
     private static String redirectUri() {
-        return "vk" + BuildConfig.VK_CLIENT_ID + "://vk.ru/blank.html";
+        return "vk" + CLIENT_ID + "://vk.ru/blank.html";
     }
 
     private String buildAuthUrl() {
         try {
             return AUTHORIZE_URL
-                    + "?client_id=" + BuildConfig.VK_CLIENT_ID
+                    + "?client_id=" + CLIENT_ID
                     + "&response_type=code"
                     + "&redirect_uri=" + java.net.URLEncoder.encode(redirectUri(), "UTF-8")
                     + "&scope=" + SCOPE
@@ -139,7 +179,7 @@ public class AuthWebViewActivity extends AppCompatActivity {
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
                 String form = "grant_type=authorization_code"
                         + "&code=" + code
-                        + "&client_id=" + BuildConfig.VK_CLIENT_ID
+                        + "&client_id=" + CLIENT_ID
                         + "&redirect_uri=" + java.net.URLEncoder.encode(redirectUri(), "UTF-8")
                         + "&code_verifier=" + codeVerifier
                         + "&device_id=" + deviceId
