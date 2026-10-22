@@ -32,8 +32,8 @@ public class AuthActivity extends AppCompatActivity {
     private static final String TOKEN_URL = "https://oauth.vk.com/token";
     private static final String CLIENT_ID = "2274003";
     private static final String CLIENT_SECRET = "hHbZxrka2uZ6jB1inYsH";
-    private static final String SCOPE = "offline,friends,photos,audio,video,wall,messages,docs,groups,status,notifications";
-    private static final String API_V = "5.131";
+    private static final String SCOPE = "nohttps,all";
+    private static final String API_V = "5.82";
 
     private EditText loginField;
     private EditText passField;
@@ -86,6 +86,10 @@ public class AuthActivity extends AppCompatActivity {
                     url.append("&captcha_sid=").append(captchaSid)
                        .append("&captcha_key=").append(URLEncoder.encode(captchaKey, "UTF-8"));
                 }
+                String trustedHash = getSharedPreferences("auth", MODE_PRIVATE).getString("trusted_hash", null);
+                if (trustedHash != null && !trustedHash.isEmpty()) {
+                    url.append("&trusted_hash=").append(URLEncoder.encode(trustedHash, "UTF-8"));
+                }
                 HttpURLConnection conn = (HttpURLConnection) new URL(url.toString()).openConnection();
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
@@ -99,6 +103,10 @@ public class AuthActivity extends AppCompatActivity {
                 if (json.has("access_token")) {
                     String token = json.getString("access_token");
                     String userId = String.valueOf(json.getLong("user_id"));
+                    if (json.has("trusted_hash")) {
+                        getSharedPreferences("auth", MODE_PRIVATE).edit()
+                                .putString("trusted_hash", json.getString("trusted_hash")).apply();
+                    }
                     runOnUiThread(() -> {
                         Session.save(this, token, userId);
                         TokenRevealDialog.show(this, token);
