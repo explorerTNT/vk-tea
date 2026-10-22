@@ -72,6 +72,26 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             return insets;
         });
 
+        com.vktea.api.VKApi.get(this, "users.get", "fields=photo_200,status", new com.vktea.api.VKApi.Callback() {
+            @Override
+            public void success(org.json.JSONObject response) {
+                try {
+                    org.json.JSONObject u = response.getJSONArray("response").getJSONObject(0);
+                    menuAdapter.setHeaderUser(new com.vktea.api.User(
+                            u.getLong("id"),
+                            u.optString("first_name", ""),
+                            u.optString("last_name", ""),
+                            u.optString("photo_200", null),
+                            u.optString("status", "")));
+                } catch (Exception ignored) {
+                }
+            }
+
+            @Override
+            public void error(Exception e) {
+            }
+        });
+
         if (savedInstanceState == null) {
             showSection(R.id.menu_news);
         }

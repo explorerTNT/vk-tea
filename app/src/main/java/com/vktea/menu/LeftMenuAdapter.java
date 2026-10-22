@@ -26,11 +26,17 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     private int selectedId;
     private int topInset;
     private int bottomInset;
+    private com.vktea.api.User user;
 
     public LeftMenuAdapter(List<MenuEntry> entries, MenuEntry.Callback callback, int selectedId) {
         this.entries = entries;
         this.callback = callback;
         this.selectedId = selectedId;
+    }
+
+    public void setHeaderUser(com.vktea.api.User user) {
+        this.user = user;
+        notifyItemChanged(1);
     }
 
     public void setSystemInsets(int top, int bottom) {
@@ -92,6 +98,8 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         } else if (type == TYPE_ITEM) {
             MenuEntry e = entries.get(position - 2);
             ((ItemViewHolder) holder).bind(e, e.id == selectedId);
+        } else if (type == TYPE_HEADER) {
+            ((HeaderViewHolder) holder).bind(user);
         }
     }
 
@@ -121,8 +129,31 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     static class HeaderViewHolder extends RecyclerView.ViewHolder {
 
+        private final android.widget.TextView name;
+        private final android.widget.TextView status;
+        private final android.widget.ImageView avatar;
+
         HeaderViewHolder(@NonNull View itemView) {
             super(itemView);
+            name = itemView.findViewById(R.id.menu_header_name);
+            status = itemView.findViewById(R.id.menu_header_status);
+            avatar = itemView.findViewById(R.id.menu_header_avatar);
+        }
+
+        void bind(com.vktea.api.User user) {
+            if (user == null) {
+                return;
+            }
+            name.setText(user.fullName());
+            if (user.status != null && !user.status.isEmpty()) {
+                status.setText(user.status);
+            }
+            if (user.photo200 != null && !user.photo200.isEmpty()) {
+                com.bumptech.glide.Glide.with(itemView)
+                        .load(user.photo200)
+                        .apply(com.bumptech.glide.request.RequestOptions.circleCropTransform())
+                        .into(avatar);
+            }
         }
     }
 
