@@ -125,7 +125,7 @@ public class ProfileFragment extends Fragment {
                                 java.util.List<String> photoUrls = new java.util.ArrayList<>();
                                 JSONArray attachments = item.optJSONArray("attachments");
                                 if (attachments != null) {
-                                    for (int a = 0; a < attachments.length() && photoUrls.size() < 4; a++) {
+                                    for (int a = 0; a < attachments.length() && photoUrls.size() < 10; a++) {
                                         JSONObject att = attachments.getJSONObject(a);
                                         if ("photo".equals(att.optString("type"))) {
                                             String purl = pickFromSizes(att.getJSONObject("photo"));

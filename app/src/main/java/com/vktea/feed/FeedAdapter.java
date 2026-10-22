@@ -99,7 +99,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
     }
 
     private void buildPhotoGrid(LinearLayout container, List<String> urls) {
-        int n = Math.min(urls.size(), 4);
+        int n = urls.size();
         int gap = 1;
         android.content.Context ctx = container.getContext();
         if (n == 1) {
@@ -107,14 +107,27 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
                     ViewGroup.LayoutParams.WRAP_CONTENT));
             return;
         }
-        if (n == 3) {
-            container.addView(makePhoto(ctx, urls.get(0), ViewGroup.LayoutParams.MATCH_PARENT, 0));
-            container.addView(makeRow(ctx, urls.subList(1, 3), gap, gap));
-            return;
-        }
-        container.addView(makeRow(ctx, urls.subList(0, Math.min(2, n)), gap, 0));
-        if (n > 2) {
-            container.addView(makeRow(ctx, urls.subList(2, n), gap, gap));
+        int index = 0;
+        boolean firstRow = true;
+        while (index < n) {
+            int remaining = n - index;
+            int perRow;
+            if (firstRow && n > 3) {
+                perRow = 1;
+            } else if (remaining >= 3) {
+                perRow = 3;
+            } else {
+                perRow = remaining;
+            }
+            if (perRow == 1) {
+                container.addView(makePhoto(ctx, urls.get(index), ViewGroup.LayoutParams.MATCH_PARENT,
+                        firstRow ? 0 : gap));
+                index++;
+            } else {
+                container.addView(makeRow(ctx, urls.subList(index, index + perRow), gap, firstRow ? 0 : gap));
+                index += perRow;
+            }
+            firstRow = false;
         }
     }
 

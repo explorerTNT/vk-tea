@@ -59,9 +59,9 @@
             android:textSize="23sp" />
 
         <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginLeft="8dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginLeft="4dp"
             android:contentDescription="@null"
             android:scaleType="centerInside"
             android:src="@drawable/ic_caret_down"

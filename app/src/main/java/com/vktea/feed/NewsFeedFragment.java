@@ -148,7 +148,7 @@ public class NewsFeedFragment extends Fragment {
                 JSONObject att = attachments.getJSONObject(i);
                 if ("photo".equals(att.optString("type"))) {
                     String u = pickPhotoUrl(att.getJSONObject("photo"));
-                    if (u != null && photoUrls.size() < 4) { photoUrls.add(u); }
+                    if (u != null && photoUrls.size() < 10) { photoUrls.add(u); }
                 }
             }
         }
