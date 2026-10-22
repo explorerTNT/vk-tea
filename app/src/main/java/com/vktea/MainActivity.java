@@ -82,6 +82,46 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
         toolbarTitle.setText(getString(R.string.section_news));
 
+        com.vktea.api.VKApi.get(this, "users.get", "fields=photo_200,status,counters", new com.vktea.api.VKApi.Callback() {
+            @Override
+            public void success(org.json.JSONObject response) {
+                try {
+                    org.json.JSONObject u = response.getJSONArray("response").getJSONObject(0);
+                    com.vktea.api.User.Counters counters = null;
+                    if (u.has("counters")) {
+                        org.json.JSONObject c = u.getJSONObject("counters");
+                        counters = new com.vktea.api.User.Counters(
+                                c.optInt("friends", 0),
+                                c.optInt("messages", 0),
+                                c.optInt("notifications", 0),
+                                c.optInt("groups", 0));
+                    }
+                    final com.vktea.api.User user = new com.vktea.api.User(
+                            u.getLong("id"),
+                            u.optString("first_name", ""),
+                            u.optString("last_name", ""),
+                            u.optString("photo_200", null),
+                            u.optString("status", ""),
+                            counters);
+                    runOnUiThread(() -> {
+                        menuAdapter.setHeaderUser(user);
+                        if (user.counters != null) {
+                            int red = user.counters.messages + user.counters.notifications;
+                            if (red > 0) {
+                                toolbarBadge.setVisibility(View.VISIBLE);
+                                toolbarBadge.setText(String.valueOf(red));
+                            }
+                        }
+                    });
+                } catch (Exception ignored) {
+                }
+            }
+
+            @Override
+            public void error(Exception e) {
+            }
+        });
+
         if (savedInstanceState == null) {
             showSection(R.id.menu_news);
         }

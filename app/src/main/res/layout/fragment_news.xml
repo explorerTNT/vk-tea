@@ -15,7 +15,7 @@
             android:id="@+id/feed_list"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@android:color/white"
+            android:background="#FFE5E7EA"
             android:clipToPadding="false" />
     </LinearLayout>
 

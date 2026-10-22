@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
     android:background="@android:color/white"
     android:orientation="vertical">
 
@@ -115,14 +116,14 @@
             android:layout_height="48dp"
             android:layout_alignParentLeft="true"
             android:drawableLeft="@drawable/ic_like_24dp"
-            android:drawablePadding="4dp"
+            android:drawablePadding="6dp"
             android:drawableTint="@color/post_icons"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:paddingLeft="16dp"
             android:paddingRight="18dp"
             android:textColor="@color/post_icons"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
 
         <TextView
             android:id="@+id/post_comments"
@@ -130,14 +131,14 @@
             android:layout_height="48dp"
             android:layout_toRightOf="@id/post_likes"
             android:drawableLeft="@drawable/ic_comment_24dp"
-            android:drawablePadding="4dp"
+            android:drawablePadding="6dp"
             android:drawableTint="@color/post_icons"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:paddingLeft="16dp"
             android:paddingRight="18dp"
             android:textColor="@color/post_icons"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
 
         <TextView
             android:id="@+id/post_reposts"
@@ -145,14 +146,14 @@
             android:layout_height="48dp"
             android:layout_toRightOf="@id/post_comments"
             android:drawableLeft="@drawable/ic_share_24dp"
-            android:drawablePadding="4dp"
+            android:drawablePadding="6dp"
             android:drawableTint="@color/post_icons"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:paddingLeft="16dp"
             android:paddingRight="18dp"
             android:textColor="@color/post_icons"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
 
         <TextView
             android:id="@+id/post_views"
@@ -160,14 +161,14 @@
             android:layout_height="48dp"
             android:layout_alignParentRight="true"
             android:drawableLeft="@drawable/ic_viewers_24dp"
-            android:drawablePadding="4dp"
+            android:drawablePadding="6dp"
             android:drawableTint="@color/post_icons"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:paddingLeft="16dp"
             android:paddingRight="18dp"
             android:textColor="@color/post_icons"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
     </RelativeLayout>
 
 </LinearLayout>
