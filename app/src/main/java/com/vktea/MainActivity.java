@@ -26,6 +26,9 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements MenuEntry.Callback {
 
+    private static final String STATE_SECTION = "current_section";
+    private static final String ACTION_OPEN_AUDIO = "com.vktea.action.OPEN_AUDIO";
+
     private DrawerLayout drawer;
     private RecyclerView menuView;
     private LeftMenuAdapter menuAdapter;
@@ -63,7 +66,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         menuView = findViewById(R.id.left_menu);
         menuView.setLayoutManager(new LinearLayoutManager(this));
 
-        currentId = R.id.menu_news;
+        currentId = savedInstanceState != null
+                ? savedInstanceState.getInt(STATE_SECTION, R.id.menu_news) : R.id.menu_news;
         menuAdapter = new LeftMenuAdapter(menu, this, currentId);
         menuView.setAdapter(menuAdapter);
         ViewCompat.setOnApplyWindowInsetsListener(menuView, (v, insets) -> {
@@ -102,9 +106,35 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             }
         });
 
-        if (savedInstanceState == null) {
-            showSection(R.id.menu_news);
+        if (ACTION_OPEN_AUDIO.equals(getIntent().getAction())) {
+            getIntent().setAction(null);
+            showSection(R.id.menu_audios);
+        } else if (savedInstanceState == null) {
+            showSection(currentId);
+        } else {
+            for (MenuEntry entry : menu) {
+                if (entry.id == currentId) {
+                    getSupportActionBar().setTitle(entry.titleRes);
+                    break;
+                }
+            }
         }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (menu != null && ACTION_OPEN_AUDIO.equals(intent.getAction())) {
+            intent.setAction(null);
+            showSection(R.id.menu_audios);
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putInt(STATE_SECTION, currentId);
+        super.onSaveInstanceState(outState);
     }
 
     private List<MenuEntry> buildMenu() {
@@ -142,6 +172,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.ui.SettingsFragment();
                 } else if (menuId == R.id.menu_news) {
                     fragment = new com.vktea.feed.NewsFeedFragment();
+                } else if (menuId == R.id.menu_audios) {
+                    fragment = new com.vktea.ui.AudioFragment();
                 } else {
                     fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
                 }

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <Button
+            android:id="@+id/audio_open"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/audio_open_files" />
+
+        <Button
+            android:id="@+id/audio_clear"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/audio_clear_queue" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/audio_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:accessibilityLiveRegion="polite"
+        android:padding="16dp"
+        android:text="@string/audio_connecting" />
+
+    <TextView
+        android:id="@+id/audio_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:text="@string/audio_empty" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/audio_queue"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <androidx.media3.ui.PlayerControlView
+        android:id="@+id/audio_controls"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        app:animation_enabled="false"
+        app:repeat_toggle_modes="one|all"
+        app:show_shuffle_button="true"
+        app:show_timeout="0" />
+</LinearLayout>

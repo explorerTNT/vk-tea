@@ -30,6 +30,7 @@ public class Session {
 
     public static void clear(Context context) {
         prefs(context).edit().clear().apply();
+        com.vktea.audio.AudioPlayback.stop(context);
     }
 
     private static SharedPreferences prefs(Context context) {

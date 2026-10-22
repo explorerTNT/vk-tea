@@ -26,10 +26,10 @@
 
 ## 3. Аудио — приоритет №1
 
-- [ ] P0 **Ядро плеера** на Media3: `audio/player/PlayerService` (foreground-сервис, стейт, очереди) → свой `MediaSessionService`; `Player.java`, `PlayerState`, `PlayerTrack`, `Tracks`, `TrackInfo`, `LoopMode`, `Prefs`
+- [x] P0 **Ядро плеера** на Media3: свой `AudioPlaybackService` (`MediaSessionService` + ExoPlayer), очередь, состояние, repeat/shuffle, контроллер. Локальные файлы доступны из «Аудиозаписи»; контракт интеграции и ограничения — [audio-playback.md](audio-playback.md). VK-каталог, сохранение очереди и настройки между запусками пока не реализованы.
 - [ ] P0 **DataSource-слой**: `player/exo/AudioOkHttpDataSource` (сеть), `AudioFileDataSource` (локальный кеш), `AudioCacheHelper` — переносится на Media3 почти 1:1
 - [ ] P0 **Локальный прокси** (обход истекающих URL + кеш) — `player/proxy/PlayerProxy`, `ClientThread`, `LockFile`, `QueryData`
-- [ ] P0 **Фоновое воспроизведение + MediaSession** (локскрин, гарнитура) — `MediaSessionHelper(21)`, `MediaButtonEventReceiver`
+- [x] P0 **Фоновое воспроизведение + MediaSession** — foreground-сервис, системное управление, audio focus и пауза при отключении проводной гарнитуры через Media3. Эмуляторная проверка описана в [audio-playback.md](audio-playback.md); физическая гарнитура и локскрин телефона требуют отдельной проверки.
 - [ ] P1 **Полноэкранный плеер** — `AudioPlayerActivity` + layouts (`audio_player_*`), портировать UI 1:1
 - [ ] P1 **Скачивание треков / оффлайн** — `SavedTracks`, `SavedTrack`, `DownloadTaskTracks`, `DownloadTrackFileConverter`, `CacheUtils` + сервис `CaffeineDownloader`
 - [ ] P1 **Плейлисты** — `fragments/AudioPlaylistFragment`, `AudioListFragment`

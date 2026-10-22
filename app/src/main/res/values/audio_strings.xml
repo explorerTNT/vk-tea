@@ -1,0 +1,13 @@
+<resources>
+    <string name="audio_open_files">Открыть аудиофайлы</string>
+    <string name="audio_clear_queue">Очистить</string>
+    <string name="audio_empty">Выберите аудиофайлы на устройстве. Они появятся в очереди и будут играть в фоне.</string>
+    <string name="audio_connecting">Подключение к плееру…</string>
+    <string name="audio_loading">Открытие файлов…</string>
+    <string name="audio_connection_failed">Не удалось подключиться к плееру. Откройте раздел ещё раз.</string>
+    <string name="audio_playback_failed">Не удалось воспроизвести файл. Попробуйте ещё раз или выберите другой трек.</string>
+    <string name="audio_files_failed">Не удалось открыть выбранные файлы. Попробуйте выбрать их ещё раз.</string>
+    <string name="audio_untitled">Без названия</string>
+    <string name="audio_local_file">Локальный файл</string>
+    <string name="audio_queue_position">%1$d из %2$d</string>
+</resources>
