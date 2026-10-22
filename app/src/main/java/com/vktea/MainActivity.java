@@ -69,8 +69,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         entries.add(new MenuEntry(R.id.menu_audios, R.drawable.ic_menu_music, R.string.section_audios));
         entries.add(new MenuEntry(R.id.menu_games, R.drawable.ic_menu_games, R.string.section_games));
         entries.add(new MenuEntry(R.id.menu_fave, R.drawable.ic_menu_bookmarks, R.string.section_fave));
-        entries.add(new MenuEntry(R.id.menu_search, R.drawable.ic_menu_search, R.string.section_search));
-        entries.add(new MenuEntry(R.id.menu_docs, R.drawable.ic_menu_documents, R.string.section_docs));
+        entries.add(new MenuEntry(R.id.menu_search, R.drawable.ic_menu_global_search, R.string.section_search));
+        entries.add(new MenuEntry(R.id.menu_docs, R.drawable.ic_profile_counter_documents, R.string.section_docs));
         entries.add(new MenuEntry(R.id.menu_settings, R.drawable.ic_menu_settings, R.string.section_settings));
         return entries;
     }
