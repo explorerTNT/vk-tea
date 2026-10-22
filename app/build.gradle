@@ -9,8 +9,8 @@ def vkPropsFile = rootProject.file('local.properties')
 if (vkPropsFile.exists()) {
     vkPropsFile.withInputStream { vkProps.load(it) }
 }
-def vkClientId = vkProps.getProperty('vk.clientId', '')
-def vkClientSecret = vkProps.getProperty('vk.clientSecret', '')
+def vkClientId = System.getenv('VK_CLIENT_ID') ?: vkProps.getProperty('vk.clientId', '')
+def vkClientSecret = System.getenv('VK_CLIENT_SECRET') ?: vkProps.getProperty('vk.clientSecret', '')
 
 android {
     namespace 'com.vktea'
