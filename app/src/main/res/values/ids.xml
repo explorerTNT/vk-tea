@@ -8,6 +8,9 @@
     <item name="menu_photos" type="id" />
     <item name="menu_videos" type="id" />
     <item name="menu_audios" type="id" />
+    <item name="menu_games" type="id" />
     <item name="menu_fave" type="id" />
+    <item name="menu_search" type="id" />
+    <item name="menu_docs" type="id" />
     <item name="menu_settings" type="id" />
 </resources>

@@ -62,7 +62,7 @@
         android:layout_marginTop="4dp"
         android:layout_marginRight="4dp"
         android:scaleType="center"
-        android:src="@drawable/ic_menu_search"
+        android:src="@drawable/ic_menu_multi"
         app:tint="@android:color/white" />
 
 </RelativeLayout>

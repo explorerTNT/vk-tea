@@ -17,7 +17,18 @@
             android:layout_height="?attr/actionBarSize"
             android:background="@color/vk_blue"
             android:theme="@style/ThemeOverlay.VKTea.Toolbar"
-            app:titleTextColor="@android:color/white" />
+            app:titleTextColor="@android:color/white">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="end"
+                android:layout_marginRight="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:scaleType="center"
+                android:src="@drawable/ic_menu_search"
+                app:tint="@android:color/white" />
+        </com.google.android.material.appbar.MaterialToolbar>
 
         <FrameLayout
             android:id="@+id/content"

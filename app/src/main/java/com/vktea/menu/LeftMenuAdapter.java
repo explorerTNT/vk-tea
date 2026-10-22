@@ -1,5 +1,6 @@
 package com.vktea.menu;
 
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -7,6 +8,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.vktea.R;
@@ -20,10 +22,30 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     private final List<MenuEntry> entries;
     private final MenuEntry.Callback callback;
+    private int selectedId;
 
-    public LeftMenuAdapter(List<MenuEntry> entries, MenuEntry.Callback callback) {
+    public LeftMenuAdapter(List<MenuEntry> entries, MenuEntry.Callback callback, int selectedId) {
         this.entries = entries;
         this.callback = callback;
+        this.selectedId = selectedId;
+    }
+
+    public void setSelectedId(int id) {
+        if (selectedId != id) {
+            int old = selectedId;
+            selectedId = id;
+            notifyItemChanged(indexOf(old) + 1);
+            notifyItemChanged(indexOf(id) + 1);
+        }
+    }
+
+    private int indexOf(int id) {
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries.get(i).id == id) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     @NonNull
@@ -39,7 +61,8 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         if (holder instanceof ItemViewHolder) {
-            ((ItemViewHolder) holder).bind(entries.get(position - 1));
+            MenuEntry e = entries.get(position - 1);
+            ((ItemViewHolder) holder).bind(e, e.id == selectedId);
         }
     }
 
@@ -64,22 +87,41 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
         private final ImageView icon;
         private final TextView title;
+        private final TextView counter;
 
         ItemViewHolder(@NonNull View itemView) {
             super(itemView);
             icon = itemView.findViewById(R.id.menu_icon);
             title = itemView.findViewById(R.id.menu_title);
+            counter = itemView.findViewById(R.id.menu_counter);
             itemView.setOnClickListener(v -> {
                 int pos = getAdapterPosition();
                 if (pos != RecyclerView.NO_POSITION && callback != null) {
-                    callback.onMenuClick(entries.get(pos - 1));
+                    MenuEntry e = entries.get(pos - 1);
+                    setSelectedId(e.id);
+                    callback.onMenuClick(e);
                 }
             });
         }
 
-        void bind(MenuEntry entry) {
+        void bind(MenuEntry entry, boolean selected) {
             icon.setImageResource(entry.iconRes);
             title.setText(entry.titleRes);
+            itemView.setBackgroundColor(selected
+                    ? ContextCompat.getColor(itemView.getContext(), R.color.menu_selected_bg)
+                    : Color.TRANSPARENT);
+            int iconColor = selected
+                    ? ContextCompat.getColor(icon.getContext(), R.color.vk_blue)
+                    : ContextCompat.getColor(icon.getContext(), R.color.menu_icon_normal);
+            icon.setColorFilter(iconColor);
+            title.setTextColor(ContextCompat.getColor(title.getContext(),
+                    selected ? R.color.vk_blue : R.color.almost_black));
+            if (entry.counter > 0) {
+                counter.setVisibility(View.VISIBLE);
+                counter.setText(String.valueOf(entry.counter));
+            } else {
+                counter.setVisibility(View.GONE);
+            }
         }
     }
 }

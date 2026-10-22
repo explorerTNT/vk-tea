@@ -7,11 +7,14 @@
     <string name="section_feedback">Ответы</string>
     <string name="section_messages">Сообщения</string>
     <string name="section_friends">Друзья</string>
-    <string name="section_groups">Сообщества</string>
+    <string name="section_groups">Группы</string>
     <string name="section_photos">Фотографии</string>
     <string name="section_videos">Видеозаписи</string>
     <string name="section_audios">Аудиозаписи</string>
+    <string name="section_games">Игры</string>
     <string name="section_fave">Закладки</string>
+    <string name="section_search">Поиск</string>
+    <string name="section_docs">Документы</string>
     <string name="section_settings">Настройки</string>
 
     <string name="section_wip">Раздел в разработке</string>

@@ -21,8 +21,9 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
     private DrawerLayout drawer;
     private RecyclerView menuView;
-    private MaterialToolbar toolbar;
+    private LeftMenuAdapter menuAdapter;
     private List<MenuEntry> menu;
+    private int currentId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,7 +33,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         menu = buildMenu();
 
         drawer = findViewById(R.id.drawer);
-        toolbar = findViewById(R.id.toolbar);
+        MaterialToolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this, drawer, toolbar, 0, 0) {
@@ -46,7 +47,10 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
         menuView = findViewById(R.id.left_menu);
         menuView.setLayoutManager(new LinearLayoutManager(this));
-        menuView.setAdapter(new LeftMenuAdapter(menu, this));
+
+        currentId = R.id.menu_news;
+        menuAdapter = new LeftMenuAdapter(menu, this, currentId);
+        menuView.setAdapter(menuAdapter);
 
         if (savedInstanceState == null) {
             showSection(R.id.menu_news);
@@ -63,7 +67,10 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         entries.add(new MenuEntry(R.id.menu_photos, R.drawable.ic_menu_photos, R.string.section_photos));
         entries.add(new MenuEntry(R.id.menu_videos, R.drawable.ic_menu_videos, R.string.section_videos));
         entries.add(new MenuEntry(R.id.menu_audios, R.drawable.ic_menu_music, R.string.section_audios));
+        entries.add(new MenuEntry(R.id.menu_games, R.drawable.ic_menu_games, R.string.section_games));
         entries.add(new MenuEntry(R.id.menu_fave, R.drawable.ic_menu_bookmarks, R.string.section_fave));
+        entries.add(new MenuEntry(R.id.menu_search, R.drawable.ic_menu_search, R.string.section_search));
+        entries.add(new MenuEntry(R.id.menu_docs, R.drawable.ic_menu_documents, R.string.section_docs));
         entries.add(new MenuEntry(R.id.menu_settings, R.drawable.ic_menu_settings, R.string.section_settings));
         return entries;
     }
@@ -77,7 +84,9 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private void showSection(int menuId) {
         for (MenuEntry entry : menu) {
             if (entry.id == menuId) {
+                currentId = menuId;
                 getSupportActionBar().setTitle(entry.titleRes);
+                menuAdapter.setSelectedId(menuId);
                 getSupportFragmentManager()
                         .beginTransaction()
                         .replace(R.id.content, PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes))

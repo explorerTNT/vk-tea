@@ -10,13 +10,13 @@
     <ImageView
         android:id="@+id/menu_icon"
         android:layout_width="24dp"
-        android:layout_height="48dp"
+        android:layout_height="56dp"
         android:layout_marginLeft="16dp"
         android:layout_marginRight="32dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="12dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
         android:scaleType="center"
-        app:tint="@color/menu_icon" />
+        app:tint="@color/menu_icon_normal" />
 
     <TextView
         android:id="@+id/menu_title"

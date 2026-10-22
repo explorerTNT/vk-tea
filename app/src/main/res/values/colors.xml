@@ -5,6 +5,8 @@
     <color name="section_header">#FF78797A</color>
     <color name="counter_text">#FF5A7CA3</color>
     <color name="menu_bg">#FFFFFFFF</color>
+    <color name="menu_icon_normal">#54000C1A</color>
+    <color name="menu_selected_bg">#FFF5F6F7</color>
     <color name="menu_header_bg">#FF2E3033</color>
     <color name="menu_header_status">#BFFFFFFF</color>
     <color name="avatar_placeholder">#FFD4DDE5</color>
