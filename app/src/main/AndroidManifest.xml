@@ -51,6 +51,11 @@
         <activity
             android:name=".feed.PhotoViewerActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".feed.VideoPlayerActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false" />
     </application>
 
 </manifest>

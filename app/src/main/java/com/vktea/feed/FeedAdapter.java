@@ -101,13 +101,114 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.reposts.setText(post.reposts > 0 ? formatCount(post.reposts) : "");
         holder.views.setText(post.views > 0 ? formatCount(post.views) : "");
 
-        holder.likes.setOnClickListener(v -> toggleLike(post, holder.getAdapterPosition(), v));
+        holder.likes.setOnClickListener(v -> {
+            toggleLike(post, holder.getAdapterPosition(), v);
+            if (!post.userLikes) {
+                animateLike(holder.likes);
+            }
+        });
         holder.comments.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
         holder.reposts.setOnClickListener(v -> repost(post, v));
         holder.itemView.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
+        holder.options.setOnClickListener(v -> showPostMenu(v, post, holder.getAdapterPosition()));
+        if (post.comments > 0) {
+            holder.showComments.setVisibility(View.VISIBLE);
+            holder.showComments.setText(String.format(
+                    holder.showComments.getContext().getString(R.string.show_comments_fmt), post.comments));
+            holder.showComments.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
+        } else {
+            holder.showComments.setVisibility(View.GONE);
+        }
         holder.header.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onAuthorClick(post.sourceId);
+            }
+        });
+    }
+
+    private void animateLike(View anchor) {
+        android.view.animation.ScaleAnimation sa = new android.view.animation.ScaleAnimation(
+                1f, 1.4f, 1f, 1.4f,
+                android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
+                android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f);
+        sa.setDuration(160);
+        sa.setRepeatCount(1);
+        sa.setRepeatMode(android.view.animation.Animation.REVERSE);
+        anchor.startAnimation(sa);
+    }
+
+    private void showPostMenu(View anchor, Post post, int position) {
+        android.widget.PopupMenu pm = new android.widget.PopupMenu(anchor.getContext(), anchor);
+        java.util.List<String> acts = new ArrayList<>();
+        android.content.Context ctx = anchor.getContext();
+        if (post.likeType == Post.TYPE_POST) {
+            pm.getMenu().add(0, acts.size(), 0, R.string.menu_copy_link);
+            acts.add("link");
+            if (post.isRepost()) {
+                pm.getMenu().add(0, acts.size(), 0, R.string.menu_show_original);
+                acts.add("orig");
+            }
+            pm.getMenu().add(0, acts.size(), 0, R.string.menu_hide_from_feed);
+            acts.add("hide");
+            pm.getMenu().add(0, acts.size(), 0, R.string.menu_hide_not_interesting);
+            acts.add("hide2");
+            String selfId = com.vktea.auth.Session.getUserId(ctx);
+            if (selfId != null && String.valueOf(post.likeOwnerId).equals(selfId)) {
+                pm.getMenu().add(0, acts.size(), 0, R.string.menu_delete);
+                acts.add("del");
+            }
+            pm.getMenu().add(0, acts.size(), 0, R.string.menu_report);
+            acts.add("report");
+        }
+        pm.setOnMenuItemClickListener(item -> {
+            performPostAction(ctx, acts.get(item.getItemId()), post, position);
+            return true;
+        });
+        pm.show();
+    }
+
+    private void performPostAction(android.content.Context ctx, String act, Post post, int position) {
+        String oid = String.valueOf(post.likeOwnerId);
+        String iid = String.valueOf(post.likeItemId);
+        switch (act) {
+            case "link": {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                        ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("link",
+                        "https://vk.com/wall" + oid + "_" + iid));
+                Toast.makeText(ctx, R.string.link_copied, Toast.LENGTH_SHORT).show();
+                break;
+            }
+            case "orig":
+                ctx.startActivity(new Intent(ctx, AuthWebViewActivity.class)
+                        .setData(Uri.parse("https://m.vk.com/wall" + post.repostOwnerId + "_" + post.repostPostId)));
+                break;
+            case "hide":
+                apiAction(ctx, "newsfeed.addBan", "owner_ids=" + oid, R.string.hidden_from_feed);
+                break;
+            case "hide2":
+                apiAction(ctx, "newsfeed.ignoreItem", "type=wall&owner_id=" + oid + "&item_id=" + iid,
+                        R.string.hidden_not_interesting);
+                break;
+            case "del":
+                apiAction(ctx, "wall.delete", "owner_id=" + oid + "&post_id=" + iid, R.string.post_deleted);
+                break;
+            case "report":
+                apiAction(ctx, "wall.reportPost", "owner_id=" + oid + "&post_id=" + iid + "&reason=0", R.string.reported);
+                break;
+        }
+    }
+
+    private void apiAction(android.content.Context ctx, String method, String params, int okMsg) {
+        VKApi.get(ctx, method, params, new VKApi.Callback() {
+            @Override
+            public void success(JSONObject response) {
+                Toast.makeText(ctx, okMsg, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void error(Exception e) {
+                Toast.makeText(ctx, R.string.action_failed, Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -146,11 +247,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         }
         holder.videoBlock.setVisibility(View.VISIBLE);
         Glide.with(holder.videoPreview).load(post.videoPreview).into(holder.videoPreview);
-        holder.videoBlock.setOnClickListener(v -> {
-            Intent intent = new Intent(v.getContext(), AuthWebViewActivity.class);
-            intent.setData(Uri.parse("https://m.vk.com/video" + post.videoOwner + "_" + post.videoId));
-            v.getContext().startActivity(intent);
-        });
+        holder.videoBlock.setOnClickListener(v ->
+                VideoPlayerActivity.start(v.getContext(), post.videoOwner, post.videoId));
     }
 
     private void openUrl(View view, String url) {
@@ -316,6 +414,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         final LinearLayout repostPhotos;
         final View videoBlock;
         final ImageView videoPreview;
+        final View options;
+        final TextView showComments;
 
         PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -338,6 +438,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             repostPhotos = itemView.findViewById(R.id.repost_photos);
             videoBlock = itemView.findViewById(R.id.post_video);
             videoPreview = itemView.findViewById(R.id.video_preview);
+            options = itemView.findViewById(R.id.post_options);
+            showComments = itemView.findViewById(R.id.post_show_comments);
         }
     }
 }

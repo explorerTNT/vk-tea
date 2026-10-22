@@ -36,6 +36,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private LeftMenuAdapter menuAdapter;
     private List<MenuEntry> menu;
     private int currentId;
+    private long feedListId;
     private TextView toolbarTitle;
     private TextView toolbarBadge;
 
@@ -129,12 +130,16 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
     private void showSectionDropdown(View anchor) {
         PopupMenu popup = new PopupMenu(this, anchor);
-        for (int i = 0; i < menu.size(); i++) {
-            MenuEntry entry = menu.get(i);
-            popup.getMenu().add(0, entry.id, i, entry.titleRes);
-        }
+        long current = feedListId;
+        popup.getMenu().add(0, 0, 0, R.string.list_newsfeed);
+        popup.getMenu().add(0, -1, 1, R.string.list_recommendations);
+        popup.getMenu().add(0, -2, 2, R.string.list_friends);
+        popup.getMenu().add(0, -4, 3, R.string.list_photos);
+        popup.getMenu().add(0, -5, 4, R.string.list_videos);
         popup.setOnMenuItemClickListener(item -> {
-            showSection(item.getItemId());
+            feedListId = item.getItemId();
+            toolbarTitle.setText(item.getTitle());
+            showSection(R.id.menu_news);
             return true;
         });
         popup.show();
@@ -174,7 +179,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 if (menuId == R.id.menu_settings) {
                     fragment = new com.vktea.ui.SettingsFragment();
                 } else if (menuId == R.id.menu_news) {
-                    fragment = new com.vktea.feed.NewsFeedFragment();
+                    fragment = com.vktea.feed.NewsFeedFragment.newInstance(feedListId);
                 } else if (menuId == R.id.menu_messages) {
                     fragment = new com.vktea.msg.DialogsFragment();
                 } else {

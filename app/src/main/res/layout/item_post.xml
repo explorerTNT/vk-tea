@@ -57,11 +57,13 @@
         </LinearLayout>
 
         <ImageView
+            android:id="@+id/post_options"
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:layout_alignParentRight="true"
             android:layout_marginTop="10dp"
             android:layout_marginRight="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@null"
             android:scaleType="center"
             android:src="@drawable/ic_card_actions" />
@@ -264,5 +266,20 @@
             android:textColor="@color/post_icons"
             android:textSize="16sp" />
     </RelativeLayout>
+
+    <TextView
+        android:id="@+id/post_show_comments"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackground"
+        android:drawableLeft="@drawable/ic_comment_24dp"
+        android:drawablePadding="6dp"
+        android:drawableTint="@color/vk_blue"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center_vertical"
+        android:paddingLeft="16dp"
+        android:textColor="@color/vk_blue"
+        android:textSize="15sp"
+        android:visibility="gone" />
 
 </LinearLayout>

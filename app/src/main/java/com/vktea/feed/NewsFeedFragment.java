@@ -27,11 +27,20 @@ public class NewsFeedFragment extends Fragment {
 
     private static final int PAGE_SIZE = 20;
 
+    public static NewsFeedFragment newInstance(long listId) {
+        Bundle args = new Bundle();
+        args.putLong("list_id", listId);
+        NewsFeedFragment fragment = new NewsFeedFragment();
+        fragment.setArguments(args);
+        return fragment;
+    }
+
     private FeedAdapter adapter;
     private SwipeRefreshLayout refresh;
     private RecyclerView list;
     private boolean loading;
     private String nextFrom = "";
+    private long listId;
 
     @Nullable
     @Override
@@ -42,6 +51,7 @@ public class NewsFeedFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        listId = requireArguments().getLong("list_id", 0);
         refresh = view.findViewById(R.id.feed_refresh);
         list = view.findViewById(R.id.feed_list);
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -78,6 +88,7 @@ public class NewsFeedFragment extends Fragment {
     private void load() {
         loading = true;
         String params = "filters=post,photo&count=" + PAGE_SIZE + "&max_photos=1"
+                + (listId != 0 ? "&list_id=" + listId : "")
                 + (nextFrom.isEmpty() ? "" : "&start_from=" + nextFrom);
         VKApi.get(requireContext(), "newsfeed.get", params,
                 new VKApi.Callback() {

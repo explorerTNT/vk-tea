@@ -55,5 +55,23 @@
     <string name="repost_done">Репост добавлен</string>
     <string name="repost_failed">Не удалось сделать репост</string>
     <string name="repost_photo_unsupported">Репост фото пока не поддерживается</string>
+    <string name="menu_copy_link">Копировать ссылку</string>
+    <string name="menu_show_original">Показать исходную запись</string>
+    <string name="menu_hide_from_feed">Скрыть новости сообщества</string>
+    <string name="menu_hide_not_interesting">Скрыть неинтересное</string>
+    <string name="menu_delete">Удалить</string>
+    <string name="menu_report">Пожаловаться</string>
+    <string name="link_copied">Ссылка скопирована</string>
+    <string name="hidden_from_feed">Скрыто из ленты</string>
+    <string name="hidden_not_interesting">Скрыто как неинтересное</string>
+    <string name="post_deleted">Запись удалена</string>
+    <string name="reported">Жалоба отправлена</string>
+    <string name="show_comments_fmt">Показать комментарии (%1$d)</string>
+    <string name="list_newsfeed">Новостная лента</string>
+    <string name="list_recommendations">Рекомендации</string>
+    <string name="list_friends">Друзья</string>
+    <string name="list_photos">Фотографии</string>
+    <string name="list_videos">Видео</string>
+    <string name="action_failed">Не получилось. Попробуйте позже</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>
