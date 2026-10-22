@@ -37,6 +37,22 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     public void setHeaderUser(com.vktea.api.User user) {
         this.user = user;
         notifyItemChanged(1);
+        if (user != null && user.counters != null) {
+            applyCounter(R.id.menu_friends, user.counters.friends);
+            applyCounter(R.id.menu_messages, user.counters.messages);
+            applyCounter(R.id.menu_feedback, user.counters.notifications);
+            applyCounter(R.id.menu_groups, user.counters.groups);
+        }
+    }
+
+    private void applyCounter(int menuId, int value) {
+        for (int i = 0; i < entries.size(); i++) {
+            MenuEntry e = entries.get(i);
+            if (e.id == menuId && e.counter != value) {
+                e.counter = value;
+                notifyItemChanged(i + 2);
+            }
+        }
     }
 
     public void setSystemInsets(int top, int bottom) {

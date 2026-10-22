@@ -7,16 +7,32 @@ public class User {
     public final String lastName;
     public final String photo200;
     public final String status;
+    public final Counters counters;
 
-    public User(long id, String firstName, String lastName, String photo200, String status) {
+    public User(long id, String firstName, String lastName, String photo200, String status, Counters counters) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.photo200 = photo200;
         this.status = status;
+        this.counters = counters;
     }
 
     public String fullName() {
         return firstName + " " + lastName;
+    }
+
+    public static class Counters {
+        public final int friends;
+        public final int messages;
+        public final int notifications;
+        public final int groups;
+
+        public Counters(int friends, int messages, int notifications, int groups) {
+            this.friends = friends;
+            this.messages = messages;
+            this.notifications = notifications;
+            this.groups = groups;
+        }
     }
 }

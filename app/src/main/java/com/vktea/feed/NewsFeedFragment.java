@@ -1,0 +1,185 @@
+package com.vktea.feed;
+
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
+import com.vktea.R;
+import com.vktea.api.VKApi;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class NewsFeedFragment extends Fragment {
+
+    private static final int PAGE_SIZE = 20;
+
+    private FeedAdapter adapter;
+    private SwipeRefreshLayout refresh;
+    private RecyclerView list;
+    private boolean loading;
+    private int offset;
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.fragment_news, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        refresh = view.findViewById(R.id.feed_refresh);
+        list = view.findViewById(R.id.feed_list);
+        list.setLayoutManager(new LinearLayoutManager(requireContext()));
+        adapter = new FeedAdapter();
+        list.setAdapter(adapter);
+
+        refresh.setOnRefreshListener(() -> {
+            offset = 0;
+            load();
+        });
+        list.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
+                if (dy <= 0 || loading) {
+                    return;
+                }
+                LinearLayoutManager lm = (LinearLayoutManager) rv.getLayoutManager();
+                if (lm != null && lm.findLastVisibleItemPosition() >= adapter.getItemCount() - 5) {
+                    loading = true;
+                    load();
+                }
+            }
+        });
+
+        refresh.setRefreshing(true);
+        load();
+    }
+
+    private void load() {
+        loading = true;
+        VKApi.get(requireContext(), "newsfeed.get",
+                "filters=post&count=" + PAGE_SIZE + "&offset=" + offset + "&max_photos=1",
+                new VKApi.Callback() {
+                    @Override
+                    public void success(JSONObject response) {
+                        try {
+                            JSONObject data = response.getJSONObject("response");
+                            Map<Long, Source> sources = parseSources(data);
+                            List<Post> posts = new ArrayList<>();
+                            JSONArray items = data.getJSONArray("items");
+                            for (int i = 0; i < items.length(); i++) {
+                                Post post = parsePost(items.getJSONObject(i), sources);
+                                if (post != null) {
+                                    posts.add(post);
+                                }
+                            }
+                            offset += posts.size();
+                            if (refresh.isRefreshing()) {
+                                adapter.clear();
+                            }
+                            adapter.addAll(posts);
+                        } catch (Exception ignored) {
+                        }
+                        loading = false;
+                        refresh.setRefreshing(false);
+                    }
+
+                    @Override
+                    public void error(Exception e) {
+                        loading = false;
+                        refresh.setRefreshing(false);
+                    }
+                });
+    }
+
+    private Map<Long, Source> parseSources(JSONObject data) throws Exception {
+        Map<Long, Source> sources = new HashMap<>();
+        JSONArray profiles = data.optJSONArray("profiles");
+        if (profiles != null) {
+            for (int i = 0; i < profiles.length(); i++) {
+                JSONObject p = profiles.getJSONObject(i);
+                sources.put(p.getLong("id"), new Source(
+                        p.optString("first_name", "") + " " + p.optString("last_name", ""),
+                        p.optString("photo_100", null)));
+            }
+        }
+        JSONArray groups = data.optJSONArray("groups");
+        if (groups != null) {
+            for (int i = 0; i < groups.length(); i++) {
+                JSONObject g = groups.getJSONObject(i);
+                sources.put(-g.getLong("id"), new Source(
+                        g.optString("name", ""),
+                        g.optString("photo_100", null)));
+            }
+        }
+        return sources;
+    }
+
+    private Post parsePost(JSONObject item, Map<Long, Source> sources) throws Exception {
+        long sourceId = item.optLong("source_id", 0);
+        Source source = sources.get(sourceId);
+        if (source == null) {
+            return null;
+        }
+        String photoUrl = null;
+        JSONArray attachments = item.optJSONArray("attachments");
+        if (attachments != null) {
+            for (int i = 0; i < attachments.length(); i++) {
+                JSONObject att = attachments.getJSONObject(i);
+                if ("photo".equals(att.optString("type"))) {
+                    photoUrl = pickPhotoUrl(att.getJSONObject("photo"));
+                    break;
+                }
+            }
+        }
+        JSONObject likes = item.optJSONObject("likes");
+        JSONObject comments = item.optJSONObject("comments");
+        JSONObject reposts = item.optJSONObject("reposts");
+        return new Post(
+                sourceId,
+                source.name,
+                source.photo,
+                item.optString("text", ""),
+                item.optLong("date", 0),
+                photoUrl,
+                likes != null ? likes.optInt("count", 0) : 0,
+                comments != null ? comments.optInt("count", 0) : 0,
+                reposts != null ? reposts.optInt("count", 0) : 0);
+    }
+
+    private String pickPhotoUrl(JSONObject photo) {
+        String[] candidates = {"photo_807", "photo_604", "photo_1280", "photo_2560", "photo_130"};
+        for (String key : candidates) {
+            String url = photo.optString(key, null);
+            if (url != null && !url.isEmpty()) {
+                return url;
+            }
+        }
+        return null;
+    }
+
+    private static class Source {
+        final String name;
+        final String photo;
+
+        Source(String name, String photo) {
+            this.name = name;
+            this.photo = photo;
+        }
+    }
+}
