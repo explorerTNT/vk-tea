@@ -45,7 +45,7 @@
             android:exported="false" />
 
         <activity
-            android:name=".feed.CommentsActivity"
+            android:name=".feed.PostActivity"
             android:exported="false" />
     </application>
 

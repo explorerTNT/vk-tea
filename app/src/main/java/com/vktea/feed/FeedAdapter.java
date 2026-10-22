@@ -94,12 +94,9 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.views.setText(post.views > 0 ? formatCount(post.views) : "");
 
         holder.likes.setOnClickListener(v -> toggleLike(post, holder.getAdapterPosition(), v));
-        holder.comments.setOnClickListener(v -> v.getContext().startActivity(
-                new Intent(v.getContext(), CommentsActivity.class)
-                        .putExtra(CommentsActivity.EXTRA_TYPE, post.likeType)
-                        .putExtra(CommentsActivity.EXTRA_OWNER_ID, post.likeOwnerId)
-                        .putExtra(CommentsActivity.EXTRA_ITEM_ID, post.likeItemId)));
+        holder.comments.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
         holder.reposts.setOnClickListener(v -> repost(post, v));
+        holder.itemView.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
         holder.header.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onAuthorClick(post.sourceId);

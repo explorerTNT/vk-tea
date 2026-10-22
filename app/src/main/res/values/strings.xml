@@ -50,6 +50,7 @@
     <string name="panel_story">История</string>
     <string name="panel_post">Запись</string>
     <string name="comments_title">Комментарии</string>
+    <string name="post_title">Запись</string>
     <string name="comment_hint">Написать комментарий…</string>
     <string name="repost_done">Репост добавлен</string>
     <string name="repost_failed">Не удалось сделать репост</string>
