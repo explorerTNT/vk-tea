@@ -5,6 +5,7 @@ import android.view.View;
 
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -33,6 +34,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         menu = buildMenu();
 
         drawer = findViewById(R.id.drawer);
+        drawer.setStatusBarBackgroundColor(ContextCompat.getColor(this, R.color.vk_blue));
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
