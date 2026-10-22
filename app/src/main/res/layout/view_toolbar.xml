@@ -59,12 +59,12 @@
             android:textSize="23sp" />
 
         <ImageView
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginLeft="4dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="6dp"
             android:contentDescription="@null"
             android:scaleType="centerInside"
-            android:src="@drawable/ic_caret_down"
+            android:src="@drawable/ic_toolbar_spinner_arrow"
             app:tint="@android:color/white" />
     </LinearLayout>
 

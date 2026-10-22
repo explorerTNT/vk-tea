@@ -67,11 +67,9 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         boolean cut = post.text.length() > 300;
         holder.text.setText(post.text);
         holder.text.setMaxLines(cut && !post.expanded ? 7 : Integer.MAX_VALUE);
-        holder.text.setOnClickListener(v -> {
-            post.expanded = !post.expanded;
-            notifyItemChanged(holder.getAdapterPosition());
-        });
+        holder.text.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
         holder.more.setVisibility(cut && !post.expanded ? View.VISIBLE : View.GONE);
+        holder.more.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
 
         holder.photoContainer.removeAllViews();
         if (post.photoUrls != null && !post.photoUrls.isEmpty()) {
