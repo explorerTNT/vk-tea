@@ -1,6 +1,7 @@
 <resources>
     <style name="Theme.VKTea" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/vk_blue</item>
+        <item name="colorPrimaryDark">@color/vk_blue</item>
         <item name="android:statusBarColor">@color/vk_blue</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
