@@ -10,6 +10,10 @@ captures/
 .externalNativeBuild/
 .cxx/
 
+# Local decompiled references (Coffee / official VK); never publish upstream.
+/vk-tea-reference/
+/vk-tea-reference.rar
+
 # Signing (release keys never go public)
 *.jks
 *.keystore
