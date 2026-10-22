@@ -106,10 +106,7 @@ public class AuthActivity extends AppCompatActivity {
                     String userId = String.valueOf(json.getLong("user_id"));
                     runOnUiThread(() -> {
                         Session.save(this, token, userId);
-                        Intent intent = new Intent(this, MainActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                        finish();
+                        TokenRevealDialog.show(this, token);
                     });
                 } else {
                     String error = json.optString("error", "");
@@ -176,10 +173,7 @@ public class AuthActivity extends AppCompatActivity {
                     String userId = String.valueOf(user.getLong("id"));
                     runOnUiThread(() -> {
                         Session.save(this, token, userId);
-                        Intent intent = new Intent(this, MainActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                        finish();
+                        TokenRevealDialog.show(this, token);
                     });
                 } else {
                     runOnUiThread(() -> Toast.makeText(this, R.string.token_invalid, Toast.LENGTH_LONG).show());

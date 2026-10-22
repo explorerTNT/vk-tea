@@ -35,5 +35,11 @@
     <string name="token_title">Резервный вход</string>
     <string name="token_hint">Вставьте access token (например, из Kate Token или настроек VK Coffee)</string>
     <string name="token_invalid">Токен не работает. Проверьте и попробуйте снова.</string>
+    <string name="token_saved_title">Сохраните ваш токен</string>
+    <string name="token_saved_text">Это ключ доступа к вашему аккаунту. Если вход через VK ID или по логину однажды перестанет работать — вы сможете войти по этому токену («Войти по токену» на экране входа). Запишите его в надёжное место (заметки, менеджер паролей).</string>
+    <string name="token_danger">⚠ Никому не показывайте этот токен. Тот, кто его узнает, получит доступ к вашему аккаунту. Сотрудники VK никогда его не спросят.</string>
+    <string name="copy_token">Скопировать</string>
+    <string name="continue_btn">Продолжить</string>
+    <string name="token_copied">Токен скопирован в буфер обмена</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>

@@ -156,10 +156,7 @@ public class AuthWebViewActivity extends AppCompatActivity {
                 if (token != null && !"0".equals(userId)) {
                     runOnUiThread(() -> {
                         Session.save(this, token, userId);
-                        Intent intent = new Intent(this, MainActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                        finish();
+                        TokenRevealDialog.show(this, token);
                     });
                 } else {
                     runOnUiThread(() -> {
