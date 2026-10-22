@@ -10,8 +10,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.vk.id.AccessToken;
 import com.vk.id.VKID;
+import com.vk.id.VKIDAuthFail;
+import com.vk.id.auth.AuthCodeData;
 import com.vk.id.auth.VKIDAuthCallback;
-import com.vk.id.auth.VKIDAuthFail;
+import com.vk.id.auth.VKIDAuthParams;
 import com.vktea.MainActivity;
 import com.vktea.R;
 
@@ -33,14 +35,19 @@ public class AuthActivity extends AppCompatActivity implements VKIDAuthCallback 
     }
 
     private void startVkIdAuth() {
-        VKID.Companion.getInstance().authorize(this, this);
+        VKID.Companion.getInstance().authorize(this, this, new VKIDAuthParams.Builder().build());
     }
 
     @Override
     public void onAuth(AccessToken accessToken) {
         Session.save(this, accessToken.getToken(), String.valueOf(accessToken.getUserID()));
-        startActivity(new Intent(this, MainActivity.class));
-        finish();
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+    }
+
+    @Override
+    public void onAuthCode(AuthCodeData data, boolean isCompletion) {
     }
 
     @Override
