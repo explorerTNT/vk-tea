@@ -8,7 +8,7 @@
     <View
         android:id="@+id/menu_header_padder"
         android:layout_width="match_parent"
-        android:layout_height="24dp" />
+        android:layout_height="0dp" />
 
     <ImageView
         android:id="@+id/menu_header_avatar"
