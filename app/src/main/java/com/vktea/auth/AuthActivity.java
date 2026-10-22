@@ -57,6 +57,8 @@ public class AuthActivity extends AppCompatActivity {
             intent.putExtra(AuthWebViewActivity.EXTRA_MODE, AuthWebViewActivity.MODE_VK_ID);
             startActivityForResult(intent, 2);
         });
+        View tokenButton = findViewById(R.id.auth_token_btn);
+        tokenButton.setOnClickListener(v -> showTokenLogin());
         forgotButton.setOnClickListener(v ->
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://m.vk.com/restore"))));
     }
@@ -132,6 +134,58 @@ public class AuthActivity extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 runOnUiThread(() -> Toast.makeText(this, R.string.auth_failed, Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void showTokenLogin() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        box.setPadding(pad, pad, pad, 0);
+        EditText input = new EditText(this);
+        input.setHint(R.string.token_hint);
+        input.setSingleLine(false);
+        input.setMinLines(2);
+        box.addView(input, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.token_title)
+                .setView(box)
+                .setPositiveButton(R.string.ok, (d, w) -> checkToken(input.getText().toString().trim()))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void checkToken(String token) {
+        if (token.isEmpty()) {
+            return;
+        }
+        new Thread(() -> {
+            try {
+                HttpURLConnection conn = (HttpURLConnection) new URL(
+                        "https://api.vk.ru/method/users.get?access_token=" + token + "&v=5.199").openConnection();
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(15000);
+                Scanner scanner = new Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
+                String body = scanner.hasNext() ? scanner.next() : "";
+                scanner.close();
+                JSONObject json = new JSONObject(body);
+                if (json.has("response")) {
+                    JSONObject user = json.getJSONArray("response").getJSONObject(0);
+                    String userId = String.valueOf(user.getLong("id"));
+                    runOnUiThread(() -> {
+                        Session.save(this, token, userId);
+                        Intent intent = new Intent(this, MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
+                    });
+                } else {
+                    runOnUiThread(() -> Toast.makeText(this, R.string.token_invalid, Toast.LENGTH_LONG).show());
+                }
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(this, R.string.token_invalid, Toast.LENGTH_LONG).show());
             }
         }).start();
     }

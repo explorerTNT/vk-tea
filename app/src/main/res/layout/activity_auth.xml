@@ -84,6 +84,16 @@
             android:textSize="16sp" />
 
         <TextView
+            android:id="@+id/auth_token_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:padding="8dp"
+            android:text="@string/log_in_token"
+            android:textColor="#B3FFFFFF"
+            android:textSize="13sp" />
+
+        <TextView
             android:id="@+id/auth_forgot"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

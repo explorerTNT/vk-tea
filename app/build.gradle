@@ -9,7 +9,7 @@ def vkPropsFile = rootProject.file('local.properties')
 if (vkPropsFile.exists()) {
     vkPropsFile.withInputStream { vkProps.load(it) }
 }
-def vkClientId = System.getenv('VK_CLIENT_ID') ?: vkProps.getProperty('vk.clientId', '')
+def vkClientId = System.getenv('VK_CLIENT_ID') ?: vkProps.getProperty('vk.clientId', '54843071')
 def vkClientSecret = System.getenv('VK_CLIENT_SECRET') ?: vkProps.getProperty('vk.clientSecret', '')
 
 android {

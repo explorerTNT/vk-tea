@@ -35,8 +35,8 @@ public class AuthWebViewActivity extends AppCompatActivity {
     public static final String EXTRA_MODE = "mode";
     public static final String MODE_VK_ID = "vk_id";
 
-    private static final String AUTHORIZE_URL = "https://id.vk.com/authorize";
-    private static final String TOKEN_URL = "https://id.vk.com/oauth/token";
+    private static final String AUTHORIZE_URL = "https://id.vk.ru/authorize";
+    private static final String TOKEN_URL = "https://id.vk.ru/oauth2/auth";
     private static final String SCOPE = "offline,friends,photos,audio,video,docs,wall,messages,groups,status,notifications";
     private static final String STATE = "vktea";
 
@@ -58,7 +58,7 @@ public class AuthWebViewActivity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                String redirect = "vk" + BuildConfig.VK_CLIENT_ID + "://auth";
+                String redirect = redirectUri();
                 if (MODE_VK_ID.equals(getIntent().getStringExtra(EXTRA_MODE)) && url.startsWith(redirect)) {
                     onVkIdRedirect(url);
                     return true;
@@ -93,17 +93,24 @@ public class AuthWebViewActivity extends AppCompatActivity {
         }
     }
 
+    private static String redirectUri() {
+        return "vk" + BuildConfig.VK_CLIENT_ID + "://vk.ru/blank.html";
+    }
+
     private String buildAuthUrl() {
-        String redirect = "vk" + BuildConfig.VK_CLIENT_ID + "://auth";
-        return AUTHORIZE_URL
-                + "?client_id=" + BuildConfig.VK_CLIENT_ID
-                + "&response_type=code"
-                + "&redirect_uri=" + redirect
-                + "&scope=" + SCOPE
-                + "&code_challenge=" + codeChallenge(codeVerifier)
-                + "&code_challenge_method=S256"
-                + "&device_id=" + deviceId
-                + "&state=" + STATE;
+        try {
+            return AUTHORIZE_URL
+                    + "?client_id=" + BuildConfig.VK_CLIENT_ID
+                    + "&response_type=code"
+                    + "&redirect_uri=" + java.net.URLEncoder.encode(redirectUri(), "UTF-8")
+                    + "&scope=" + SCOPE
+                    + "&code_challenge=" + codeChallenge(codeVerifier)
+                    + "&code_challenge_method=S256"
+                    + "&device_id=" + deviceId
+                    + "&state=" + STATE;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void onVkIdRedirect(String url) {
@@ -126,7 +133,6 @@ public class AuthWebViewActivity extends AppCompatActivity {
     private void exchangeCode(String code) {
         new Thread(() -> {
             try {
-                String redirect = "vk" + BuildConfig.VK_CLIENT_ID + "://auth";
                 HttpURLConnection conn = (HttpURLConnection) new URL(TOKEN_URL).openConnection();
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
@@ -134,7 +140,7 @@ public class AuthWebViewActivity extends AppCompatActivity {
                 String form = "grant_type=authorization_code"
                         + "&code=" + code
                         + "&client_id=" + BuildConfig.VK_CLIENT_ID
-                        + "&redirect_uri=" + redirect
+                        + "&redirect_uri=" + java.net.URLEncoder.encode(redirectUri(), "UTF-8")
                         + "&code_verifier=" + codeVerifier
                         + "&device_id=" + deviceId
                         + "&state=" + STATE;

@@ -31,5 +31,9 @@
     <string name="captcha_title">Введите код с картинки</string>
     <string name="ok">ОК</string>
     <string name="log_in_vk_id">Войти через VK ID</string>
+    <string name="log_in_token">Войти по токену</string>
+    <string name="token_title">Резервный вход</string>
+    <string name="token_hint">Вставьте access token (например, из Kate Token или настроек VK Coffee)</string>
+    <string name="token_invalid">Токен не работает. Проверьте и попробуйте снова.</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>
