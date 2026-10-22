@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="vk_blue">#0077FF</color>
+    <color name="vk_blue">#FF5181B8</color>
+    <color name="almost_black">#FF2E3033</color>
+    <color name="section_header">#FF78797A</color>
+    <color name="counter_text">#FF5A7CA3</color>
+    <color name="menu_bg">#FFFFFFFF</color>
+    <color name="menu_header_bg">#FF2E3033</color>
+    <color name="menu_header_status">#BFFFFFFF</color>
+    <color name="avatar_placeholder">#FFD4DDE5</color>
+    <color name="toolbar_bg">#FFFFFFFF</color>
     <color name="ic_launcher_background">#0077FF</color>
 </resources>

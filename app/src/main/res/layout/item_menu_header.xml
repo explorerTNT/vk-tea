@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/menu_header_bg">
+
+    <View
+        android:id="@+id/menu_header_padder"
+        android:layout_width="match_parent"
+        android:layout_height="24dp" />
+
+    <ImageView
+        android:id="@+id/menu_header_avatar"
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:layout_below="@id/menu_header_padder"
+        android:layout_marginLeft="8dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_avatar"
+        android:padding="8dp"
+        android:scaleType="centerCrop"
+        android:src="@drawable/bg_avatar" />
+
+    <TextView
+        android:id="@+id/menu_header_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/menu_header_avatar"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginRight="16dp"
+        android:layout_toLeftOf="@id/menu_header_search"
+        android:ellipsize="end"
+        android:singleLine="true"
+        android:text="@string/menu_user_name"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/menu_header_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/menu_header_name"
+        android:layout_alignLeft="@id/menu_header_name"
+        android:layout_alignRight="@id/menu_header_name"
+        android:layout_marginBottom="17dp"
+        android:ellipsize="end"
+        android:paddingBottom="17dp"
+        android:singleLine="true"
+        android:text="@string/menu_user_status"
+        android:textColor="@color/menu_header_status"
+        android:textSize="14sp" />
+
+    <ImageView
+        android:id="@+id/menu_header_search"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_below="@id/menu_header_padder"
+        android:layout_alignParentRight="true"
+        android:layout_marginTop="4dp"
+        android:layout_marginRight="4dp"
+        android:scaleType="center"
+        android:src="@drawable/ic_menu_search"
+        app:tint="@android:color/white" />
+
+</RelativeLayout>

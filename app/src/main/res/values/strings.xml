@@ -2,4 +2,19 @@
     <string name="app_name">VK Tea</string>
     <string name="status_wip">Проект в ранней разработке. Чай заваривается…</string>
     <string name="credits_original">Идейный наследник клиента VK Coffee\nот OPERATOR_555 (Reversing Solutions)</string>
+
+    <string name="section_news">Новости</string>
+    <string name="section_feedback">Ответы</string>
+    <string name="section_messages">Сообщения</string>
+    <string name="section_friends">Друзья</string>
+    <string name="section_groups">Сообщества</string>
+    <string name="section_photos">Фотографии</string>
+    <string name="section_videos">Видеозаписи</string>
+    <string name="section_audios">Аудиозаписи</string>
+    <string name="section_fave">Закладки</string>
+    <string name="section_settings">Настройки</string>
+
+    <string name="section_wip">Раздел в разработке</string>
+    <string name="menu_user_name">VK Tea</string>
+    <string name="menu_user_status">Завариваем чай…</string>
 </resources>
