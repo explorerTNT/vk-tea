@@ -11,5 +11,10 @@
     <color name="menu_header_status">#BFFFFFFF</color>
     <color name="avatar_placeholder">#FFD4DDE5</color>
     <color name="toolbar_bg">#FFFFFFFF</color>
+    <color name="post_name">#FF4774A8</color>
+    <color name="post_time">#FF909499</color>
+    <color name="post_icons">#FF99A2AD</color>
+    <color name="post_divider">#26000000</color>
+    <color name="msg_in_bg">#FFEBEDF0</color>
     <color name="ic_launcher_background">#0077FF</color>
 </resources>

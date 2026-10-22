@@ -39,6 +39,10 @@
                     android:scheme="vk2274003" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".msg.ChatActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

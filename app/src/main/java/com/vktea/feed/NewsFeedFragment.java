@@ -45,7 +45,12 @@ public class NewsFeedFragment extends Fragment {
         refresh = view.findViewById(R.id.feed_refresh);
         list = view.findViewById(R.id.feed_list);
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
-        adapter = new FeedAdapter();
+        adapter = new FeedAdapter(sourceId -> {
+            if (getActivity() instanceof com.vktea.MainActivity) {
+                ((com.vktea.MainActivity) getActivity()).openFragment(
+                        com.vktea.feed.ProfileFragment.newInstance(sourceId), R.string.profile_title);
+            }
+        });
         list.setAdapter(adapter);
 
         refresh.setOnRefreshListener(() -> {
@@ -73,7 +78,7 @@ public class NewsFeedFragment extends Fragment {
     private void load() {
         loading = true;
         VKApi.get(requireContext(), "newsfeed.get",
-                "filters=post&count=" + PAGE_SIZE + "&offset=" + offset + "&max_photos=1",
+                "filters=post,photo&count=" + PAGE_SIZE + "&offset=" + offset + "&max_photos=1",
                 new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
@@ -147,9 +152,13 @@ public class NewsFeedFragment extends Fragment {
                 }
             }
         }
+        if (photoUrl == null && "photo".equals(item.optString("type"))) {
+            photoUrl = pickPhotoUrl(item.optJSONObject("photo"));
+        }
         JSONObject likes = item.optJSONObject("likes");
         JSONObject comments = item.optJSONObject("comments");
         JSONObject reposts = item.optJSONObject("reposts");
+        JSONObject views = item.optJSONObject("views");
         return new Post(
                 sourceId,
                 source.name,
@@ -159,16 +168,34 @@ public class NewsFeedFragment extends Fragment {
                 photoUrl,
                 likes != null ? likes.optInt("count", 0) : 0,
                 comments != null ? comments.optInt("count", 0) : 0,
-                reposts != null ? reposts.optInt("count", 0) : 0);
+                reposts != null ? reposts.optInt("count", 0) : 0,
+                views != null ? views.optInt("count", 0) : 0);
     }
 
     private String pickPhotoUrl(JSONObject photo) {
-        String[] candidates = {"photo_807", "photo_604", "photo_1280", "photo_2560", "photo_130"};
+        String[] candidates = {"photo_2560", "photo_1280", "photo_807", "photo_604", "photo_130"};
         for (String key : candidates) {
             String url = photo.optString(key, null);
             if (url != null && !url.isEmpty()) {
                 return url;
             }
+        }
+        JSONArray sizes = photo.optJSONArray("sizes");
+        if (sizes != null) {
+            String best = null;
+            int bestArea = 0;
+            for (int i = 0; i < sizes.length(); i++) {
+                JSONObject s = sizes.optJSONObject(i);
+                if (s == null) {
+                    continue;
+                }
+                int area = s.optInt("width", 0) * s.optInt("height", 0);
+                if (area > bestArea) {
+                    bestArea = area;
+                    best = s.optString("url", null);
+                }
+            }
+            return best;
         }
         return null;
     }

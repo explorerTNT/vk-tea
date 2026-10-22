@@ -19,7 +19,16 @@ import java.util.List;
 
 public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder> {
 
+    public interface Listener {
+        void onAuthorClick(long sourceId);
+    }
+
     private final List<Post> posts = new ArrayList<>();
+    private final Listener listener;
+
+    public FeedAdapter(Listener listener) {
+        this.listener = listener;
+    }
 
     public void addAll(List<Post> newPosts) {
         int start = posts.size();
@@ -69,9 +78,16 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
                     .into(holder.avatar);
         }
 
-        holder.likes.setText(String.valueOf(post.likes));
-        holder.comments.setText(String.valueOf(post.comments));
-        holder.reposts.setText(String.valueOf(post.reposts));
+        holder.likes.setText(post.likes > 0 ? String.valueOf(post.likes) : "");
+        holder.comments.setText(post.comments > 0 ? String.valueOf(post.comments) : "");
+        holder.reposts.setText(post.reposts > 0 ? String.valueOf(post.reposts) : "");
+        holder.views.setText(post.views > 0 ? String.valueOf(post.views) : "");
+
+        holder.header.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onAuthorClick(post.sourceId);
+            }
+        });
     }
 
     @Override
@@ -89,6 +105,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         final TextView likes;
         final TextView comments;
         final TextView reposts;
+        final TextView views;
+        final View header;
 
         PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -100,6 +118,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             likes = itemView.findViewById(R.id.post_likes);
             comments = itemView.findViewById(R.id.post_comments);
             reposts = itemView.findViewById(R.id.post_reposts);
+            views = itemView.findViewById(R.id.post_views);
+            header = itemView.findViewById(R.id.post_header_btn);
         }
     }
 }

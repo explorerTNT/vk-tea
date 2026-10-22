@@ -142,6 +142,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.ui.SettingsFragment();
                 } else if (menuId == R.id.menu_news) {
                     fragment = new com.vktea.feed.NewsFeedFragment();
+                } else if (menuId == R.id.menu_messages) {
+                    fragment = new com.vktea.msg.DialogsFragment();
                 } else {
                     fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
                 }
@@ -152,5 +154,14 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 return;
             }
         }
+    }
+
+    public void openFragment(androidx.fragment.app.Fragment fragment, int titleRes) {
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.content, fragment)
+                .addToBackStack(null)
+                .commit();
+        getSupportActionBar().setTitle(titleRes);
     }
 }
