@@ -43,6 +43,10 @@
         <activity
             android:name=".msg.ChatActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".feed.CommentsActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

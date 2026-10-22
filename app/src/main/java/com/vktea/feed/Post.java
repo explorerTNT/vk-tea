@@ -5,20 +5,28 @@ import java.util.List;
 
 public class Post {
 
+    public static final int TYPE_POST = 0;
+    public static final int TYPE_PHOTO = 1;
+
     public final long sourceId;
     public final String sourceName;
     public final String sourcePhoto;
     public final String text;
     public final long date;
     public final List<String> photoUrls;
-    public final int likes;
+    public int likes;
     public final int comments;
     public final int reposts;
     public final int views;
+    public boolean userLikes;
+    public final int likeType;
+    public final long likeOwnerId;
+    public final long likeItemId;
     public boolean expanded;
 
     public Post(long sourceId, String sourceName, String sourcePhoto, String text, long date,
-                List<String> photoUrls, int likes, int comments, int reposts, int views) {
+                List<String> photoUrls, int likes, int comments, int reposts, int views,
+                boolean userLikes, int likeType, long likeOwnerId, long likeItemId) {
         this.sourceId = sourceId;
         this.sourceName = sourceName;
         this.sourcePhoto = sourcePhoto;
@@ -29,5 +37,9 @@ public class Post {
         this.comments = comments;
         this.reposts = reposts;
         this.views = views;
+        this.userLikes = userLikes;
+        this.likeType = likeType;
+        this.likeOwnerId = likeOwnerId;
+        this.likeItemId = likeItemId;
     }
 }

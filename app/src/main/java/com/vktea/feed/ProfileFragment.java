@@ -144,7 +144,11 @@ public class ProfileFragment extends Fragment {
                                         likes != null ? likes.optInt("count", 0) : 0,
                                         comments != null ? comments.optInt("count", 0) : 0,
                                         reposts != null ? reposts.optInt("count", 0) : 0,
-                                        views != null ? views.optInt("count", 0) : 0));
+                                        views != null ? views.optInt("count", 0) : 0,
+                                        likes != null && likes.optInt("user_likes", 0) == 1,
+                                        com.vktea.feed.Post.TYPE_POST,
+                                        sid,
+                                        item.optLong("id", 0)));
                             }
                             adapter.clear();
                             adapter.addAll(posts);

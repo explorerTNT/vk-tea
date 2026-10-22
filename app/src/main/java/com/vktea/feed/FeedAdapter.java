@@ -1,23 +1,29 @@
 package com.vktea.feed;
 
-import android.text.format.DateUtils;
-import android.view.Gravity;
+import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.vktea.R;
+import com.vktea.api.VKApi;
+
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder> {
 
@@ -63,14 +69,9 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.text.setMaxLines(cut && !post.expanded ? 7 : Integer.MAX_VALUE);
         holder.text.setOnClickListener(v -> {
             post.expanded = !post.expanded;
-            notifyItemChanged(position);
+            notifyItemChanged(holder.getAdapterPosition());
         });
-
-        if (cut && !post.expanded) {
-            holder.more.setVisibility(View.VISIBLE);
-        } else {
-            holder.more.setVisibility(View.GONE);
-        }
+        holder.more.setVisibility(cut && !post.expanded ? View.VISIBLE : View.GONE);
 
         holder.photoContainer.removeAllViews();
         if (post.photoUrls != null && !post.photoUrls.isEmpty()) {
@@ -86,16 +87,84 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
                     .into(holder.avatar);
         }
 
-        holder.likes.setText(post.likes > 0 ? String.valueOf(post.likes) : "");
-        holder.comments.setText(post.comments > 0 ? String.valueOf(post.comments) : "");
-        holder.reposts.setText(post.reposts > 0 ? String.valueOf(post.reposts) : "");
-        holder.views.setText(post.views > 0 ? String.valueOf(post.views) : "");
+        applyLikeState(holder.likes, post);
+        holder.likes.setText(post.likes > 0 ? formatCount(post.likes) : "");
+        holder.comments.setText(post.comments > 0 ? formatCount(post.comments) : "");
+        holder.reposts.setText(post.reposts > 0 ? formatCount(post.reposts) : "");
+        holder.views.setText(post.views > 0 ? formatCount(post.views) : "");
 
+        holder.likes.setOnClickListener(v -> toggleLike(post, holder.getAdapterPosition(), v));
+        holder.comments.setOnClickListener(v -> v.getContext().startActivity(
+                new Intent(v.getContext(), CommentsActivity.class)
+                        .putExtra(CommentsActivity.EXTRA_TYPE, post.likeType)
+                        .putExtra(CommentsActivity.EXTRA_OWNER_ID, post.likeOwnerId)
+                        .putExtra(CommentsActivity.EXTRA_ITEM_ID, post.likeItemId)));
+        holder.reposts.setOnClickListener(v -> repost(post, v));
         holder.header.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onAuthorClick(post.sourceId);
             }
         });
+    }
+
+    private void applyLikeState(TextView view, Post post) {
+        int color = ContextCompat.getColor(view.getContext(),
+                post.userLikes ? R.color.vk_blue : R.color.post_icons);
+        view.setTextColor(color);
+        view.setCompoundDrawableTintList(ColorStateList.valueOf(color));
+    }
+
+    private void toggleLike(Post post, int position, View view) {
+        String type = post.likeType == Post.TYPE_PHOTO ? "photo" : "post";
+        String method = post.userLikes ? "likes.delete" : "likes.add";
+        post.userLikes = !post.userLikes;
+        post.likes += post.userLikes ? 1 : -1;
+        notifyItemChanged(position);
+        VKApi.get(view.getContext(), method,
+                "type=" + type + "&owner_id=" + post.likeOwnerId + "&item_id=" + post.likeItemId,
+                new VKApi.Callback() {
+                    @Override
+                    public void success(JSONObject response) {
+                    }
+
+                    @Override
+                    public void error(Exception e) {
+                        post.userLikes = !post.userLikes;
+                        post.likes += post.userLikes ? 1 : -1;
+                        notifyItemChanged(position);
+                    }
+                });
+    }
+
+    private void repost(Post post, View itemView) {
+        if (post.likeType == Post.TYPE_PHOTO) {
+            Toast.makeText(itemView.getContext(), R.string.repost_photo_unsupported, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        VKApi.get(itemView.getContext(), "wall.repost",
+                "object=wall" + post.likeOwnerId + "_" + post.likeItemId,
+                new VKApi.Callback() {
+                    @Override
+                    public void success(JSONObject response) {
+                        Toast.makeText(itemView.getContext(), R.string.repost_done, Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void error(Exception e) {
+                        Toast.makeText(itemView.getContext(), R.string.repost_failed, Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    public static String formatCount(int count) {
+        if (count < 1000) {
+            return String.valueOf(count);
+        }
+        if (count < 1000000) {
+            float v = count / 1000f;
+            return String.format(Locale.US, v < 100 ? "%.1fK" : "%.0fK", v);
+        }
+        return String.format(Locale.US, "%.1fM", count / 1000000f);
     }
 
     private void buildPhotoGrid(LinearLayout container, List<String> urls) {

@@ -142,27 +142,47 @@ public class NewsFeedFragment extends Fragment {
             return null;
         }
         List<String> photoUrls = new ArrayList<>();
-        JSONArray attachments = item.optJSONArray("attachments");
-        if (attachments != null) {
-            for (int i = 0; i < attachments.length(); i++) {
-                JSONObject att = attachments.getJSONObject(i);
-                if ("photo".equals(att.optString("type"))) {
-                    String u = pickPhotoUrl(att.getJSONObject("photo"));
-                    if (u != null && photoUrls.size() < 10) { photoUrls.add(u); }
+        JSONObject countsHolder = item;
+        int likeType = Post.TYPE_POST;
+        long likeOwnerId = sourceId;
+        long likeItemId = item.optLong("post_id", item.optLong("id", 0));
+
+        String type = item.optString("type", "post");
+        if ("photo".equals(type)) {
+            JSONObject photosWrap = item.optJSONObject("photos");
+            JSONArray photoItems = photosWrap != null ? photosWrap.optJSONArray("items") : null;
+            if (photoItems != null && photoItems.length() > 0) {
+                JSONObject first = photoItems.getJSONObject(0);
+                countsHolder = first;
+                likeType = Post.TYPE_PHOTO;
+                likeOwnerId = first.optLong("owner_id", sourceId);
+                likeItemId = first.optLong("id", 0);
+                for (int i = 0; i < photoItems.length() && photoUrls.size() < 10; i++) {
+                    String u = pickPhotoUrl(photoItems.getJSONObject(i));
+                    if (u != null) {
+                        photoUrls.add(u);
+                    }
+                }
+            }
+        } else {
+            JSONArray attachments = item.optJSONArray("attachments");
+            if (attachments != null) {
+                for (int i = 0; i < attachments.length(); i++) {
+                    JSONObject att = attachments.getJSONObject(i);
+                    if ("photo".equals(att.optString("type"))) {
+                        String u = pickPhotoUrl(att.getJSONObject("photo"));
+                        if (u != null && photoUrls.size() < 10) {
+                            photoUrls.add(u);
+                        }
+                    }
                 }
             }
         }
-        if (photoUrls.isEmpty() && "photo".equals(item.optString("type"))) {
-            String u = pickPhotoUrl(item.optJSONObject("photo"));
-            if (u != null) { photoUrls.add(u); }
-        }
-        for (String u : photoUrls) {
-            android.util.Log.d("VKTea", "picked: " + u);
-        }
-        JSONObject likes = item.optJSONObject("likes");
-        JSONObject comments = item.optJSONObject("comments");
-        JSONObject reposts = item.optJSONObject("reposts");
-        JSONObject views = item.optJSONObject("views");
+
+        JSONObject likes = countsHolder.optJSONObject("likes");
+        JSONObject comments = countsHolder.optJSONObject("comments");
+        JSONObject reposts = countsHolder.optJSONObject("reposts");
+        JSONObject views = countsHolder.optJSONObject("views");
         return new Post(
                 sourceId,
                 source.name,
@@ -173,7 +193,11 @@ public class NewsFeedFragment extends Fragment {
                 likes != null ? likes.optInt("count", 0) : 0,
                 comments != null ? comments.optInt("count", 0) : 0,
                 reposts != null ? reposts.optInt("count", 0) : 0,
-                views != null ? views.optInt("count", 0) : 0);
+                views != null ? views.optInt("count", 0) : 0,
+                likes != null && likes.optInt("user_likes", 0) == 1,
+                likeType,
+                likeOwnerId,
+                likeItemId);
     }
 
     private String pickPhotoUrl(JSONObject photo) {
