@@ -122,17 +122,16 @@ public class ProfileFragment extends Fragment {
                                 long sid = item.optLong("from_id", userId);
                                 String[] src = sources.containsKey(sid) ? sources.get(sid)
                                         : new String[]{"", ""};
-                                String photoUrl = null;
+                                java.util.List<String> photoUrls = new java.util.ArrayList<>();
                                 JSONArray attachments = item.optJSONArray("attachments");
                                 if (attachments != null) {
-                                    for (int a = 0; a < attachments.length(); a++) {
+                                    for (int a = 0; a < attachments.length() && photoUrls.size() < 4; a++) {
                                         JSONObject att = attachments.getJSONObject(a);
                                         if ("photo".equals(att.optString("type"))) {
-                                            photoUrl = att.getJSONObject("photo").optString("photo_604", null);
-                                            if (photoUrl == null || photoUrl.isEmpty()) {
-                                                photoUrl = pickFromSizes(att.getJSONObject("photo"));
+                                            String purl = pickFromSizes(att.getJSONObject("photo"));
+                                            if (purl != null) {
+                                                photoUrls.add(purl);
                                             }
-                                            break;
                                         }
                                     }
                                 }
@@ -141,7 +140,7 @@ public class ProfileFragment extends Fragment {
                                 JSONObject reposts = item.optJSONObject("reposts");
                                 JSONObject views = item.optJSONObject("views");
                                 posts.add(new Post(sid, src[0], src[1],
-                                        item.optString("text", ""), item.optLong("date", 0), photoUrl,
+                                        item.optString("text", ""), item.optLong("date", 0), photoUrls,
                                         likes != null ? likes.optInt("count", 0) : 0,
                                         comments != null ? comments.optInt("count", 0) : 0,
                                         reposts != null ? reposts.optInt("count", 0) : 0,

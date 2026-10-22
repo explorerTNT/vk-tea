@@ -1,10 +1,12 @@
 package com.vktea.feed;
 
 import android.text.format.DateUtils;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -56,22 +58,26 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.name.setText(post.sourceName);
         holder.time.setText(com.vktea.util.RuDate.format(post.date));
 
-        if (post.text == null || post.text.isEmpty()) {
-            holder.text.setVisibility(View.GONE);
+        boolean cut = post.text.length() > 300;
+        holder.text.setText(post.text);
+        holder.text.setMaxLines(cut && !post.expanded ? 7 : Integer.MAX_VALUE);
+        holder.text.setOnClickListener(v -> {
+            post.expanded = !post.expanded;
+            notifyItemChanged(position);
+        });
+
+        if (cut && !post.expanded) {
+            holder.more.setVisibility(View.VISIBLE);
         } else {
-            holder.text.setVisibility(View.VISIBLE);
-            holder.text.setText(post.text);
+            holder.more.setVisibility(View.GONE);
         }
 
-        if (post.photoUrl != null) {
-            holder.photo.setVisibility(View.VISIBLE);
-            android.util.Log.d("VKTea", "photo url: " + post.photoUrl);
-            Glide.with(holder.photo)
-                    .load(post.photoUrl)
-                    .override(com.bumptech.glide.request.target.Target.SIZE_ORIGINAL)
-                    .into(holder.photo);
+        holder.photoContainer.removeAllViews();
+        if (post.photoUrls != null && !post.photoUrls.isEmpty()) {
+            holder.photoContainer.setVisibility(View.VISIBLE);
+            buildPhotoGrid(holder.photoContainer, post.photoUrls);
         } else {
-            holder.photo.setVisibility(View.GONE);
+            holder.photoContainer.setVisibility(View.GONE);
         }
 
         if (post.sourcePhoto != null) {
@@ -92,6 +98,57 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         });
     }
 
+    private void buildPhotoGrid(LinearLayout container, List<String> urls) {
+        int n = Math.min(urls.size(), 4);
+        int gap = 1;
+        android.content.Context ctx = container.getContext();
+        if (n == 1) {
+            container.addView(makePhoto(ctx, urls.get(0), ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+            return;
+        }
+        if (n == 3) {
+            container.addView(makePhoto(ctx, urls.get(0), ViewGroup.LayoutParams.MATCH_PARENT, 0));
+            container.addView(makeRow(ctx, urls.subList(1, 3), gap, gap));
+            return;
+        }
+        container.addView(makeRow(ctx, urls.subList(0, Math.min(2, n)), gap, 0));
+        if (n > 2) {
+            container.addView(makeRow(ctx, urls.subList(2, n), gap, gap));
+        }
+    }
+
+    private LinearLayout makeRow(android.content.Context ctx, List<String> urls, int gap, int topMargin) {
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(0, topMargin, 0, 0);
+        for (String url : urls) {
+            row.addView(makeCell(ctx, url, gap));
+        }
+        return row;
+    }
+
+    private ImageView makePhoto(android.content.Context ctx, String url, int width, int height) {
+        ImageView iv = new ImageView(ctx);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(width, height);
+        lp.setMargins(1, 1, 1, 1);
+        iv.setLayoutParams(lp);
+        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        Glide.with(iv).load(url).override(com.bumptech.glide.request.target.Target.SIZE_ORIGINAL).into(iv);
+        return iv;
+    }
+
+    private ImageView makeCell(android.content.Context ctx, String url, int gap) {
+        ImageView iv = new ImageView(ctx);
+        int h = (int) (160 * ctx.getResources().getDisplayMetrics().density);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, h, 1f);
+        lp.setMargins(gap, gap, gap, gap);
+        iv.setLayoutParams(lp);
+        iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        Glide.with(iv).load(url).override(com.bumptech.glide.request.target.Target.SIZE_ORIGINAL).into(iv);
+        return iv;
+    }
+
     @Override
     public int getItemCount() {
         return posts.size();
@@ -103,7 +160,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         final TextView name;
         final TextView time;
         final TextView text;
-        final ImageView photo;
+        final LinearLayout photoContainer;
+        final TextView more;
         final TextView likes;
         final TextView comments;
         final TextView reposts;
@@ -116,7 +174,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             name = itemView.findViewById(R.id.post_name);
             time = itemView.findViewById(R.id.post_time);
             text = itemView.findViewById(R.id.post_text);
-            photo = itemView.findViewById(R.id.post_photo);
+            photoContainer = itemView.findViewById(R.id.post_photos);
+            more = itemView.findViewById(R.id.post_more);
             likes = itemView.findViewById(R.id.post_likes);
             comments = itemView.findViewById(R.id.post_comments);
             reposts = itemView.findViewById(R.id.post_reposts);

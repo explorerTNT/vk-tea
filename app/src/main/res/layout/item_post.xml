@@ -76,14 +76,25 @@
         android:textColor="@color/almost_black"
         android:textSize="15sp" />
 
-    <ImageView
-        android:id="@+id/post_photo"
+    <TextView
+        android:id="@+id/post_more"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:paddingTop="4dp"
+        android:text="Показать полностью..."
+        android:textColor="@color/vk_blue"
+        android:textSize="15sp"
+        android:fontFamily="sans-serif-medium"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/post_photos"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:adjustViewBounds="true"
-        android:contentDescription="@null"
-        android:scaleType="fitCenter" />
+        android:orientation="vertical" />
 
     <RelativeLayout
         android:layout_width="match_parent"

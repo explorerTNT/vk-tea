@@ -3,6 +3,11 @@ package com.vktea;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.PopupMenu;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
@@ -31,27 +36,30 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private LeftMenuAdapter menuAdapter;
     private List<MenuEntry> menu;
     private int currentId;
+    private TextView toolbarTitle;
+    private TextView toolbarBadge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        if (!Session.isAuthorized(this)) {
-            startActivity(new Intent(this, AuthActivity.class));
-            finish();
-            return;
-        }
-
         setContentView(R.layout.activity_main);
 
         menu = buildMenu();
 
         drawer = findViewById(R.id.drawer);
-        drawer.setStatusBarBackgroundColor(ContextCompat.getColor(this, R.color.vk_blue));
-        MaterialToolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
+        View burger = findViewById(R.id.toolbar_burger);
+        toolbarTitle = findViewById(R.id.toolbar_title);
+        toolbarBadge = findViewById(R.id.toolbar_badge);
 
-        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this, drawer, toolbar, 0, 0) {
+        burger.setOnClickListener(v -> drawer.openDrawer(menuView));
+
+        View titleBtn = findViewById(R.id.toolbar_title_btn);
+        titleBtn.setOnClickListener(this::showSectionDropdown);
+
+        findViewById(R.id.toolbar_search).setOnClickListener(v ->
+                Toast.makeText(this, R.string.section_search, Toast.LENGTH_SHORT).show());
+
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this, drawer, null, 0, 0) {
             @Override
             public void onDrawerSlide(View drawerView, float slideOffset) {
                 super.onDrawerSlide(drawerView, Math.min(slideOffset, 0.02f));
@@ -72,39 +80,24 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             return insets;
         });
 
-        com.vktea.api.VKApi.get(this, "users.get", "fields=photo_200,status,counters", new com.vktea.api.VKApi.Callback() {
-            @Override
-            public void success(org.json.JSONObject response) {
-                try {
-                    org.json.JSONObject u = response.getJSONArray("response").getJSONObject(0);
-                    com.vktea.api.User.Counters counters = null;
-                    if (u.has("counters")) {
-                        org.json.JSONObject c = u.getJSONObject("counters");
-                        counters = new com.vktea.api.User.Counters(
-                                c.optInt("friends", 0),
-                                c.optInt("messages", 0),
-                                c.optInt("notifications", 0),
-                                c.optInt("groups", 0));
-                    }
-                    menuAdapter.setHeaderUser(new com.vktea.api.User(
-                            u.getLong("id"),
-                            u.optString("first_name", ""),
-                            u.optString("last_name", ""),
-                            u.optString("photo_200", null),
-                            u.optString("status", ""),
-                            counters));
-                } catch (Exception ignored) {
-                }
-            }
-
-            @Override
-            public void error(Exception e) {
-            }
-        });
+        toolbarTitle.setText(getString(R.string.section_news));
 
         if (savedInstanceState == null) {
             showSection(R.id.menu_news);
         }
+    }
+
+    private void showSectionDropdown(View anchor) {
+        PopupMenu popup = new PopupMenu(this, anchor);
+        for (int i = 0; i < menu.size(); i++) {
+            MenuEntry entry = menu.get(i);
+            popup.getMenu().add(0, entry.id, i, entry.titleRes);
+        }
+        popup.setOnMenuItemClickListener(item -> {
+            showSection(item.getItemId());
+            return true;
+        });
+        popup.show();
     }
 
     private List<MenuEntry> buildMenu() {
@@ -135,7 +128,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         for (MenuEntry entry : menu) {
             if (entry.id == menuId) {
                 currentId = menuId;
-                getSupportActionBar().setTitle(entry.titleRes);
+                toolbarTitle.setText(entry.titleRes);
                 menuAdapter.setSelectedId(menuId);
                 androidx.fragment.app.Fragment fragment;
                 if (menuId == R.id.menu_settings) {
@@ -162,6 +155,6 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 .replace(R.id.content, fragment)
                 .addToBackStack(null)
                 .commit();
-        getSupportActionBar().setTitle(titleRes);
+        toolbarTitle.setText(titleRes);
     }
 }

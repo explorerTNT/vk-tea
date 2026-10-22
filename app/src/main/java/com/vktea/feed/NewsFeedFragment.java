@@ -141,22 +141,23 @@ public class NewsFeedFragment extends Fragment {
         if (source == null) {
             return null;
         }
-        String photoUrl = null;
+        List<String> photoUrls = new ArrayList<>();
         JSONArray attachments = item.optJSONArray("attachments");
         if (attachments != null) {
             for (int i = 0; i < attachments.length(); i++) {
                 JSONObject att = attachments.getJSONObject(i);
                 if ("photo".equals(att.optString("type"))) {
-                    photoUrl = pickPhotoUrl(att.getJSONObject("photo"));
-                    break;
+                    String u = pickPhotoUrl(att.getJSONObject("photo"));
+                    if (u != null && photoUrls.size() < 4) { photoUrls.add(u); }
                 }
             }
         }
-        if (photoUrl == null && "photo".equals(item.optString("type"))) {
-            photoUrl = pickPhotoUrl(item.optJSONObject("photo"));
+        if (photoUrls.isEmpty() && "photo".equals(item.optString("type"))) {
+            String u = pickPhotoUrl(item.optJSONObject("photo"));
+            if (u != null) { photoUrls.add(u); }
         }
-        if (photoUrl != null) {
-            android.util.Log.d("VKTea", "picked: " + photoUrl);
+        for (String u : photoUrls) {
+            android.util.Log.d("VKTea", "picked: " + u);
         }
         JSONObject likes = item.optJSONObject("likes");
         JSONObject comments = item.optJSONObject("comments");
@@ -168,7 +169,7 @@ public class NewsFeedFragment extends Fragment {
                 source.photo,
                 item.optString("text", ""),
                 item.optLong("date", 0),
-                photoUrl,
+                photoUrls,
                 likes != null ? likes.optInt("count", 0) : 0,
                 comments != null ? comments.optInt("count", 0) : 0,
                 reposts != null ? reposts.optInt("count", 0) : 0,
@@ -198,7 +199,6 @@ public class NewsFeedFragment extends Fragment {
                 for (int t = 0; t < typeOrder.length; t++) {
                     if (typeOrder[t].equals(type)) {
                         rank = t;
-                        break;
                     }
                 }
                 if (rank > bestRank) {
