@@ -18,7 +18,7 @@
 
         <Space
             android:layout_width="0dp"
-            android:layout_height="64dp" />
+            android:layout_height="48dp" />
 
         <ImageView
             android:layout_width="wrap_content"
@@ -28,19 +28,40 @@
             android:alpha="0.9"
             android:src="@drawable/login_logo" />
 
-        <TextView
+        <EditText
+            android:id="@+id/auth_login"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:gravity="center"
-            android:text="@string/auth_vk_id_hint"
-            android:textColor="#B3FFFFFF"
-            android:textSize="15sp" />
+            android:layout_height="56dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_auth_field"
+            android:hint="@string/mail_or_login"
+            android:imeOptions="flagNoExtractUi"
+            android:inputType="textEmailAddress"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:textColor="@android:color/white"
+            android:textColorHint="#80FFFFFF"
+            android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/auth_pass"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_auth_field"
+            android:hint="@string/password"
+            android:imeOptions="flagNoExtractUi"
+            android:inputType="textPassword"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:textColor="@android:color/white"
+            android:textColorHint="#80FFFFFF"
+            android:textSize="16sp" />
 
         <TextView
             android:id="@+id/auth_login_btn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
             android:background="@drawable/bg_login_button"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
@@ -50,14 +71,15 @@
             android:textSize="16sp" />
 
         <TextView
-            android:id="@+id/auth_signup_btn"
+            android:id="@+id/auth_vk_id_btn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:background="@drawable/bg_outline_white"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:minHeight="48dp"
-            android:text="@string/register"
+            android:text="@string/log_in_vk_id"
             android:textColor="@android:color/white"
             android:textSize="16sp" />
 
@@ -73,6 +95,6 @@
 
         <Space
             android:layout_width="0dp"
-            android:layout_height="64dp" />
+            android:layout_height="48dp" />
     </LinearLayout>
 </ScrollView>

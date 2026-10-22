@@ -2,29 +2,47 @@ package com.vktea.auth;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
-import android.view.View;
-import android.webkit.CookieManager;
+import android.util.Base64;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.vktea.BuildConfig;
 import com.vktea.MainActivity;
 import com.vktea.R;
 
+import org.json.JSONObject;
+
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
 
 public class AuthWebViewActivity extends AppCompatActivity {
 
-    public static final String CLIENT_ID = "4705861";
-    public static final String REDIRECT_URI = "https://oauth.vk.com/blank.html";
-    public static final String SCOPE = "friends,photos,audio,video,docs,wall,messages,offline,groups,status,notifications";
+    public static final String EXTRA_MODE = "mode";
+    public static final String MODE_VK_ID = "vk_id";
+
+    private static final String AUTHORIZE_URL = "https://id.vk.com/authorize";
+    private static final String TOKEN_URL = "https://id.vk.com/oauth/token";
+    private static final String SCOPE = "offline,friends,photos,audio,video,docs,wall,messages,groups,status,notifications";
+    private static final String STATE = "vktea";
 
     private WebView webView;
+    private String codeVerifier;
+    private String deviceId;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -36,13 +54,13 @@ public class AuthWebViewActivity extends AppCompatActivity {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        CookieManager.getInstance().setAcceptCookie(true);
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (url.startsWith(REDIRECT_URI)) {
-                    parseToken(url);
+                String redirect = "vk" + BuildConfig.VK_CLIENT_ID + "://auth";
+                if (MODE_VK_ID.equals(getIntent().getStringExtra(EXTRA_MODE)) && url.startsWith(redirect)) {
+                    onVkIdRedirect(url);
                     return true;
                 }
                 return false;
@@ -54,54 +72,149 @@ public class AuthWebViewActivity extends AppCompatActivity {
             }
         });
 
-        if (savedInstanceState == null) {
-            webView.loadUrl(buildAuthUrl());
+        Uri data = getIntent().getData();
+        if (data != null) {
+            if (savedInstanceState == null) {
+                webView.loadUrl(data.toString());
+            }
+        } else if (MODE_VK_ID.equals(getIntent().getStringExtra(EXTRA_MODE))) {
+            if (BuildConfig.VK_CLIENT_ID == null || BuildConfig.VK_CLIENT_ID.isEmpty()) {
+                Toast.makeText(this, R.string.vk_id_not_configured, Toast.LENGTH_LONG).show();
+                finish();
+                return;
+            }
+            codeVerifier = makeVerifier();
+            deviceId = loadDeviceId();
+            if (savedInstanceState == null) {
+                webView.loadUrl(buildAuthUrl());
+            }
         } else {
-            webView.restoreState(savedInstanceState);
+            finish();
         }
     }
 
     private String buildAuthUrl() {
-        return "https://oauth.vk.com/authorize"
-                + "?client_id=" + CLIENT_ID
-                + "&redirect_uri=" + REDIRECT_URI
-                + "&response_type=token"
+        String redirect = "vk" + BuildConfig.VK_CLIENT_ID + "://auth";
+        return AUTHORIZE_URL
+                + "?client_id=" + BuildConfig.VK_CLIENT_ID
+                + "&response_type=code"
+                + "&redirect_uri=" + redirect
                 + "&scope=" + SCOPE
-                + "&revoke=1"
-                + "&display=mobile";
+                + "&code_challenge=" + codeChallenge(codeVerifier)
+                + "&code_challenge_method=S256"
+                + "&device_id=" + deviceId
+                + "&state=" + STATE;
     }
 
-    private void parseToken(String url) {
-        String fragment = url.substring(url.indexOf('#') + 1);
+    private void onVkIdRedirect(String url) {
+        Map<String, String> params = parseQuery(url.substring(url.indexOf('?') + 1));
+        String code = params.get("code");
+        String state = params.get("state");
+        String device = params.get("device_id");
+        if (device != null && !device.isEmpty()) {
+            saveDeviceId(device);
+            deviceId = device;
+        }
+        if (code != null && STATE.equals(state)) {
+            exchangeCode(code);
+        } else {
+            Toast.makeText(this, R.string.auth_failed, Toast.LENGTH_LONG).show();
+            finish();
+        }
+    }
+
+    private void exchangeCode(String code) {
+        new Thread(() -> {
+            try {
+                String redirect = "vk" + BuildConfig.VK_CLIENT_ID + "://auth";
+                HttpURLConnection conn = (HttpURLConnection) new URL(TOKEN_URL).openConnection();
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                String form = "grant_type=authorization_code"
+                        + "&code=" + code
+                        + "&client_id=" + BuildConfig.VK_CLIENT_ID
+                        + "&redirect_uri=" + redirect
+                        + "&code_verifier=" + codeVerifier
+                        + "&device_id=" + deviceId
+                        + "&state=" + STATE;
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(form.getBytes(StandardCharsets.UTF_8));
+                }
+                Scanner scanner = new Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
+                String body = scanner.hasNext() ? scanner.next() : "";
+                scanner.close();
+                JSONObject json = new JSONObject(body);
+                String token = json.optString("access_token", null);
+                String userId = String.valueOf(json.optLong("user_id", 0));
+                if (token != null && !"0".equals(userId)) {
+                    runOnUiThread(() -> {
+                        Session.save(this, token, userId);
+                        Intent intent = new Intent(this, MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
+                    });
+                } else {
+                    runOnUiThread(() -> {
+                        Toast.makeText(this, R.string.auth_failed, Toast.LENGTH_LONG).show();
+                        finish();
+                    });
+                }
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    Toast.makeText(this, R.string.auth_failed, Toast.LENGTH_LONG).show();
+                    finish();
+                });
+            }
+        }).start();
+    }
+
+    private static String makeVerifier() {
+        SecureRandom random = new SecureRandom();
+        byte[] bytes = new byte[48];
+        random.nextBytes(bytes);
+        return Base64.encodeToString(bytes, Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+    }
+
+    private static String codeChallenge(String verifier) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(verifier.getBytes(StandardCharsets.US_ASCII));
+            return Base64.encodeToString(hash, Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static Map<String, String> parseQuery(String query) {
         Map<String, String> params = new HashMap<>();
-        for (String pair : fragment.split("&")) {
+        for (String pair : query.split("&")) {
             int eq = pair.indexOf('=');
             if (eq > 0) {
                 params.put(pair.substring(0, eq), pair.substring(eq + 1));
             }
         }
-        String token = params.get("access_token");
-        String userId = params.get("user_id");
-        if (token != null && userId != null) {
-            Session.save(this, token, userId);
-            Intent intent = new Intent(this, MainActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-            finish();
-        } else {
-            webView.loadUrl(buildAuthUrl());
-        }
+        return params;
     }
 
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        webView.saveState(outState);
+    private String loadDeviceId() {
+        SharedPreferences prefs = getSharedPreferences("auth", MODE_PRIVATE);
+        String id = prefs.getString("device_id", null);
+        if (id == null) {
+            id = java.util.UUID.randomUUID().toString();
+            prefs.edit().putString("device_id", id).apply();
+        }
+        return id;
+    }
+
+    private void saveDeviceId(String id) {
+        getSharedPreferences("auth", MODE_PRIVATE).edit().putString("device_id", id).apply();
     }
 
     @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) {
+        if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
             super.onBackPressed();

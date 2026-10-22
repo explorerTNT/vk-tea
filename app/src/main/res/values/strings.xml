@@ -26,4 +26,10 @@
     <string name="register">Регистрация</string>
     <string name="forgot_pass_button">Забыли пароль?</string>
     <string name="auth_failed">Не удалось войти. Попробуйте ещё раз.</string>
+    <string name="mail_or_login">Телефон или e-mail</string>
+    <string name="password">Пароль</string>
+    <string name="captcha_title">Введите код с картинки</string>
+    <string name="ok">ОК</string>
+    <string name="log_in_vk_id">Войти через VK ID</string>
+    <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>
