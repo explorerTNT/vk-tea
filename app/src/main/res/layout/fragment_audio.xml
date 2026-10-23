@@ -23,60 +23,98 @@
         android:textColor="@color/audio_accent"
         android:textSize="16sp" />
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
+    <View android:layout_width="match_parent" android:layout_height="1dp"
         android:background="@color/audio_divider" />
 
-    <TextView
-        android:id="@+id/audio_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:accessibilityLiveRegion="polite"
-        android:padding="16dp"
-        android:textColor="@color/audio_secondary"
-        android:textSize="14sp"
-        android:visibility="gone" />
-
     <LinearLayout
-        android:id="@+id/audio_list_empty_state"
+        android:id="@+id/audio_list_message_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingTop="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:visibility="gone">
 
         <TextView
-            android:id="@+id/audio_empty"
-            android:layout_width="match_parent"
+            android:id="@+id/audio_status"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:text="@string/audio_list_empty"
+            android:layout_weight="1"
+            android:accessibilityLiveRegion="polite"
+            android:padding="16dp"
             android:textColor="@color/audio_secondary"
             android:textSize="14sp" />
 
         <TextView
-            android:id="@+id/audio_list_import"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:id="@+id/audio_list_retry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
-            android:gravity="center_vertical"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:text="@string/audio_list_add_files"
+            android:gravity="center"
+            android:padding="16dp"
+            android:text="@string/audio_list_retry"
             android:textColor="@color/audio_accent"
-            android:textSize="16sp" />
+            android:textSize="14sp"
+            android:visibility="gone" />
     </LinearLayout>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/audio_queue"
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/audio_list_refresh"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clipToPadding="false"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp" />
+        android:layout_weight="1">
+
+        <FrameLayout android:layout_width="match_parent" android:layout_height="match_parent">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/audio_queue"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+
+            <LinearLayout
+                android:id="@+id/audio_list_empty_state"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="24dp"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/audio_list_loading"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_marginBottom="16dp"
+                    android:indeterminateTint="@color/audio_accent"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/audio_empty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="@string/audio_list_empty"
+                    android:textColor="@color/audio_secondary"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <TextView
+        android:id="@+id/audio_list_load_more"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:text="@string/audio_list_load_more"
+        android:textColor="@color/audio_accent"
+        android:textSize="14sp"
+        android:visibility="gone" />
 </LinearLayout>

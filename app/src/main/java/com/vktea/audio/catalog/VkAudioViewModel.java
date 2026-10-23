@@ -1,0 +1,151 @@
+package com.vktea.audio.catalog;
+
+import android.content.Context;
+import android.os.Looper;
+
+import androidx.annotation.NonNull;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModelProvider;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+
+/** Retained catalog state only. No player, queue or autoplay side effects. */
+public final class VkAudioViewModel extends ViewModel {
+    public static final int PAGE_SIZE = 200;
+
+    public static final class State {
+        public final List<VkAudioTrack> items;
+        public final int totalCount;
+        public final int nextOffset;
+        public final boolean loading;
+        public final boolean refreshing;
+        public final boolean hasMore;
+        public final boolean loaded;
+        public final VkAudioError error;
+
+        private State(List<VkAudioTrack> items, int totalCount, int nextOffset, boolean loading,
+                      boolean refreshing, boolean hasMore, boolean loaded, VkAudioError error) {
+            this.items = Collections.unmodifiableList(new ArrayList<>(items));
+            this.totalCount = totalCount;
+            this.nextOffset = nextOffset;
+            this.loading = loading;
+            this.refreshing = refreshing;
+            this.hasMore = hasMore;
+            this.loaded = loaded;
+            this.error = error;
+        }
+    }
+
+    public static final class Factory implements ViewModelProvider.Factory {
+        private final Context application;
+
+        public Factory(Context context) {
+            application = context.getApplicationContext();
+        }
+
+        @NonNull
+        @Override
+        public <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
+            if (!modelClass.isAssignableFrom(VkAudioViewModel.class)) {
+                throw new IllegalArgumentException("Unsupported ViewModel");
+            }
+            return modelClass.cast(new VkAudioViewModel(VkAudioRepository.create(application)));
+        }
+    }
+
+    private final VkAudioRepository repository;
+    private final MutableLiveData<State> state = new MutableLiveData<>(
+            new State(Collections.emptyList(), 0, 0, false, false, true, false, null));
+    private VkAudioRepository.Request request;
+    private boolean cleared;
+    private long generation;
+    private boolean failedRefresh;
+
+    public VkAudioViewModel(VkAudioRepository repository) {
+        this.repository = repository;
+    }
+
+    public LiveData<State> getState() {
+        return state;
+    }
+
+    public State getCurrentState() {
+        return state.getValue();
+    }
+
+    public void ensureLoaded() {
+        requireMain();
+        State current = getCurrentState();
+        // An error waits for an explicit retry, including across rotation.
+        if (!current.loaded && !current.loading && current.error == null) load(true);
+    }
+
+    public void refresh() {
+        requireMain();
+        if (!cleared && !getCurrentState().loading) load(true);
+    }
+
+    public void loadNext() {
+        requireMain();
+        State current = getCurrentState();
+        if (!cleared && current.loaded && !current.loading && current.hasMore && current.error == null) load(false);
+    }
+
+    public void retry() {
+        requireMain();
+        State current = getCurrentState();
+        if (!cleared && !current.loading && current.error != null) load(failedRefresh);
+    }
+
+    private void load(boolean refresh) {
+        if (cleared) return;
+        State previous = getCurrentState();
+        int offset = refresh ? 0 : previous.nextOffset;
+        long requestedGeneration = ++generation;
+        failedRefresh = refresh;
+        state.setValue(new State(previous.items, previous.totalCount, previous.nextOffset,
+                true, refresh && previous.loaded, previous.hasMore, previous.loaded, null));
+        VkAudioRepository.Request started = repository.getMyAudio(offset, PAGE_SIZE, new VkAudioRepository.Callback<VkAudioPage>() {
+            @Override
+            public void onSuccess(VkAudioPage page) {
+                if (cleared || requestedGeneration != generation) return;
+                request = null;
+                LinkedHashMap<String, VkAudioTrack> unique = new LinkedHashMap<>();
+                if (!refresh) for (VkAudioTrack row : previous.items) unique.put(row.mediaId(), row);
+                for (VkAudioTrack row : page.items) unique.put(row.mediaId(), row);
+                int nextOffset = (int) Math.min(Integer.MAX_VALUE, (long) offset + page.consumedCount);
+                state.setValue(new State(new ArrayList<>(unique.values()), page.totalCount, nextOffset,
+                        false, false, page.consumedCount > 0 && nextOffset < page.totalCount, true, null));
+            }
+
+            @Override
+            public void onError(VkAudioError error) {
+                if (cleared || requestedGeneration != generation) return;
+                request = null;
+                state.setValue(new State(previous.items, previous.totalCount, previous.nextOffset,
+                        false, false, previous.hasMore, previous.loaded, error));
+            }
+        });
+        if (!cleared && requestedGeneration == generation && getCurrentState().loading) request = started;
+    }
+
+    @Override
+    protected void onCleared() {
+        cleared = true;
+        generation++;
+        if (request != null) request.cancel();
+        repository.close();
+        super.onCleared();
+    }
+
+    private static void requireMain() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            throw new IllegalStateException("Audio catalog state must be changed on the main thread");
+        }
+    }
+}

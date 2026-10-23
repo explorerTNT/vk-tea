@@ -14,6 +14,7 @@
     <string name="audio_similar">Показать похожие</string>
     <string name="audio_copy_title">Копировать название</string>
     <string name="audio_remove">Удалить</string>
+    <string name="audio_remove_from_queue">Удалить из очереди</string>
     <string name="audio_search_artist">Искать исполнителя</string>
     <string name="audio_share">Поделиться</string>
     <string name="audio_mark_saved">Отметка сохранена на устройстве</string>

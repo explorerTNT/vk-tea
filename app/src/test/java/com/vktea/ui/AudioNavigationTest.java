@@ -14,11 +14,18 @@ import android.view.View;
 import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.vktea.MainActivity;
 import com.vktea.R;
 import com.vktea.api.VKApi;
 import com.vktea.audio.AudioPlaybackService;
+import com.vktea.audio.catalog.VkAudioError;
+import com.vktea.audio.catalog.VkAudioPage;
+import com.vktea.audio.catalog.VkAudioRepository;
+import com.vktea.audio.catalog.VkAudioTrack;
+import com.vktea.audio.catalog.VkAudioViewModel;
 import com.vktea.auth.AuthActivity;
 import com.vktea.auth.Session;
 import com.vktea.menu.MenuEntry;
@@ -36,9 +43,12 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.LooperMode;
 
+import java.util.List;
+
 /** Regression checks for navigation and rotation without VK authentication or media files. */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 28, shadows = AudioNavigationTest.ShadowVKApi.class)
+@Config(sdk = 28, shadows = {AudioNavigationTest.ShadowVKApi.class,
+        AudioNavigationTest.ShadowAudioCatalogFactory.class})
 @LooperMode(LooperMode.Mode.PAUSED)
 public class AudioNavigationTest {
     private static final String OPEN_AUDIO = "com.vktea.action.OPEN_AUDIO";
@@ -113,15 +123,16 @@ public class AudioNavigationTest {
     }
 
     @Test
-    public void failedSessionDisablesShuffleWhileKeepingLocalImportAvailable() {
+    public void failedSessionDisablesShuffleAndCatalogErrorOffersManualRetry() {
         launch(OPEN_AUDIO);
         View root = currentFragment().getView();
         assertNotNull(root);
 
-        // Documents can be selected for the next connection; playback needs a session.
+        // Catalog transport is injected independently from the playback connection.
         assertFalse(root.findViewById(R.id.audio_list_shuffle).isEnabled());
-        assertTrue(root.findViewById(R.id.audio_list_import).isEnabled());
-        assertEquals(View.VISIBLE, root.findViewById(R.id.audio_list_empty_state).getVisibility());
+        assertEquals(View.VISIBLE, root.findViewById(R.id.audio_list_retry).getVisibility());
+        assertEquals(activity().getString(R.string.audio_list_error_network),
+                ((TextView) root.findViewById(R.id.audio_status)).getText().toString());
     }
 
     @Test
@@ -180,5 +191,33 @@ public class AudioNavigationTest {
             calls++;
             callback.error(new Exception("Synthetic offline navigation test response"));
         }
+    }
+
+    /** MainActivity constructs AudioFragment directly, so intercept only its factory seam. */
+    @Implements(value = AudioFragment.class, isInAndroidSdk = false)
+    public static class ShadowAudioCatalogFactory {
+        @Implementation
+        protected ViewModelProvider.Factory createCatalogFactory() {
+            return new ViewModelProvider.Factory() {
+                @Override public <T extends ViewModel> T create(Class<T> type) {
+                    return type.cast(new VkAudioViewModel(new OfflineCatalogRepository()));
+                }
+            };
+        }
+    }
+
+    static class OfflineCatalogRepository implements VkAudioRepository {
+        @Override public Request getMyAudio(int offset, int count, Callback<VkAudioPage> callback) {
+            callback.onError(new VkAudioError(VkAudioError.Kind.NETWORK));
+            return new Request() {
+                private boolean canceled;
+                @Override public void cancel() { canceled = true; }
+                @Override public boolean isCanceled() { return canceled; }
+            };
+        }
+        @Override public Request getById(List<String> ids, Callback<List<VkAudioTrack>> callback) {
+            throw new AssertionError("Navigation must never request VK play URLs");
+        }
+        @Override public void close() {}
     }
 }

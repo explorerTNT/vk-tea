@@ -1,13 +1,7 @@
 package com.vktea.ui;
 
 import android.content.Context;
-import android.database.Cursor;
-import android.media.MediaMetadataRetriever;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.provider.OpenableColumns;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -20,88 +14,76 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaController;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.vktea.R;
 import com.vktea.audio.AudioPlayback;
 import com.vktea.audio.AudioUi;
+import com.vktea.audio.catalog.VkAudioError;
+import com.vktea.audio.catalog.VkAudioTrack;
+import com.vktea.audio.catalog.VkAudioViewModel;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 
-/** Local document library backed by the service's queue; no catalogue is fabricated. */
+/** Account audio catalog. Loading library pages never changes the playback queue. */
 @androidx.annotation.OptIn(markerClass = UnstableApi.class)
 public class AudioFragment extends Fragment {
-    private static final String PENDING_FILES = "audio_pending_files";
     private static final String SEARCH_QUERY = "audio_search_query";
     private static final int MENU_LIBRARY = 1;
-    private static final int MENU_IMPORT = 2;
-    private static final int MENU_CLEAR = 3;
+    private static final int MENU_REFRESH = 2;
 
-    private final ExecutorService documentExecutor = Executors.newSingleThreadExecutor();
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final ArrayList<Uri> pendingFiles = new ArrayList<>();
-    private boolean loadingFiles;
-    private boolean connectionFailed;
-    private boolean filesFailed;
     private String searchQuery = "";
+    private boolean connectionFailed;
+    private int actionMessage;
+    private VkAudioViewModel catalog;
+    private VkAudioViewModel.State libraryState;
+    private final List<MediaItem> libraryItems = new ArrayList<>();
     private ListenableFuture<MediaController> controllerFuture;
     private MediaController controller;
     private AudioQueueAdapter queueAdapter;
-    private RecyclerView queue;
+    private RecyclerView list;
+    private SwipeRefreshLayout refresh;
     private TextView shuffle;
     private TextView status;
     private TextView empty;
+    private TextView retry;
+    private View messageRow;
     private View emptyState;
-    private TextView importLink;
+    private View loading;
+    private View loadMore;
     private AlertDialog searchDialog;
 
     private final Player.Listener playerListener = new Player.Listener() {
-        @Override
-        public void onEvents(@NonNull Player player, @NonNull Player.Events events) {
+        @Override public void onEvents(@NonNull Player player, @NonNull Player.Events events) {
             render();
         }
     };
 
-    private final ActivityResultLauncher<String[]> openFiles = registerForActivityResult(
-            new ActivityResultContracts.OpenMultipleDocuments(), uris -> {
-                if (!uris.isEmpty()) {
-                    pendingFiles.clear();
-                    pendingFiles.addAll(uris);
-                    filesFailed = false;
-                    loadPendingFiles();
-                    render();
-                }
-            });
-
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (savedInstanceState != null) {
-            ArrayList<Uri> saved = savedInstanceState.getParcelableArrayList(PENDING_FILES);
-            if (saved != null) {
-                pendingFiles.addAll(saved);
-            }
-            searchQuery = savedInstanceState.getString(SEARCH_QUERY, "");
-        }
+        if (savedInstanceState != null) searchQuery = savedInstanceState.getString(SEARCH_QUERY, "");
+        catalog = new ViewModelProvider(this, createCatalogFactory()).get(VkAudioViewModel.class);
+        libraryState = catalog.getCurrentState();
+    }
+
+    /** Allows offline tests to provide a repository without changing production transport. */
+    protected ViewModelProvider.Factory createCatalogFactory() {
+        return new VkAudioViewModel.Factory(requireContext());
     }
 
     @Nullable
@@ -117,74 +99,84 @@ public class AudioFragment extends Fragment {
         status = view.findViewById(R.id.audio_status);
         empty = view.findViewById(R.id.audio_empty);
         emptyState = view.findViewById(R.id.audio_list_empty_state);
-        importLink = view.findViewById(R.id.audio_list_import);
-        queue = view.findViewById(R.id.audio_queue);
-        queue.setLayoutManager(new LinearLayoutManager(requireContext()));
+        messageRow = view.findViewById(R.id.audio_list_message_row);
+        retry = view.findViewById(R.id.audio_list_retry);
+        loading = view.findViewById(R.id.audio_list_loading);
+        loadMore = view.findViewById(R.id.audio_list_load_more);
+        refresh = view.findViewById(R.id.audio_list_refresh);
+        list = view.findViewById(R.id.audio_queue);
+        LinearLayoutManager layout = new LinearLayoutManager(requireContext());
+        list.setLayoutManager(layout);
         queueAdapter = new AudioQueueAdapter(requireContext(), new AudioQueueAdapter.Callback() {
-            @Override
-            public void onTrackClick(int index) {
-                if (connected() && index < controller.getMediaItemCount()) {
-                    controller.seekToDefaultPosition(index);
-                    controller.prepare();
-                    controller.play();
-                    AudioUi.openPlayer(requireContext());
-                }
-            }
-
-            @Override
-            public void onTrackLongClick(View anchor, int index) {
-                if (connected() && index < controller.getMediaItemCount()) {
-                    AudioUi.showActions(requireActivity(), anchor, controller, index);
+            @Override public void onTrackClick(int index) { playLibrary(index, false); }
+            @Override public void onTrackLongClick(View anchor, int index) {
+                if (index >= 0 && index < libraryItems.size()) {
+                    AudioUi.showCatalogActions(requireActivity(), anchor, libraryItems.get(index));
                 }
             }
         });
         queueAdapter.setQuery(searchQuery);
-        queue.setAdapter(queueAdapter);
-        shuffle.setOnClickListener(v -> shuffleAll());
-        importLink.setOnClickListener(v -> openDocuments());
+        list.setAdapter(queueAdapter);
+        list.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override public void onScrolled(@NonNull RecyclerView view, int dx, int dy) {
+                if (dy > 0 && searchQuery.trim().isEmpty() && libraryState != null
+                        && libraryState.hasMore && !libraryState.loading && libraryState.error == null
+                        && layout.findLastVisibleItemPosition() >= queueAdapter.getItemCount() - 5) {
+                    catalog.loadNext();
+                }
+            }
+        });
+        refresh.setColorSchemeColors(ContextCompat.getColor(requireContext(), R.color.audio_accent));
+        refresh.setOnChildScrollUpCallback((parent, child) -> list.canScrollVertically(-1));
+        refresh.setOnRefreshListener(() -> {
+            actionMessage = 0;
+            catalog.refresh();
+        });
+        retry.setOnClickListener(v -> catalog.retry());
+        loadMore.setOnClickListener(v -> catalog.loadNext());
+        shuffle.setOnClickListener(v -> {
+            if (!libraryItems.isEmpty()) {
+                List<Integer> available = new ArrayList<>();
+                for (int i = 0; i < libraryItems.size(); i++) {
+                    if (!Boolean.FALSE.equals(libraryItems.get(i).mediaMetadata.isPlayable)) available.add(i);
+                }
+                if (!available.isEmpty()) {
+                    playLibrary(available.get(ThreadLocalRandom.current().nextInt(available.size())), true);
+                }
+            }
+        });
+        catalog.getState().observe(getViewLifecycleOwner(), state -> {
+            libraryState = state;
+            render();
+        });
+        catalog.ensureLoaded();
         render();
     }
 
-    /** The toolbar title opens this menu; importing stays available from an empty library. */
     public void showAudioMenu(View anchor) {
-        if (!isAdded() || queueAdapter == null) {
-            return;
-        }
-        PopupMenu menu = new PopupMenu(new android.view.ContextThemeWrapper(requireContext(),
-                R.style.Theme_VKTea_AudioPlayer), anchor);
+        if (!isAdded() || queueAdapter == null) return;
+        PopupMenu menu = new PopupMenu(audioTheme(), anchor);
         menu.getMenu().add(0, MENU_LIBRARY, 0, R.string.audio_list_my_audio)
                 .setCheckable(true).setChecked(true);
-        menu.getMenu().add(0, MENU_IMPORT, 1, R.string.audio_list_add_files)
-                .setEnabled(!loadingFiles);
-        menu.getMenu().add(0, MENU_CLEAR, 2, R.string.audio_list_clear_queue)
-                .setEnabled(connected() && controller.getMediaItemCount() > 0 && !loadingFiles);
+        menu.getMenu().add(0, MENU_REFRESH, 1, R.string.audio_list_refresh)
+                .setEnabled(libraryState == null || !libraryState.loading);
         menu.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == MENU_IMPORT) {
-                openDocuments();
-            } else if (item.getItemId() == MENU_CLEAR && connected()) {
-                controller.stop();
-                controller.clearMediaItems();
-                filesFailed = false;
+            if (item.getItemId() == MENU_LIBRARY) {
                 setSearchQuery("");
-            } else if (item.getItemId() == MENU_LIBRARY) {
-                setSearchQuery("");
-                queue.scrollToPosition(0);
+                list.scrollToPosition(0);
+            } else if (item.getItemId() == MENU_REFRESH) {
+                actionMessage = 0;
+                catalog.refresh();
             }
             return true;
         });
         menu.show();
     }
 
-    /** Searches only the existing local queue and leaves its playback order intact. */
+    /** Filters only already loaded account rows; this is not a server-wide audio search. */
     public void showAudioSearch() {
-        if (!isAdded() || queueAdapter == null) {
-            return;
-        }
-        if (searchDialog != null && searchDialog.isShowing()) {
-            return;
-        }
-        Context audioTheme = new android.view.ContextThemeWrapper(requireContext(), R.style.Theme_VKTea_AudioPlayer);
-        EditText input = new EditText(audioTheme);
+        if (!isAdded() || queueAdapter == null || searchDialog != null && searchDialog.isShowing()) return;
+        EditText input = new EditText(audioTheme());
         int padding = Math.round(20 * getResources().getDisplayMetrics().density);
         input.setPadding(padding, padding / 2, padding, padding / 2);
         input.setSingleLine(true);
@@ -198,18 +190,17 @@ public class AudioFragment extends Fragment {
             }
             @Override public void afterTextChanged(Editable editable) {}
         });
-        searchDialog = new AlertDialog.Builder(audioTheme)
-                .setTitle(R.string.audio_list_search_title)
-                .setView(input)
+        searchDialog = new AlertDialog.Builder(audioTheme())
+                .setTitle(R.string.audio_list_search_title).setView(input)
                 .setPositiveButton(R.string.audio_list_search_done, null)
                 .setNegativeButton(R.string.audio_list_search_clear, (dialog, which) -> setSearchQuery(""))
                 .create();
         searchDialog.show();
         input.requestFocus();
-        if (searchDialog.getWindow() != null) {
-            searchDialog.getWindow().setSoftInputMode(
-                    android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
-        }
+    }
+
+    private Context audioTheme() {
+        return new android.view.ContextThemeWrapper(requireContext(), R.style.Theme_VKTea_AudioPlayer);
     }
 
     private void setSearchQuery(String query) {
@@ -220,20 +211,37 @@ public class AudioFragment extends Fragment {
         }
     }
 
-    private void openDocuments() {
-        if (!loadingFiles && isAdded()) {
-            openFiles.launch(new String[]{"audio/*"});
-        }
+    @Nullable
+    protected Player playbackPlayer() {
+        return controller != null && controller.isConnected() ? controller : null;
     }
 
-    private void shuffleAll() {
-        if (!connected() || controller.getMediaItemCount() == 0) {
+    protected void openPlayer() {
+        AudioUi.openPlayer(requireContext());
+    }
+
+    private void playLibrary(int index, boolean shuffled) {
+        if (index < 0 || index >= libraryItems.size()) return;
+        if (Boolean.FALSE.equals(libraryItems.get(index).mediaMetadata.isPlayable)) {
+            actionMessage = R.string.audio_list_unavailable;
+            render();
             return;
         }
-        controller.setShuffleModeEnabled(true);
-        controller.seekToDefaultPosition(ThreadLocalRandom.current().nextInt(controller.getMediaItemCount()));
-        controller.prepare();
-        controller.play();
+        Player player = playbackPlayer();
+        if (player == null) {
+            connectionFailed = true;
+            render();
+            return;
+        }
+        // Only an explicit play action changes the service queue. Paging and refresh
+        // leave an existing queue, position and pause state untouched.
+        List<MediaItem> snapshot = new ArrayList<>(libraryItems);
+        actionMessage = 0;
+        player.setMediaItems(snapshot, index, 0);
+        player.setShuffleModeEnabled(shuffled);
+        player.prepare();
+        player.play();
+        openPlayer();
     }
 
     @Override
@@ -242,8 +250,7 @@ public class AudioFragment extends Fragment {
         connectionFailed = false;
         ListenableFuture<MediaController> future = AudioPlayback.connect(requireContext(),
                 new MediaController.Listener() {
-                    @Override
-                    public void onDisconnected(@NonNull MediaController disconnected) {
+                    @Override public void onDisconnected(@NonNull MediaController disconnected) {
                         if (controller == disconnected) {
                             disconnected.removeListener(playerListener);
                             controller = null;
@@ -254,16 +261,13 @@ public class AudioFragment extends Fragment {
                 });
         controllerFuture = future;
         future.addListener(() -> {
-            if (controllerFuture != future) {
-                return;
-            }
+            if (controllerFuture != future) return;
             try {
                 controller = future.get();
                 controller.addListener(playerListener);
-                loadPendingFiles();
-            } catch (ExecutionException | CancellationException e) {
+            } catch (ExecutionException | CancellationException ignored) {
                 connectionFailed = true;
-            } catch (InterruptedException e) {
+            } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
                 connectionFailed = true;
             }
@@ -274,10 +278,8 @@ public class AudioFragment extends Fragment {
 
     @Override
     public void onStop() {
-        if (controller != null) {
-            controller.removeListener(playerListener);
-            controller = null;
-        }
+        if (controller != null) controller.removeListener(playerListener);
+        controller = null;
         if (controllerFuture != null) {
             ListenableFuture<MediaController> future = controllerFuture;
             controllerFuture = null;
@@ -287,195 +289,72 @@ public class AudioFragment extends Fragment {
     }
 
     @Override
-    public void onSaveInstanceState(@NonNull Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putParcelableArrayList(PENDING_FILES, new ArrayList<>(pendingFiles));
-        outState.putString(SEARCH_QUERY, searchQuery);
+    public void onSaveInstanceState(@NonNull Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putString(SEARCH_QUERY, searchQuery);
     }
 
     @Override
     public void onDestroyView() {
-        if (searchDialog != null) {
-            searchDialog.dismiss();
-            searchDialog = null;
-        }
-        queue = null;
+        if (searchDialog != null) searchDialog.dismiss();
+        searchDialog = null;
         queueAdapter = null;
+        list = null;
+        refresh = null;
         shuffle = null;
         status = null;
         empty = null;
         emptyState = null;
-        importLink = null;
+        messageRow = null;
+        retry = null;
+        loading = null;
+        loadMore = null;
         super.onDestroyView();
     }
 
-    @Override
-    public void onDestroy() {
-        documentExecutor.shutdownNow();
-        mainHandler.removeCallbacksAndMessages(null);
-        super.onDestroy();
-    }
-
-    private boolean connected() {
-        return controller != null && controller.isConnected();
-    }
-
-    private void loadPendingFiles() {
-        if (!connected() || pendingFiles.isEmpty() || loadingFiles || !isAdded()) {
-            return;
-        }
-        loadingFiles = true;
-        ArrayList<Uri> selection = new ArrayList<>(pendingFiles);
-        Context context = requireContext().getApplicationContext();
-        render();
-        try {
-            documentExecutor.execute(() -> {
-                List<MediaItem> items = new ArrayList<>();
-                for (Uri uri : selection) {
-                    if (Thread.currentThread().isInterrupted()) {
-                        break;
-                    }
-                    MediaItem item = readDocument(context, uri);
-                    if (item != null) {
-                        items.add(item);
-                    }
-                }
-                mainHandler.post(() -> {
-                    loadingFiles = false;
-                    if (!isAdded() || !connected()) {
-                        return;
-                    }
-                    if (!pendingFiles.equals(selection)) {
-                        loadPendingFiles();
-                        return;
-                    }
-                    pendingFiles.clear();
-                    filesFailed = items.isEmpty();
-                    if (!items.isEmpty()) {
-                        HashSet<String> known = new HashSet<>();
-                        for (int i = 0; i < controller.getMediaItemCount(); i++) {
-                            known.add(controller.getMediaItemAt(i).mediaId);
-                        }
-                        items.removeIf(item -> !known.add(item.mediaId));
-                        boolean startPlayback = controller.getMediaItemCount() == 0;
-                        if (!items.isEmpty()) controller.addMediaItems(items);
-                        if (startPlayback && !items.isEmpty()) {
-                            controller.prepare();
-                            controller.play();
-                        }
-                    }
-                    render();
-                });
-            });
-        } catch (RejectedExecutionException ignored) {
-            loadingFiles = false;
-            filesFailed = true;
-            render();
-        }
-    }
-
-    /** Called only on the document worker; provider queries and tag reads may block. */
-    @Nullable
-    static MediaItem readDocument(Context context, Uri uri) {
-        if (!"content".equals(uri.getScheme())) {
-            return null;
-        }
-        String title = context.getString(R.string.audio_untitled);
-        String artist = context.getString(R.string.audio_local_file);
-        long fileSize = 0;
-        long duration = 0;
-        long bitrate = 0;
-        try (Cursor cursor = context.getContentResolver().query(uri,
-                new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE}, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
-                if (nameIndex >= 0 && !cursor.isNull(nameIndex)) {
-                    String name = cursor.getString(nameIndex);
-                    if (name != null && !name.trim().isEmpty()) {
-                        title = name;
-                    }
-                }
-                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
-                    fileSize = Math.max(0, cursor.getLong(sizeIndex));
-                }
-            }
-        } catch (RuntimeException ignored) {
-            // Playback reports inaccessible content without revealing its URI.
-        }
-        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-        try {
-            retriever.setDataSource(context, uri);
-            String taggedTitle = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
-            String taggedArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST);
-            if (taggedTitle != null && !taggedTitle.trim().isEmpty()) {
-                title = taggedTitle.trim();
-            }
-            if (taggedArtist != null && !taggedArtist.trim().isEmpty()) {
-                artist = taggedArtist.trim();
-            }
-            duration = positiveNumber(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
-            bitrate = positiveNumber(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE));
-        } catch (RuntimeException ignored) {
-            // Missing tags still yield a playable item with its document filename.
-        } finally {
-            try {
-                retriever.release();
-            } catch (Exception ignored) {
-                // Release failures do not expose provider details to UI or logs.
-            }
-        }
-        Bundle extras = new Bundle();
-        if (duration > 0) extras.putLong(AudioUi.EXTRA_DURATION_MS, duration);
-        if (bitrate > 0) extras.putLong(AudioUi.EXTRA_BITRATE, bitrate);
-        if (fileSize > 0) extras.putLong(AudioUi.EXTRA_FILE_SIZE, fileSize);
-        return new MediaItem.Builder().setMediaId(AudioUi.mediaId(uri)).setUri(uri)
-                .setMediaMetadata(new MediaMetadata.Builder().setTitle(title).setArtist(artist)
-                        .setExtras(extras).build()).build();
-    }
-
-    private static long positiveNumber(String value) {
-        try {
-            return value == null ? 0 : Math.max(0, Long.parseLong(value));
-        } catch (NumberFormatException ignored) {
-            return 0;
-        }
-    }
-
     private void render() {
-        if (status == null || queueAdapter == null) {
-            return;
+        if (queueAdapter == null || libraryState == null) return;
+        libraryItems.clear();
+        for (VkAudioTrack track : libraryState.items) libraryItems.add(track.toMediaItem());
+        Player player = playbackPlayer();
+        MediaItem current = player == null ? null : player.getCurrentMediaItem();
+        queueAdapter.submit(libraryItems, current == null ? null : current.mediaId);
+        boolean noMatches = queueAdapter.getItemCount() == 0;
+        boolean hasRows = !libraryItems.isEmpty();
+        boolean initialLoading = !hasRows && (libraryState.loading
+                || !libraryState.loaded && libraryState.error == null);
+        boolean hasPlayableRows = false;
+        for (MediaItem item : libraryItems) {
+            if (!Boolean.FALSE.equals(item.mediaMetadata.isPlayable)) hasPlayableRows = true;
         }
-        boolean connected = connected();
-        List<MediaItem> items = new ArrayList<>();
-        if (connected) {
-            for (int i = 0; i < controller.getMediaItemCount(); i++) {
-                items.add(controller.getMediaItemAt(i));
-            }
+        shuffle.setText(libraryState.hasMore ? R.string.audio_list_shuffle_loaded : R.string.audio_list_shuffle_all);
+        shuffle.setEnabled(player != null && hasPlayableRows);
+        refresh.setRefreshing(libraryState.loading && libraryState.refreshing && hasRows);
+        loading.setVisibility(initialLoading ? View.VISIBLE : View.GONE);
+        emptyState.setVisibility(noMatches && libraryState.error == null ? View.VISIBLE : View.GONE);
+        empty.setText(initialLoading ? R.string.audio_list_loading
+                : hasRows || !searchQuery.trim().isEmpty() ? R.string.audio_list_no_results
+                : libraryState.totalCount > 0 ? R.string.audio_list_empty_unavailable : R.string.audio_list_empty);
+        list.setVisibility(noMatches ? View.GONE : View.VISIBLE);
+        loadMore.setVisibility(libraryState.hasMore && !libraryState.loading && libraryState.error == null
+                ? View.VISIBLE : View.GONE);
+        retry.setVisibility(libraryState.error != null && !libraryState.loading ? View.VISIBLE : View.GONE);
+        int message = libraryState.error != null ? errorMessage(libraryState.error)
+                : actionMessage != 0 ? actionMessage
+                : libraryState.loading && hasRows && !libraryState.refreshing ? R.string.audio_list_loading
+                : connectionFailed && player == null && hasRows ? R.string.audio_connection_failed : 0;
+        if (message != 0) status.setText(message);
+        messageRow.setVisibility(message != 0 ? View.VISIBLE : View.GONE);
+    }
+
+    private static int errorMessage(VkAudioError error) {
+        switch (error.kind) {
+            case AUTH_REQUIRED: return R.string.audio_list_error_auth;
+            case ACCESS_DENIED: return R.string.audio_list_error_access;
+            case RATE_LIMITED: return R.string.audio_list_error_limit;
+            case NETWORK: return R.string.audio_list_error_network;
+            case MALFORMED_RESPONSE: return R.string.audio_list_error_response;
+            default: return R.string.audio_list_error_generic;
         }
-        boolean hasItems = !items.isEmpty();
-        queueAdapter.submit(items, hasItems ? controller.getCurrentMediaItemIndex() : -1);
-        shuffle.setEnabled(connected && hasItems && !loadingFiles);
-        boolean noResults = queueAdapter.getItemCount() == 0;
-        emptyState.setVisibility(noResults && !loadingFiles ? View.VISIBLE : View.GONE);
-        empty.setText(hasItems || !searchQuery.trim().isEmpty()
-                ? R.string.audio_list_no_results : R.string.audio_list_empty);
-        importLink.setVisibility(!hasItems && searchQuery.trim().isEmpty() ? View.VISIBLE : View.GONE);
-        importLink.setEnabled(!loadingFiles);
-        queue.setVisibility(noResults ? View.GONE : View.VISIBLE);
-        if (connectionFailed) {
-            status.setText(R.string.audio_connection_failed);
-        } else if (!connected) {
-            status.setText(R.string.audio_connecting);
-        } else if (loadingFiles) {
-            status.setText(R.string.audio_loading);
-        } else if (filesFailed) {
-            status.setText(R.string.audio_files_failed);
-        } else if (controller.getPlayerError() != null) {
-            status.setText(R.string.audio_playback_failed);
-        } else {
-            status.setText("");
-        }
-        status.setVisibility(status.length() == 0 ? View.GONE : View.VISIBLE);
     }
 }

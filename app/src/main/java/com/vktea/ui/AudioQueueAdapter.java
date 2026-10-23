@@ -19,59 +19,59 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** A filtered view of the service queue; visible positions never replace queue indices. */
+/** A filtered catalog view; playback selection is matched by stable VK identity. */
 final class AudioQueueAdapter extends RecyclerView.Adapter<AudioQueueAdapter.Holder> {
     interface Callback {
-        void onTrackClick(int queueIndex);
-        void onTrackLongClick(View anchor, int queueIndex);
+        void onTrackClick(int libraryIndex);
+        void onTrackLongClick(View anchor, int libraryIndex);
     }
 
     private static final class Track {
         final MediaItem item;
-        final int queueIndex;
+        final int libraryIndex;
 
-        Track(MediaItem item, int queueIndex) {
+        Track(MediaItem item, int libraryIndex) {
             this.item = item;
-            this.queueIndex = queueIndex;
+            this.libraryIndex = libraryIndex;
         }
     }
 
     private final Context context;
     private final Callback callback;
     private final List<Track> visible = new ArrayList<>();
-    private final List<MediaItem> queue = new ArrayList<>();
+    private final List<MediaItem> library = new ArrayList<>();
     private String query = "";
-    private int currentIndex = -1;
+    private String currentMediaId;
 
     AudioQueueAdapter(Context context, Callback callback) {
         this.context = context;
         this.callback = callback;
     }
 
-    void submit(List<MediaItem> items, int selectedIndex) {
-        queue.clear();
-        queue.addAll(items);
-        rebuild(selectedIndex);
+    void submit(List<MediaItem> items, String selectedMediaId) {
+        library.clear();
+        library.addAll(items);
+        rebuild(selectedMediaId);
     }
 
     void setQuery(String query) {
         String normalized = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         if (!this.query.equals(normalized)) {
             this.query = normalized;
-            rebuild(currentIndex);
+            rebuild(currentMediaId);
         }
     }
 
-    int queueIndexAt(int visiblePosition) {
-        return visible.get(visiblePosition).queueIndex;
+    int libraryIndexAt(int visiblePosition) {
+        return visible.get(visiblePosition).libraryIndex;
     }
 
-    private void rebuild(int selectedIndex) {
+    private void rebuild(String selectedMediaId) {
         List<Track> previous = new ArrayList<>(visible);
-        int previousIndex = currentIndex;
+        String previousMediaId = currentMediaId;
         List<Track> filtered = new ArrayList<>();
-        for (int i = 0; i < queue.size(); i++) {
-            MediaItem item = queue.get(i);
+        for (int i = 0; i < library.size(); i++) {
+            MediaItem item = library.get(i);
             String searchable = (AudioUi.title(context, item) + "\n" + AudioUi.artist(context, item))
                     .toLowerCase(Locale.ROOT);
             if (query.isEmpty() || searchable.contains(query)) {
@@ -92,13 +92,14 @@ final class AudioQueueAdapter extends RecyclerView.Adapter<AudioQueueAdapter.Hol
                 Track oldTrack = previous.get(oldPosition);
                 Track newTrack = filtered.get(newPosition);
                 return oldTrack.item.equals(newTrack.item)
-                        && oldTrack.queueIndex == newTrack.queueIndex
-                        && (oldTrack.queueIndex == previousIndex) == (newTrack.queueIndex == selectedIndex);
+                        && oldTrack.libraryIndex == newTrack.libraryIndex
+                        && (oldTrack.item.mediaId.equals(previousMediaId)
+                        == newTrack.item.mediaId.equals(selectedMediaId));
             }
         });
         visible.clear();
         visible.addAll(filtered);
-        currentIndex = selectedIndex;
+        currentMediaId = selectedMediaId;
         changes.dispatchUpdatesTo(this);
     }
 
@@ -116,9 +117,10 @@ final class AudioQueueAdapter extends RecyclerView.Adapter<AudioQueueAdapter.Hol
         holder.title.setText(AudioUi.title(context, item));
         holder.artist.setText(AudioUi.artist(context, item));
         holder.artist.setVisibility(holder.artist.length() == 0 ? View.GONE : View.VISIBLE);
-        boolean selected = track.queueIndex == currentIndex;
+        boolean selected = item.mediaId.equals(currentMediaId);
         holder.itemView.setSelected(selected);
         holder.current.setVisibility(selected ? View.VISIBLE : View.GONE);
+        holder.itemView.setAlpha(Boolean.FALSE.equals(item.mediaMetadata.isPlayable) ? 0.55f : 1f);
         boolean local = AudioUi.isLocal(item);
         holder.local.setVisibility(local ? View.VISIBLE : View.GONE);
         long duration = AudioUi.duration(item);
@@ -145,7 +147,7 @@ final class AudioQueueAdapter extends RecyclerView.Adapter<AudioQueueAdapter.Hol
             itemView.setOnClickListener(view -> {
                 int position = getBindingAdapterPosition();
                 if (position != RecyclerView.NO_POSITION) {
-                    callback.onTrackClick(queueIndexAt(position));
+                    callback.onTrackClick(libraryIndexAt(position));
                 }
             });
             itemView.setOnLongClickListener(view -> {
@@ -153,7 +155,7 @@ final class AudioQueueAdapter extends RecyclerView.Adapter<AudioQueueAdapter.Hol
                 if (position == RecyclerView.NO_POSITION) {
                     return false;
                 }
-                callback.onTrackLongClick(view, queueIndexAt(position));
+                callback.onTrackLongClick(view, libraryIndexAt(position));
                 return true;
             });
         }

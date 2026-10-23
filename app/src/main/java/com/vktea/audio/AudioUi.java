@@ -92,12 +92,14 @@ public final class AudioUi {
     }
 
     public static boolean isSaved(Context context, MediaItem item) {
-        return item != null && context.getSharedPreferences("audio_marks", Context.MODE_PRIVATE)
+        return VkAudioIds.isVk(item) || item != null && context.getSharedPreferences("audio_marks", Context.MODE_PRIVATE)
                 .getBoolean(item.mediaId, false);
     }
 
+    public static boolean canToggleSaved(MediaItem item) { return item != null && !VkAudioIds.isVk(item); }
+
     public static void toggleSaved(Context context, MediaItem item) {
-        if (item == null) return;
+        if (!canToggleSaved(item)) return;
         boolean value = !isSaved(context, item);
         context.getSharedPreferences("audio_marks", Context.MODE_PRIVATE).edit()
                 .putBoolean(item.mediaId, value).apply();
@@ -137,13 +139,23 @@ public final class AudioUi {
     public static void showActions(Activity activity, View anchor, Player player, int index) {
         if (index < 0 || index >= player.getMediaItemCount()) return;
         MediaItem selected = player.getMediaItemAt(index);
+        showItemActions(activity, anchor, player, selected);
+    }
+
+    public static void showCatalogActions(Activity activity, View anchor, MediaItem item) {
+        showItemActions(activity, anchor, null, item);
+    }
+
+    private static void showItemActions(Activity activity, View anchor, Player player, MediaItem selected) {
         PopupMenu popup = new PopupMenu(new ContextThemeWrapper(activity, R.style.Theme_VKTea_AudioPlayer), anchor);
-        popup.getMenu().add(0, 1, 0, R.string.audio_save).setCheckable(true).setChecked(isSaved(activity, selected));
+        popup.getMenu().add(0, 1, 0, R.string.audio_save).setCheckable(true)
+                .setChecked(isSaved(activity, selected)).setEnabled(canToggleSaved(selected));
         popup.getMenu().add(0, 2, 1, R.string.audio_download).setEnabled(canExport(selected));
         popup.getMenu().add(0, 3, 2, R.string.audio_lyrics).setEnabled(false);
         popup.getMenu().add(0, 4, 3, R.string.audio_similar).setEnabled(false);
         popup.getMenu().add(0, 5, 4, R.string.audio_copy_title);
-        popup.getMenu().add(0, 6, 5, R.string.audio_remove);
+        popup.getMenu().add(0, 6, 5, VkAudioIds.isVk(selected)
+                ? R.string.audio_remove_from_queue : R.string.audio_remove).setEnabled(player != null);
         popup.getMenu().add(0, 7, 6, R.string.audio_search_artist).setEnabled(false);
         popup.getMenu().add(0, 8, 7, R.string.audio_share);
         popup.setOnMenuItemClickListener(action -> {
@@ -156,6 +168,7 @@ public final class AudioUi {
                             artist(activity, selected) + " — " + title(activity, selected)));
                     return true;
                 case 6:
+                    if (player == null) return false;
                     // Resolve the captured ID again: playback may have changed while the menu was open.
                     for (int i = 0; i < player.getMediaItemCount(); i++) {
                         if (player.getMediaItemAt(i).mediaId.equals(selected.mediaId)) {

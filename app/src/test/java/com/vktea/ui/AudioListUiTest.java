@@ -1,6 +1,5 @@
 package com.vktea.ui;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -9,31 +8,31 @@ import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.content.ComponentName;
-import android.content.ContentProvider;
-import android.content.ContentValues;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.ProviderInfo;
-import android.database.Cursor;
-import android.database.MatrixCursor;
-import android.media.MediaMetadataRetriever;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
-import android.provider.OpenableColumns;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.Player;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.vktea.R;
 import com.vktea.audio.AudioPlaybackService;
-import com.vktea.audio.AudioUi;
+import com.vktea.audio.catalog.VkAudioError;
+import com.vktea.audio.catalog.VkAudioPage;
+import com.vktea.audio.catalog.VkAudioRepository;
+import com.vktea.audio.catalog.VkAudioTrack;
+import com.vktea.audio.catalog.VkAudioViewModel;
 import com.vktea.auth.Session;
 
 import org.junit.After;
@@ -46,196 +45,275 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
-import org.robolectric.shadows.ShadowContentResolver;
-import org.robolectric.shadows.ShadowMediaMetadataRetriever;
-import org.robolectric.shadows.util.DataSource;
+import org.robolectric.shadows.ShadowDialog;
 
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.concurrent.FutureTask;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Synthetic queue/UI tests never connect to VK or read the user's files. */
+/** All library responses and Player operations are synthetic; no VK transport is created. */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class AudioListUiTest {
-    private ActivityController<AppCompatActivity> controller;
-    private AppCompatActivity activity;
-    private SyntheticDocumentProvider provider;
+    private ActivityController<CatalogHostActivity> controller;
+    private CatalogHostActivity activity;
+    private CatalogFragment fragment;
+    private FakeRepository repository;
+    private VkAudioViewModel model;
+    private RecordingPlayer playback;
 
     @Before
-    public void prepareActivityAndSyntheticDocuments() {
-        controller = Robolectric.buildActivity(AppCompatActivity.class).setup();
+    public void prepareSyntheticCatalogAndPlayer() {
+        Context application = RuntimeEnvironment.getApplication();
+        application.getSharedPreferences("session", Context.MODE_PRIVATE).edit().clear().commit();
+        Session.save(application, "synthetic-catalog-ui-token", "1");
+        shadowOf(RuntimeEnvironment.getApplication()).declareComponentUnbindable(
+                new ComponentName(application, AudioPlaybackService.class));
+        repository = new FakeRepository();
+        model = new VkAudioViewModel(repository);
+        playback = new RecordingPlayer();
+        playback.items.add(track(99, "Other queue item", "Other artist").toMediaItem());
+        CatalogFragment.model = model;
+        CatalogFragment.playback = playback;
+        CatalogFragment.opened = 0;
+        controller = Robolectric.buildActivity(CatalogHostActivity.class).setup();
         activity = controller.get();
-        provider = new SyntheticDocumentProvider();
-        ProviderInfo info = new ProviderInfo();
-        info.authority = "synthetic.audio.list";
-        provider.attachInfo(activity, info);
-        ShadowContentResolver.registerProviderInternal(info.authority, provider);
-        RuntimeEnvironment.getApplication().getSharedPreferences("session", Context.MODE_PRIVATE)
-                .edit().clear().commit();
+        fragment = (CatalogFragment) activity.getSupportFragmentManager().findFragmentById(R.id.content);
     }
 
     @After
-    public void closeActivity() {
+    public void closeSyntheticOwners() {
+        if (ShadowDialog.getLatestDialog() != null) ShadowDialog.getLatestDialog().dismiss();
         controller.close();
+        CatalogFragment.model = null;
+        CatalogFragment.playback = null;
         RuntimeEnvironment.getApplication().getSharedPreferences("session", Context.MODE_PRIVATE)
                 .edit().clear().commit();
     }
 
     @Test
-    public void selectedTrackHasSeparateMarkerDarkTitleDurationAndLocalIndicator() {
+    public void selectedCatalogTrackUsesIdentityMarkerDarkTitleAndActualDuration() {
         AudioQueueAdapter adapter = adapter(new AtomicInteger(), new AtomicInteger());
-        adapter.submit(Arrays.asList(track("one", "Synthetic title", "Synthetic artist", 138_000)), 0);
+        MediaItem first = track(1, "Synthetic title", "Synthetic artist").toMediaItem();
+        MediaItem second = track(2, "Second", "Artist").toMediaItem();
+        adapter.submit(Arrays.asList(first, second), second.mediaId);
         RecyclerView parent = new RecyclerView(activity);
         parent.setLayoutManager(new LinearLayoutManager(activity));
         AudioQueueAdapter.Holder holder = adapter.onCreateViewHolder(parent, 0);
 
-        adapter.onBindViewHolder(holder, 0);
+        adapter.onBindViewHolder(holder, 1);
 
-        assertEquals("Synthetic title", holder.title.getText().toString());
-        assertEquals("Synthetic artist", holder.artist.getText().toString());
+        assertEquals("Second", holder.title.getText().toString());
         assertEquals(ContextCompat.getColor(activity, R.color.audio_text), holder.title.getCurrentTextColor());
         assertEquals(View.VISIBLE, holder.current.getVisibility());
-        assertEquals(View.VISIBLE, holder.local.getVisibility());
+        assertEquals(View.GONE, holder.local.getVisibility());
         assertEquals("2:18", holder.duration.getText().toString());
-
-        adapter.submit(Arrays.asList(track("one", "Synthetic title", "Synthetic artist", 138_000)), -1);
         adapter.onBindViewHolder(holder, 0);
         assertEquals(View.GONE, holder.current.getVisibility());
-        assertEquals(ContextCompat.getColor(activity, R.color.audio_text), holder.title.getCurrentTextColor());
+        adapter.submit(Arrays.asList(first, second), "vk-audio:17_9999");
+        adapter.onBindViewHolder(holder, 1);
+        assertEquals(View.GONE, holder.current.getVisibility());
     }
 
     @Test
-    public void localFilterPreservesQueueIndicesForClickAndLongPress() {
+    public void loadedFilterPreservesOriginalLibraryIndicesForClickAndLongPress() {
         AtomicInteger clicked = new AtomicInteger(-1);
         AtomicInteger held = new AtomicInteger(-1);
         AudioQueueAdapter adapter = adapter(clicked, held);
-        adapter.submit(Arrays.asList(
-                track("one", "Other song", "Another artist", 1000),
-                track("two", "Desired song", "Target artist", 2000),
-                track("three", "Third song", "Another artist", 3000)), 1);
+        adapter.submit(Arrays.asList(track(1, "Other", "Artist").toMediaItem(),
+                track(2, "Desired", "Target artist").toMediaItem()), null);
         adapter.setQuery("TARGET ARTIST");
-        RecyclerView queue = new RecyclerView(activity);
-        queue.setLayoutManager(new LinearLayoutManager(activity));
-        queue.setItemAnimator(null);
-        queue.setAdapter(adapter);
-        activity.setContentView(queue);
-        int width = Math.round(400 * activity.getResources().getDisplayMetrics().density);
-        int height = Math.round(600 * activity.getResources().getDisplayMetrics().density);
-        queue.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
-        queue.layout(0, 0, width, height);
-        shadowOf(Looper.getMainLooper()).idle();
+        RecyclerView list = new RecyclerView(activity);
+        list.setLayoutManager(new LinearLayoutManager(activity));
+        list.setItemAnimator(null);
+        list.setAdapter(adapter);
+        activity.addContentView(list, new ViewGroup.LayoutParams(400, 600));
+        layout(list);
 
         assertEquals(1, adapter.getItemCount());
-        assertEquals(1, adapter.queueIndexAt(0));
-        RecyclerView.ViewHolder holder = queue.findViewHolderForAdapterPosition(0);
-        assertNotNull(holder);
-        holder.itemView.performClick();
-        holder.itemView.performLongClick();
-
+        assertEquals(1, adapter.libraryIndexAt(0));
+        RecyclerView.ViewHolder row = list.findViewHolderForAdapterPosition(0);
+        assertNotNull(row);
+        row.itemView.performClick();
+        row.itemView.performLongClick();
         assertEquals(1, clicked.get());
         assertEquals(1, held.get());
         adapter.setQuery("");
-        assertEquals(3, adapter.getItemCount());
-        assertEquals(0, adapter.queueIndexAt(0));
-        assertEquals(2, adapter.queueIndexAt(2));
+        assertEquals(2, adapter.getItemCount());
     }
 
     @Test
-    public void filterUsesUpdatedQueuePositionsAfterTheServiceReordersItems() {
-        AudioQueueAdapter adapter = adapter(new AtomicInteger(), new AtomicInteger());
-        MediaItem first = track("one", "First", "Artist", 1000);
-        MediaItem second = track("two", "Second", "Artist", 2000);
-        adapter.submit(Arrays.asList(first, second), 1);
-        adapter.setQuery("second");
-        assertEquals(1, adapter.queueIndexAt(0));
+    public void initialLoadingAndRealEmptyAccountHaveNoImportFlowOrPlaybackMutation() {
+        assertEquals(1, repository.calls.size());
+        assertEquals(View.VISIBLE, root().findViewById(R.id.audio_list_loading).getVisibility());
 
-        adapter.submit(Arrays.asList(second, first), 0);
+        repository.success(new VkAudioPage(0, Collections.emptyList(), 0));
 
-        assertEquals(1, adapter.getItemCount());
-        assertEquals(0, adapter.queueIndexAt(0));
+        assertEquals(activity.getString(R.string.audio_list_empty), emptyText());
+        assertEquals(View.VISIBLE, root().findViewById(R.id.audio_list_empty_state).getVisibility());
+        assertEquals(View.GONE, root().findViewById(R.id.audio_list_loading).getVisibility());
+        assertEquals(0, playback.replacements);
+        assertNull(shadowOf(activity).getNextStartedActivity());
+        int obsoleteImportId = activity.getResources().getIdentifier("audio_list_import", "id", activity.getPackageName());
+        assertTrue(obsoleteImportId == 0 || root().findViewById(obsoleteImportId) == null);
     }
 
     @Test
-    public void metadataAndSizeAreReadFromSyntheticContentOnAWorker() throws Exception {
-        Uri uri = Uri.parse("content://synthetic.audio.list/tagged");
-        DataSource source = DataSource.toDataSource(activity, uri);
-        ShadowMediaMetadataRetriever.addMetadata(source, MediaMetadataRetriever.METADATA_KEY_TITLE,
-                "Actual synthetic title");
-        ShadowMediaMetadataRetriever.addMetadata(source, MediaMetadataRetriever.METADATA_KEY_ARTIST,
-                "Actual synthetic artist");
-        ShadowMediaMetadataRetriever.addMetadata(source, MediaMetadataRetriever.METADATA_KEY_DURATION, "138000");
-        ShadowMediaMetadataRetriever.addMetadata(source, MediaMetadataRetriever.METADATA_KEY_BITRATE, "320000");
-        FutureTask<MediaItem> work = new FutureTask<>(() -> AudioFragment.readDocument(activity, uri));
-        new Thread(work, "synthetic-audio-metadata").start();
+    public void missingUrlRemainsVisibleAndExplicitPlayUsesFullCatalogSnapshot() {
+        VkAudioTrack first = track(1, "No URL yet", "Artist");
+        VkAudioTrack second = track(2, "Second", "Artist");
+        repository.success(new VkAudioPage(2, Arrays.asList(first, second), 2));
+        assertEquals(2, list().getAdapter().getItemCount());
+        assertEquals(0, playback.replacements);
+        assertNull(first.toMediaItem().localConfiguration);
 
-        MediaItem item = work.get(5, TimeUnit.SECONDS);
+        clickRow(0);
 
-        assertNotNull(item);
-        assertFalse(provider.queriedOnMain);
-        assertEquals(1, provider.queries.get());
-        assertEquals("Actual synthetic title", item.mediaMetadata.title.toString());
-        assertEquals("Actual synthetic artist", item.mediaMetadata.artist.toString());
-        assertEquals(AudioUi.mediaId(uri), item.mediaId);
-        assertEquals(138000, item.mediaMetadata.extras.getLong(AudioUi.EXTRA_DURATION_MS));
-        assertEquals(320000, item.mediaMetadata.extras.getLong(AudioUi.EXTRA_BITRATE));
-        assertEquals(98304, item.mediaMetadata.extras.getLong(AudioUi.EXTRA_FILE_SIZE));
-        assertEquals(uri, item.localConfiguration.uri);
+        assertEquals(1, playback.replacements);
+        assertEquals(2, playback.items.size());
+        assertEquals(first.mediaId(), playback.items.get(0).mediaId);
+        assertNull(playback.items.get(0).localConfiguration);
+        assertEquals(0, playback.currentIndex);
+        assertEquals(1, playback.prepares);
+        assertTrue(playback.playWhenReady);
+        assertEquals(1, CatalogFragment.opened);
     }
 
     @Test
-    public void missingOrMalformedTagsKeepFilenameAndDoNotInventDurationOrBitrate() throws Exception {
-        Uri uri = Uri.parse("content://synthetic.audio.list/untagged");
-        DataSource source = DataSource.toDataSource(activity, uri);
-        ShadowMediaMetadataRetriever.addMetadata(source, MediaMetadataRetriever.METADATA_KEY_DURATION, "-1");
-        ShadowMediaMetadataRetriever.addMetadata(source, MediaMetadataRetriever.METADATA_KEY_BITRATE, "unknown");
-        FutureTask<MediaItem> work = new FutureTask<>(() -> AudioFragment.readDocument(activity, uri));
-        new Thread(work, "synthetic-audio-untagged").start();
+    public void pageFailureKeepsRowsAndManualRetryUsesServerOffsetWithoutTouchingQueue() {
+        repository.success(new VkAudioPage(5, Arrays.asList(track(1, "First", "Artist"),
+                track(2, "Second", "Artist")), 3));
+        root().findViewById(R.id.audio_list_load_more).performClick();
+        assertEquals(3, repository.last().offset);
 
-        MediaItem item = work.get(5, TimeUnit.SECONDS);
+        repository.error(new VkAudioError(VkAudioError.Kind.NETWORK));
 
-        assertNotNull(item);
-        assertEquals("synthetic-file.mp3", item.mediaMetadata.title.toString());
-        assertEquals(activity.getString(R.string.audio_local_file), item.mediaMetadata.artist.toString());
-        assertFalse(item.mediaMetadata.extras.containsKey(AudioUi.EXTRA_DURATION_MS));
-        assertFalse(item.mediaMetadata.extras.containsKey(AudioUi.EXTRA_BITRATE));
-        assertEquals(98304, item.mediaMetadata.extras.getLong(AudioUi.EXTRA_FILE_SIZE));
+        assertEquals(2, list().getAdapter().getItemCount());
+        assertEquals(activity.getString(R.string.audio_list_error_network), statusText());
+        assertEquals(View.VISIBLE, root().findViewById(R.id.audio_list_retry).getVisibility());
+        root().findViewById(R.id.audio_list_retry).performClick();
+        assertEquals(3, repository.last().offset);
+        repository.success(new VkAudioPage(5, Collections.singletonList(track(3, "Third", "Artist")), 2));
+        assertEquals(3, list().getAdapter().getItemCount());
+        assertEquals(0, playback.replacements);
+        assertEquals("vk-audio:17_99", playback.items.get(0).mediaId);
+        assertFalse(playback.playWhenReady);
     }
 
     @Test
-    public void documentImportRejectsNonContentUrisWithoutQueryingAProvider() {
-        assertNull(AudioFragment.readDocument(activity, Uri.parse("https://synthetic.invalid/audio.mp3")));
-        assertNull(AudioFragment.readDocument(activity, Uri.parse("file:///synthetic/audio.mp3")));
-        assertEquals(0, provider.queries.get());
+    public void refreshAndRotationKeepExistingQueueAndDoNotFetchAgainAutomatically() {
+        repository.success(new VkAudioPage(1, Collections.singletonList(track(1, "Initial", "Artist")), 1));
+        model.refresh();
+        assertEquals(0, repository.last().offset);
+        assertEquals(1, list().getAdapter().getItemCount());
+        repository.success(new VkAudioPage(1, Collections.singletonList(track(2, "Refreshed", "Artist")), 1));
+        int calls = repository.calls.size();
+
+        controller.recreate();
+        activity = controller.get();
+        fragment = (CatalogFragment) activity.getSupportFragmentManager().findFragmentById(R.id.content);
+
+        assertEquals(calls, repository.calls.size());
+        assertEquals(1, list().getAdapter().getItemCount());
+        assertEquals(0, playback.replacements);
+        assertEquals("vk-audio:17_99", playback.items.get(0).mediaId);
+        assertFalse(playback.playWhenReady);
     }
 
     @Test
-    public void emptyLibraryOffersOnlyDocumentImportWhilePlaybackIsUnavailable() {
-        Session.save(activity, "synthetic-list-token", "1");
-        shadowOf(RuntimeEnvironment.getApplication()).declareComponentUnbindable(
-                new ComponentName(activity, AudioPlaybackService.class));
-        FrameLayout container = new FrameLayout(activity);
-        container.setId(View.generateViewId());
-        activity.setContentView(container);
-        AudioFragment fragment = new AudioFragment();
-        activity.getSupportFragmentManager().beginTransaction().replace(container.getId(), fragment).commitNow();
+    public void rateLimitWaitsForManualRetryAndKeepsSafeErrorState() {
+        repository.error(new VkAudioError(VkAudioError.Kind.RATE_LIMITED, 6, 429));
+        shadowOf(Looper.getMainLooper()).idleFor(1, TimeUnit.MINUTES);
+        assertEquals(1, repository.calls.size());
+        assertEquals(activity.getString(R.string.audio_list_error_limit), statusText());
+        assertEquals(0, playback.replacements);
+
+        root().findViewById(R.id.audio_list_retry).performClick();
+        assertEquals(2, repository.calls.size());
+        repository.success(new VkAudioPage(0, Collections.emptyList(), 0));
+        assertEquals(activity.getString(R.string.audio_list_empty), emptyText());
+    }
+
+    @Test
+    public void partialCatalogShuffleLabelDoesNotPromiseTheWholeAccount() {
+        repository.success(new VkAudioPage(5, Collections.singletonList(track(1, "First", "Artist")), 1));
+        assertEquals(activity.getString(R.string.audio_list_shuffle_loaded),
+                ((TextView) root().findViewById(R.id.audio_list_shuffle)).getText().toString());
+        model.refresh();
+        repository.success(new VkAudioPage(1, Collections.singletonList(track(1, "First", "Artist")), 1));
+        assertEquals(activity.getString(R.string.audio_list_shuffle_all),
+                ((TextView) root().findViewById(R.id.audio_list_shuffle)).getText().toString());
+        assertEquals(0, playback.replacements);
+    }
+
+    @Test
+    public void skippedServerRowsDoNotClaimTheAccountIsEmpty() {
+        repository.success(new VkAudioPage(5, Collections.emptyList(), 3));
+        assertEquals(activity.getString(R.string.audio_list_empty_unavailable), emptyText());
+        assertEquals(View.VISIBLE, root().findViewById(R.id.audio_list_load_more).getVisibility());
+        assertFalse(root().findViewById(R.id.audio_list_shuffle).isEnabled());
+    }
+
+    @Test
+    public void searchingLoadedRowsDoesNotSendRequestsAndKeepsFullPlaybackSnapshot() {
+        repository.success(new VkAudioPage(3, Arrays.asList(track(1, "First", "Artist"),
+                track(2, "Second", "Target artist"), track(3, "Third", "Artist")), 3));
+        fragment.showAudioSearch();
+        EditText input = findInput(ShadowDialog.getLatestDialog().getWindow().getDecorView());
+        assertNotNull(input);
+        input.setText("TARGET ARTIST");
+        assertEquals(1, list().getAdapter().getItemCount());
+        assertEquals(1, repository.calls.size());
+        ShadowDialog.getLatestDialog().dismiss();
+
+        clickRow(0);
+
+        assertEquals(3, playback.items.size());
+        assertEquals(1, playback.currentIndex);
+        assertEquals("vk-audio:17_2", playback.items.get(playback.currentIndex).mediaId);
+    }
+
+    @Test
+    public void currentIndicatorFollowsIdWhenPlaybackQueueHasDifferentOrder() {
+        VkAudioTrack first = track(1, "First", "Artist");
+        VkAudioTrack second = track(2, "Second", "Artist");
+        playback.items.clear();
+        playback.items.add(second.toMediaItem());
+        playback.items.add(first.toMediaItem());
+        playback.currentIndex = 0;
+        repository.success(new VkAudioPage(2, Arrays.asList(first, second), 2));
+        layout(list());
+        RecyclerView.ViewHolder firstRow = list().findViewHolderForAdapterPosition(0);
+        RecyclerView.ViewHolder secondRow = list().findViewHolderForAdapterPosition(1);
+        assertNotNull(firstRow);
+        assertNotNull(secondRow);
+        assertEquals(View.GONE, firstRow.itemView.findViewById(R.id.audio_list_current).getVisibility());
+        assertEquals(View.VISIBLE, secondRow.itemView.findViewById(R.id.audio_list_current).getVisibility());
+        assertEquals(0, playback.replacements);
+    }
+
+    private View root() { return fragment.requireView(); }
+    private RecyclerView list() { return root().findViewById(R.id.audio_queue); }
+    private String statusText() { return ((TextView) root().findViewById(R.id.audio_status)).getText().toString(); }
+    private String emptyText() { return ((TextView) root().findViewById(R.id.audio_empty)).getText().toString(); }
+
+    private void clickRow(int position) {
+        layout(list());
+        RecyclerView.ViewHolder row = list().findViewHolderForAdapterPosition(position);
+        assertNotNull(row);
+        row.itemView.performClick();
+    }
+
+    private static void layout(RecyclerView list) {
+        list.measure(View.MeasureSpec.makeMeasureSpec(800, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(1200, View.MeasureSpec.EXACTLY));
+        list.layout(0, 0, 800, 1200);
         shadowOf(Looper.getMainLooper()).idle();
-        View root = fragment.requireView();
-
-        assertFalse(root.findViewById(R.id.audio_list_shuffle).isEnabled());
-        assertEquals(View.VISIBLE, root.findViewById(R.id.audio_list_empty_state).getVisibility());
-        View add = root.findViewById(R.id.audio_list_import);
-        assertEquals(View.VISIBLE, add.getVisibility());
-        assertTrue(add.isEnabled());
-        add.performClick();
-
-        Intent picker = shadowOf(activity).getNextStartedActivityForResult().intent;
-        assertEquals(Intent.ACTION_OPEN_DOCUMENT, picker.getAction());
-        assertTrue(picker.getBooleanExtra(Intent.EXTRA_ALLOW_MULTIPLE, false));
-        assertArrayEquals(new String[]{"audio/*"}, picker.getStringArrayExtra(Intent.EXTRA_MIME_TYPES));
     }
 
     private AudioQueueAdapter adapter(AtomicInteger clicked, AtomicInteger held) {
@@ -245,32 +323,109 @@ public class AudioListUiTest {
         });
     }
 
-    private static MediaItem track(String id, String title, String artist, long duration) {
-        Bundle extras = new Bundle();
-        extras.putLong(AudioUi.EXTRA_DURATION_MS, duration);
-        return new MediaItem.Builder().setMediaId(id).setUri("content://media/synthetic/" + id)
-                .setMediaMetadata(new MediaMetadata.Builder().setTitle(title).setArtist(artist)
-                        .setExtras(extras).build()).build();
+    private static VkAudioTrack track(long id, String title, String artist) {
+        return new VkAudioTrack(id, 17, artist, title, 138, "", "", true);
     }
 
-    public static class SyntheticDocumentProvider extends ContentProvider {
-        final AtomicInteger queries = new AtomicInteger();
-        volatile boolean queriedOnMain;
-
-        @Override public boolean onCreate() { return true; }
-
-        @Override
-        public Cursor query(Uri uri, String[] projection, String selection, String[] args, String order) {
-            queries.incrementAndGet();
-            queriedOnMain = Looper.myLooper() == Looper.getMainLooper();
-            MatrixCursor cursor = new MatrixCursor(new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE});
-            cursor.addRow(new Object[]{"synthetic-file.mp3", 98304L});
-            return cursor;
+    private static EditText findInput(View view) {
+        if (view instanceof EditText) return (EditText) view;
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                EditText input = findInput(group.getChildAt(i));
+                if (input != null) return input;
+            }
         }
+        return null;
+    }
 
-        @Override public String getType(Uri uri) { return "audio/mpeg"; }
-        @Override public Uri insert(Uri uri, ContentValues values) { return null; }
-        @Override public int delete(Uri uri, String selection, String[] args) { return 0; }
-        @Override public int update(Uri uri, ContentValues values, String selection, String[] args) { return 0; }
+    public static class CatalogHostActivity extends AppCompatActivity {
+        @Override protected void onCreate(Bundle state) {
+            super.onCreate(state);
+            FrameLayout container = new FrameLayout(this);
+            container.setId(R.id.content);
+            setContentView(container);
+            if (state == null) getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.content, new CatalogFragment()).commitNow();
+        }
+    }
+
+    public static class CatalogFragment extends AudioFragment {
+        static VkAudioViewModel model;
+        static RecordingPlayer playback;
+        static int opened;
+        @Override protected ViewModelProvider.Factory createCatalogFactory() {
+            return new ViewModelProvider.Factory() {
+                @Override public <T extends ViewModel> T create(Class<T> type) { return type.cast(model); }
+            };
+        }
+        @Override protected Player playbackPlayer() { return playback.player; }
+        @Override protected void openPlayer() { opened++; }
+    }
+
+    static class FakeRepository implements VkAudioRepository {
+        final List<Call> calls = new ArrayList<>();
+        @Override public Request getMyAudio(int offset, int count, Callback<VkAudioPage> callback) {
+            Call call = new Call(offset, callback);
+            calls.add(call);
+            return call;
+        }
+        @Override public Request getById(List<String> ids, Callback<List<VkAudioTrack>> callback) {
+            throw new AssertionError("UI must not resolve or request play URLs while loading the library");
+        }
+        @Override public void close() { for (Call call : calls) call.cancel(); }
+        Call last() { return calls.get(calls.size() - 1); }
+        void success(VkAudioPage page) { if (!last().canceled) last().callback.onSuccess(page); }
+        void error(VkAudioError error) { if (!last().canceled) last().callback.onError(error); }
+    }
+
+    static class Call implements VkAudioRepository.Request {
+        final int offset;
+        final VkAudioRepository.Callback<VkAudioPage> callback;
+        boolean canceled;
+        Call(int offset, VkAudioRepository.Callback<VkAudioPage> callback) {
+            this.offset = offset;
+            this.callback = callback;
+        }
+        @Override public void cancel() { canceled = true; }
+        @Override public boolean isCanceled() { return canceled; }
+    }
+
+    static class RecordingPlayer {
+        final List<MediaItem> items = new ArrayList<>();
+        int currentIndex;
+        int replacements;
+        int prepares;
+        boolean playWhenReady;
+        final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
+                new Class<?>[]{Player.class}, (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "getCurrentMediaItem": return items.isEmpty() ? null : items.get(currentIndex);
+                        case "getCurrentMediaItemIndex": return currentIndex;
+                        case "getMediaItemCount": return items.size();
+                        case "getMediaItemAt": return items.get((Integer) args[0]);
+                        case "getPlayWhenReady": return playWhenReady;
+                        case "setMediaItems":
+                            items.clear();
+                            items.addAll((List<MediaItem>) args[0]);
+                            currentIndex = args.length > 1 && args[1] instanceof Integer ? (Integer) args[1] : 0;
+                            replacements++;
+                            return null;
+                        case "prepare": prepares++; return null;
+                        case "play": playWhenReady = true; return null;
+                        case "pause": playWhenReady = false; return null;
+                        case "isCommandAvailable": return true;
+                        case "hashCode": return System.identityHashCode(proxy);
+                        case "equals": return proxy == args[0];
+                        case "toString": return "Synthetic catalog UI player";
+                        default:
+                            Class<?> type = method.getReturnType();
+                            if (type == boolean.class) return false;
+                            if (type == int.class) return 0;
+                            if (type == long.class) return 0L;
+                            if (type == float.class) return 0f;
+                            return null;
+                    }
+                });
     }
 }

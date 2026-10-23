@@ -346,7 +346,7 @@ public class AudioPlayerActivity extends AppCompatActivity {
         enable(previous, hasItem && hasCommand(Player.COMMAND_SEEK_TO_PREVIOUS));
         enable(next, hasItem && hasCommand(Player.COMMAND_SEEK_TO_NEXT));
         enable(queue, hasCommand(Player.COMMAND_GET_TIMELINE) && controller.getMediaItemCount() > 0);
-        enable(save, hasItem);
+        enable(save, AudioUi.canToggleSaved(item));
         boolean saved = hasItem && AudioUi.isSaved(this, item);
         save.setImageResource(saved ? R.drawable.audio_player_saved : R.drawable.audio_player_add);
         save.setContentDescription(getString(saved ? R.string.audio_player_unsave : R.string.audio_player_save));

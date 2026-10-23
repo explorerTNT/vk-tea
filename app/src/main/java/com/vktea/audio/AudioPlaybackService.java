@@ -20,6 +20,7 @@ import androidx.media3.session.MediaSessionService;
 
 import com.vktea.ui.AudioPlayerActivity;
 import com.vktea.auth.Session;
+import com.vktea.audio.catalog.VkAudioRepository;
 
 /** Owns the player independently of Activity and Fragment lifetimes. */
 @UnstableApi
@@ -28,6 +29,7 @@ public class AudioPlaybackService extends MediaSessionService {
     @Nullable private ExoPlayer player;
     @Nullable private MediaSession session;
     @Nullable private SharedPreferences sessionPreferences;
+    @Nullable private VkAudioRepository audioRepository;
     private boolean stopping;
     private boolean stopReceiverRegistered;
 
@@ -69,7 +71,10 @@ public class AudioPlaybackService extends MediaSessionService {
                 new IntentFilter(AudioPlayback.ACTION_STOP), ContextCompat.RECEIVER_NOT_EXPORTED);
         stopReceiverRegistered = true;
 
+        audioRepository = VkAudioRepository.create(this);
         player = new ExoPlayer.Builder(this)
+                .setMediaSourceFactory(new VkAudioMediaSourceFactory(this, audioRepository,
+                        () -> !stopping && Session.isAuthorized(this)))
                 .setAudioAttributes(new AudioAttributes.Builder()
                         .setUsage(C.USAGE_MEDIA)
                         .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -118,6 +123,10 @@ public class AudioPlaybackService extends MediaSessionService {
         }
         stopping = true;
         AudioSources.clear();
+        if (audioRepository != null) {
+            audioRepository.close();
+            audioRepository = null;
+        }
         if (player != null) {
             player.pause();
             player.stop();

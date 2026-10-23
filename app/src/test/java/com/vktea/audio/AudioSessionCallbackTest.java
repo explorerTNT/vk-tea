@@ -158,6 +158,68 @@ public class AudioSessionCallbackTest {
     }
 
     @Test
+    public void ownerCanQueueVkIdentityWithoutResolvingOrSupplyingAnyUri() throws Exception {
+        MediaItem incoming = new MediaItem.Builder().setMediaId("vk-audio:-42_73")
+                .setMediaMetadata(new MediaMetadata.Builder().setTitle("Synthetic VK title")
+                        .setArtist("Synthetic VK artist").build()).build();
+
+        MediaItem accepted = callback.onAddMediaItems(session, owner(),
+                Collections.singletonList(incoming)).get().get(0);
+
+        assertEquals("vk-audio:-42_73", accepted.mediaId);
+        assertNull(accepted.localConfiguration);
+        assertEquals("Synthetic VK title", accepted.mediaMetadata.title);
+        assertEquals("Synthetic VK artist", accepted.mediaMetadata.artist);
+        assertFalse(AudioUi.canExport(accepted));
+    }
+
+    @Test
+    public void vkQueueIdentityDropsSuppliedUrlAndPrivateDetailsBeforeSessionExposure() throws Exception {
+        Bundle requestedExtras = new Bundle();
+        requestedExtras.putString("access_key", "synthetic-private-access-key");
+        requestedExtras.putString("url", "https://cdn.example.invalid/synthetic-private.mp3");
+        requestedExtras.putLong(AudioUi.EXTRA_DURATION_MS, 60_000L);
+        MediaItem incoming = new MediaItem.Builder().setMediaId("vk-audio:42_73")
+                .setUri("https://cdn.example.invalid/audio.mp3?signature=synthetic-private-signature")
+                .setMediaMetadata(new MediaMetadata.Builder().setTitle("Synthetic VK title")
+                        .setExtras(requestedExtras).build()).build();
+
+        MediaItem accepted = callback.onAddMediaItems(session, owner(),
+                Collections.singletonList(incoming)).get().get(0);
+
+        assertEquals("vk-audio:42_73", accepted.mediaId);
+        assertNull(accepted.localConfiguration);
+        assertEquals(60_000L, AudioUi.duration(accepted));
+        assertEquals(1, accepted.mediaMetadata.extras.size());
+        assertFalse(accepted.mediaMetadata.extras.containsKey("access_key"));
+        assertFalse(accepted.mediaMetadata.extras.containsKey("url"));
+        assertFalse(AudioUi.canExport(accepted));
+    }
+
+    @Test
+    public void malformedVkIdentitiesCannotEnterTheQueueWithoutAValidatedSource() throws Exception {
+        MediaItem existing = track("content://synthetic.audio/original");
+        player.setMediaItem(existing);
+        for (String identity : Arrays.asList("vk-audio:0_1", "vk-audio:1_0", "vk-audio:1_-2",
+                "vk-audio:01_2", "vk-audio:1_02", "vk-audio:1_2_synthetic-access-key",
+                "vk-audio:1_2?token=synthetic", "vk-audio:9223372036854775808_1",
+                "vk-audio:-9223372036854775809_1", "vk-audio:1_2_3", "vk-audio:")) {
+            MediaItem invalid = new MediaItem.Builder().setMediaId(identity).build();
+            try {
+                callback.onSetMediaItems(session, owner(), Arrays.asList(
+                        new MediaItem.Builder().setMediaId("vk-audio:42_73").build(), invalid), 0, 0).get();
+                fail("A malformed ID-only VK item must reject the full replacement");
+            } catch (ExecutionException expected) {
+                assertTrue(expected.getCause() instanceof IllegalArgumentException);
+                assertNull(expected.getCause().getCause());
+                assertFalse(expected.getCause().getMessage().contains(identity));
+            }
+            assertEquals(1, player.getMediaItemCount());
+            assertEquals(existing, player.getCurrentMediaItem());
+        }
+    }
+
+    @Test
     public void revokedAuthorizationBlocksAlreadyConnectedController() throws Exception {
         assertTrue(callback.onConnect(session, owner()).isAccepted);
         context.getSharedPreferences("session", Context.MODE_PRIVATE).edit().clear().commit();

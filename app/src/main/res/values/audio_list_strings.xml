@@ -1,16 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="audio_list_shuffle_all">Перемешать все</string>
+    <string name="audio_list_shuffle_loaded">Перемешать загруженные</string>
     <string name="audio_list_my_audio">Мои аудиозаписи</string>
-    <string name="audio_list_add_files">Добавить аудиофайлы</string>
-    <string name="audio_list_clear_queue">Очистить очередь</string>
-    <string name="audio_list_empty">Добавьте аудиофайлы с устройства — они появятся здесь и будут доступны для фонового воспроизведения.</string>
-    <string name="audio_list_no_results">Ничего не найдено</string>
-    <string name="audio_list_search_title">Поиск в моих аудиозаписях</string>
-    <string name="audio_list_search_hint">Название или исполнитель</string>
+    <string name="audio_list_refresh">Обновить</string>
+    <string name="audio_list_retry">Повторить</string>
+    <string name="audio_list_load_more">Загрузить ещё</string>
+    <string name="audio_list_loading">Загрузка аудиозаписей…</string>
+    <string name="audio_list_empty">В вашем аккаунте VK нет аудиозаписей.</string>
+    <string name="audio_list_empty_unavailable">Не удалось показать аудиозаписи из ответа VK.</string>
+    <string name="audio_list_no_results">Среди загруженных аудиозаписей ничего не найдено.</string>
+    <string name="audio_list_search_title">Поиск среди загруженных аудиозаписей</string>
+    <string name="audio_list_search_hint">Название или исполнитель из загруженного списка</string>
     <string name="audio_list_search_done">Готово</string>
     <string name="audio_list_search_clear">Сбросить</string>
     <string name="audio_list_current_track">Текущая аудиозапись</string>
     <string name="audio_list_local_file">Файл на устройстве</string>
-    <string name="audio_list_saved">Сохранено</string>
+    <string name="audio_list_error_auth">Чтобы загрузить аудиозаписи, войдите в аккаунт VK заново.</string>
+    <string name="audio_list_error_access">VK не разрешил доступ к аудиозаписям этого аккаунта.</string>
+    <string name="audio_list_error_limit">VK ограничил запросы к аудиозаписям. Повторите позже.</string>
+    <string name="audio_list_error_network">Не удалось связаться с VK. Проверьте подключение и повторите.</string>
+    <string name="audio_list_error_response">Не удалось прочитать ответ VK с аудиозаписями.</string>
+    <string name="audio_list_error_generic">Не удалось загрузить аудиозаписи VK. Повторите попытку.</string>
+    <string name="audio_list_unavailable">Эта аудиозапись недоступна для воспроизведения.</string>
 </resources>

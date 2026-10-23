@@ -22,11 +22,12 @@ final class AudioMediaItems {
     static List<MediaItem> validate(List<MediaItem> requested) {
         List<MediaItem> playable = new ArrayList<>(requested.size());
         for (MediaItem item : requested) {
-            if (item == null || item.localConfiguration == null) {
+            if (item == null || (item.localConfiguration == null && !VkAudioIds.isVk(item))) {
                 throw invalidSource();
             }
-            Uri uri = item.localConfiguration.uri.normalizeScheme();
-            validateUri(uri);
+            boolean vk = VkAudioIds.isVk(item);
+            Uri uri = vk ? null : item.localConfiguration.uri.normalizeScheme();
+            if (uri != null) validateUri(uri);
 
             // Rebuild a narrow audio item. In particular, do not forward arbitrary
             // metadata extras, artwork, subtitle, ad, or DRM request URLs.
@@ -45,12 +46,11 @@ final class AudioMediaItems {
                 // A signed source URL must not become a public queue identifier.
                 mediaId = UUID.randomUUID().toString();
             }
-            playable.add(new MediaItem.Builder()
+            MediaItem.Builder sanitized = new MediaItem.Builder()
                     .setMediaId(mediaId)
-                    .setUri(uri)
-                    .setMimeType(item.localConfiguration.mimeType)
-                    .setMediaMetadata(metadata)
-                    .build());
+                    .setMediaMetadata(metadata);
+            if (uri != null) sanitized.setUri(uri).setMimeType(item.localConfiguration.mimeType);
+            playable.add(sanitized.build());
         }
         return playable;
     }
