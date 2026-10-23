@@ -34,6 +34,7 @@ public class AuthActivity extends AppCompatActivity {
     private static final String CLIENT_SECRET = "hHbZxrka2uZ6jB1inYsH";
     private static final String SCOPE = "nohttps,all";
     private static final String API_V = "5.82";
+    private static final String USER_AGENT = "VKAndroidApp/8.09-1113 (Android 13; SDK 33; arm64-v8a; samsung SM-S908N; ru)";
 
     private EditText loginField;
     private EditText passField;
@@ -75,24 +76,28 @@ public class AuthActivity extends AppCompatActivity {
         new Thread(() -> {
             try {
                 StringBuilder url = new StringBuilder(TOKEN_URL)
-                        .append("?grant_type=password")
+                        .append("?scope=").append(SCOPE)
                         .append("&client_id=").append(CLIENT_ID)
                         .append("&client_secret=").append(CLIENT_SECRET)
+                        .append("&v=").append(API_V)
+                        .append("&2fa_supported=1")
+                        .append("&lang=").append(java.util.Locale.getDefault().getLanguage())
+                        .append("&libverify_support=1")
+                        .append("&grant_type=password")
                         .append("&username=").append(URLEncoder.encode(login, "UTF-8"))
-                        .append("&password=").append(URLEncoder.encode(pass, "UTF-8"))
-                        .append("&scope=").append(SCOPE)
-                        .append("&v=").append(API_V);
-                if (captchaSid != null) {
-                    url.append("&captcha_sid=").append(captchaSid)
-                       .append("&captcha_key=").append(URLEncoder.encode(captchaKey, "UTF-8"));
-                }
+                        .append("&password=").append(URLEncoder.encode(pass, "UTF-8"));
                 String trustedHash = getSharedPreferences("auth", MODE_PRIVATE).getString("trusted_hash", null);
                 if (trustedHash != null && !trustedHash.isEmpty()) {
                     url.append("&trusted_hash=").append(URLEncoder.encode(trustedHash, "UTF-8"));
                 }
+                if (captchaSid != null) {
+                    url.append("&captcha_sid=").append(captchaSid)
+                       .append("&captcha_key=").append(URLEncoder.encode(captchaKey, "UTF-8"));
+                }
                 HttpURLConnection conn = (HttpURLConnection) new URL(url.toString()).openConnection();
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
+                conn.setRequestProperty("User-Agent", USER_AGENT);
                 int code = conn.getResponseCode();
                 InputStream stream = code < 400 ? conn.getInputStream() : conn.getErrorStream();
                 Scanner scanner = new Scanner(stream, "UTF-8").useDelimiter("\\A");
