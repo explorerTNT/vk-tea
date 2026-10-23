@@ -38,8 +38,12 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 import org.robolectric.shadows.ShadowDialog;
 import org.robolectric.shadows.ShadowLog;
+import org.robolectric.util.ReflectionHelpers;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -112,6 +116,62 @@ public class AuthActivityTest {
         client.release.countDown();
         await(() -> !model.isBusy());
         assertCredentialControlsEnabled(true);
+        assertEquals(1, client.totalCalls());
+    }
+
+    @Test
+    public void passwordParametersKeepUpstreamOrderWithoutOptionalChallengeFields() throws Exception {
+        launch();
+        fillCredentials();
+
+        activity().findViewById(R.id.auth_login_btn).performClick();
+        await(() -> client.passwordCalls.get() == 1 && !model.isBusy());
+
+        HttpUrl captured = client.lastPasswordUrl;
+        assertNotNull(captured);
+        // Assert names separately: an assertion failure must never print a credential URL.
+        assertEquals(Arrays.asList("scope", "client_id", "client_secret", "v",
+                "2fa_supported", "lang", "libverify_support", "grant_type", "username", "password"),
+                queryNames(captured));
+        assertEquals("nohttps,all", captured.queryParameter("scope"));
+        assertEquals("1", captured.queryParameter("2fa_supported"));
+        assertEquals(Locale.getDefault().getLanguage(), captured.queryParameter("lang"));
+        assertEquals("1", captured.queryParameter("libverify_support"));
+        assertEquals("password", captured.queryParameter("grant_type"));
+        assertEquals(1, client.totalCalls());
+    }
+
+    @Test
+    public void freshTrustedHashPrecedesCaptchaAfterTheOrderedPasswordParameters() throws Exception {
+        Context context = RuntimeEnvironment.getApplication();
+        context.getSharedPreferences("auth", Context.MODE_PRIVATE).edit()
+                .putString("trusted_hash", "synthetic-old-trusted-hash").commit();
+        launch();
+        fillCredentials();
+        String syntheticPassword = "synthetic p+a&ss=word Ω";
+        ((EditText) activity().findViewById(R.id.auth_pass)).setText(syntheticPassword);
+        context.getSharedPreferences("auth", Context.MODE_PRIVATE).edit()
+                .putString("trusted_hash", "synthetic-fresh-trusted-hash").commit();
+        // Seed the pending challenge directly so no captcha image transport is involved.
+        ReflectionHelpers.setField(activity(), "captchaSid", "synthetic-captcha-sid");
+        ReflectionHelpers.setField(activity(), "captchaKey", "synthetic captcha + key&= Ω");
+
+        activity().findViewById(R.id.auth_login_btn).performClick();
+        await(() -> client.passwordCalls.get() == 1 && !model.isBusy());
+
+        HttpUrl captured = client.lastPasswordUrl;
+        assertNotNull(captured);
+        assertEquals(Arrays.asList("scope", "client_id", "client_secret", "v", "2fa_supported",
+                "lang", "libverify_support", "grant_type", "username", "password", "trusted_hash",
+                "captcha_sid", "captcha_key"), queryNames(captured));
+        assertTrue("Use the current synthetic trusted hash at explicit submission time",
+                "synthetic-fresh-trusted-hash".equals(captured.queryParameter("trusted_hash")));
+        assertTrue("Keep the synthetic password intact through query encoding",
+                syntheticPassword.equals(captured.queryParameter("password")));
+        assertTrue("Keep the synthetic captcha SID intact",
+                "synthetic-captcha-sid".equals(captured.queryParameter("captcha_sid")));
+        assertTrue("Keep the synthetic captcha answer intact through query encoding",
+                "synthetic captcha + key&= Ω".equals(captured.queryParameter("captcha_key")));
         assertEquals(1, client.totalCalls());
     }
 
@@ -284,6 +344,14 @@ public class AuthActivityTest {
         }
     }
 
+    private static List<String> queryNames(HttpUrl url) {
+        List<String> names = new ArrayList<>();
+        for (int index = 0; index < url.querySize(); index++) {
+            names.add(url.queryParameterName(index));
+        }
+        return names;
+    }
+
     private static void clearPreferences() {
         Context context = RuntimeEnvironment.getApplication();
         context.getSharedPreferences("session", Context.MODE_PRIVATE).edit().clear().commit();
@@ -317,6 +385,7 @@ public class AuthActivityTest {
         final AtomicInteger vkIdCalls = new AtomicInteger();
         final CountDownLatch entered = new CountDownLatch(1);
         volatile CountDownLatch release = new CountDownLatch(0);
+        volatile HttpUrl lastPasswordUrl;
         volatile AuthResponse passwordResult;
         final JSONObject tokenResult;
 
@@ -336,7 +405,8 @@ public class AuthActivityTest {
         }
 
         @Override
-        AuthResponse password(HttpUrl ignored) {
+        AuthResponse password(HttpUrl url) {
+            lastPasswordUrl = url;
             passwordCalls.incrementAndGet();
             return finish(AuthResponse.Method.PASSWORD, passwordResult);
         }

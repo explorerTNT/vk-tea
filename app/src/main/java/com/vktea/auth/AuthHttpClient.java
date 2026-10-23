@@ -18,6 +18,7 @@ import okhttp3.ResponseBody;
 
 /** Auth transport never retries credentials, follows redirects, or logs response bodies. */
 class AuthHttpClient {
+    static final String PASSWORD_USER_AGENT = "VKAndroidApp/8.09-1113 (Android 13; SDK 33; arm64-v8a; samsung SM-S908N; ru)";
     private static final OkHttpClient HTTP = new OkHttpClient.Builder()
             // Keep auth on HTTP/1.1: HTTP/2 coalescing can trigger an automatic
             // retry of HTTP 421 independently of retryOnConnectionFailure.
@@ -40,7 +41,8 @@ class AuthHttpClient {
             .build();
 
     AuthResponse password(HttpUrl url) throws IOException {
-        try (Response response = HTTP.newCall(new Request.Builder().url(url).get().build()).execute()) {
+        try (Response response = HTTP.newCall(new Request.Builder().url(url)
+                .header("User-Agent", PASSWORD_USER_AGENT).get().build()).execute()) {
             return AuthResponse.password(response.code(), readJson(response));
         }
     }

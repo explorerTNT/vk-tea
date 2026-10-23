@@ -30,6 +30,20 @@ import okhttp3.HttpUrl;
 @Config(sdk = 28)
 public class AuthHttpClientTest {
     @Test(timeout = 8000)
+    public void passwordRequestUsesUpstreamCoffeeUserAgentInOneLoopbackRequest() throws Exception {
+        AuthHttpClient client = new AuthHttpClient();
+        try (LoopbackServer server = new LoopbackServer(400, "",
+                "{\"error\":\"synthetic_invalid_grant\"}")) {
+            AuthResponse response = client.password(server.url("user-agent"));
+
+            assertEquals(400, response.httpStatus);
+            server.assertRequestCount(1);
+            assertEquals("VKAndroidApp/8.09-1113 (Android 13; SDK 33; arm64-v8a; samsung SM-S908N; ru)",
+                    server.firstUserAgent.get());
+        }
+    }
+
+    @Test(timeout = 8000)
     public void floodResponseRetains429AndJsonWithoutRepeatingRequest() throws Exception {
         AuthHttpClient client = new AuthHttpClient();
         try (LoopbackServer server = new LoopbackServer(429, "",
@@ -96,6 +110,7 @@ public class AuthHttpClientTest {
         private final Thread worker;
         private final AtomicInteger requests = new AtomicInteger();
         private final AtomicReference<Throwable> failure = new AtomicReference<>();
+        private final AtomicReference<String> firstUserAgent = new AtomicReference<>();
         private final int firstStatus;
         private final String firstHeaders;
         private final String firstBody;
@@ -172,7 +187,7 @@ public class AuthHttpClientTest {
             }
         }
 
-        private static void readRequest(Socket connection) throws IOException {
+        private void readRequest(Socket connection) throws IOException {
             BufferedReader reader = new BufferedReader(new InputStreamReader(
                     connection.getInputStream(), StandardCharsets.US_ASCII));
             String line = reader.readLine();
@@ -180,6 +195,9 @@ public class AuthHttpClientTest {
                 throw new IOException("Expected a synthetic loopback GET request");
             }
             while ((line = reader.readLine()) != null && !line.isEmpty()) {
+                if (requests.get() == 0 && line.regionMatches(true, 0, "User-Agent:", 0, 11)) {
+                    firstUserAgent.set(line.substring(11).trim());
+                }
                 // Consume headers so connection-drop tests cover a fully sent request.
             }
             if (line == null) {

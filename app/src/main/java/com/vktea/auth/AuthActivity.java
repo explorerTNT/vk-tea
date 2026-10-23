@@ -97,21 +97,24 @@ public class AuthActivity extends AppCompatActivity {
             return;
         }
         HttpUrl.Builder url = HttpUrl.get(TOKEN_URL).newBuilder()
-                .addQueryParameter("grant_type", "password")
+                .addQueryParameter("scope", SCOPE)
                 .addQueryParameter("client_id", CLIENT_ID)
                 .addQueryParameter("client_secret", CLIENT_SECRET)
+                .addQueryParameter("v", API_V)
+                .addQueryParameter("2fa_supported", "1")
+                .addQueryParameter("lang", java.util.Locale.getDefault().getLanguage())
+                .addQueryParameter("libverify_support", "1")
+                .addQueryParameter("grant_type", "password")
                 .addQueryParameter("username", login)
-                .addQueryParameter("password", password)
-                .addQueryParameter("scope", SCOPE)
-                .addQueryParameter("v", API_V);
-        if (captchaSid != null && !captchaKey.isEmpty()) {
-            url.addQueryParameter("captcha_sid", captchaSid)
-                    .addQueryParameter("captcha_key", captchaKey);
-        }
+                .addQueryParameter("password", password);
         String trustedHash = getSharedPreferences("auth", MODE_PRIVATE)
                 .getString("trusted_hash", null);
         if (trustedHash != null && !trustedHash.isEmpty()) {
             url.addQueryParameter("trusted_hash", trustedHash);
+        }
+        if (captchaSid != null && !captchaKey.isEmpty()) {
+            url.addQueryParameter("captcha_sid", captchaSid)
+                    .addQueryParameter("captcha_key", captchaKey);
         }
         HttpUrl requestUrl = url.build();
         AuthHttpClient client = authClient;
