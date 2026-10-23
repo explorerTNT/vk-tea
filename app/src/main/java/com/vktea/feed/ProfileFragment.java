@@ -324,7 +324,7 @@ public class ProfileFragment extends Fragment {
             row.setPadding((int) (16 * getResources().getDisplayMetrics().density), 0, 0, 0);
             ImageView iconView = new ImageView(parent.getContext());
             iconView.setImageResource(icon);
-            iconView.setAlpha(0.6f);
+            iconView.setColorFilter(0xFF6A6F75);
             LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
                     (int) (24 * getResources().getDisplayMetrics().density),
                     (int) (24 * getResources().getDisplayMetrics().density));
