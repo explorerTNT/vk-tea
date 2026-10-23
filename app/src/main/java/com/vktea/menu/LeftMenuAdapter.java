@@ -98,7 +98,13 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             return new SpacerViewHolder(v, viewType);
         }
         if (viewType == TYPE_HEADER) {
-            return new HeaderViewHolder(inflater.inflate(R.layout.item_menu_header, parent, false));
+            HeaderViewHolder h = new HeaderViewHolder(inflater.inflate(R.layout.item_menu_header, parent, false));
+            h.itemView.setOnClickListener(v -> {
+                if (callback instanceof com.vktea.MainActivity) {
+                    ((com.vktea.MainActivity) callback).onMenuHeaderClick();
+                }
+            });
+            return h;
         }
         return new ItemViewHolder(inflater.inflate(R.layout.item_menu_entry, parent, false));
     }
@@ -148,12 +154,14 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         private final android.widget.TextView name;
         private final android.widget.TextView status;
         private final android.widget.ImageView avatar;
+        private final android.widget.ImageView cover;
 
         HeaderViewHolder(@NonNull View itemView) {
             super(itemView);
             name = itemView.findViewById(R.id.menu_header_name);
             status = itemView.findViewById(R.id.menu_header_status);
             avatar = itemView.findViewById(R.id.menu_header_avatar);
+            cover = itemView.findViewById(R.id.menu_header_cover);
         }
 
         void bind(com.vktea.api.User user) {
@@ -169,6 +177,11 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                         .load(user.photo200)
                         .apply(com.bumptech.glide.request.RequestOptions.circleCropTransform())
                         .into(avatar);
+            }
+            if (user.coverUrl != null && !user.coverUrl.isEmpty()) {
+                com.bumptech.glide.Glide.with(itemView)
+                        .load(user.coverUrl)
+                        .into(cover);
             }
         }
     }

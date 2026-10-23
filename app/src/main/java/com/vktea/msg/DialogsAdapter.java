@@ -65,7 +65,7 @@ public class DialogsAdapter extends RecyclerView.Adapter<DialogsAdapter.DialogVi
         holder.unread.setVisibility(dialog.unread ? View.VISIBLE : View.GONE);
         if (dialog.photo != null && !dialog.photo.isEmpty()) {
             Glide.with(holder.avatar).load(dialog.photo)
-                    .apply(RequestOptions.circleCropTransform())
+                    .apply(RequestOptions.circleCropTransform().override(120, 120))
                     .into(holder.avatar);
         }
         holder.itemView.setOnClickListener(v ->

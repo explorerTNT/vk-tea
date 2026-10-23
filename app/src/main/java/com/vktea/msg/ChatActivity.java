@@ -135,7 +135,7 @@ public class ChatActivity extends AppCompatActivity {
                                         fromId,
                                         names.containsKey(fromId) ? names.get(fromId) : "",
                                         avatars.containsKey(fromId) ? avatars.get(fromId) : "",
-                                        m.optString("body", ""),
+                                        m.optString("text", m.optString("body", "")),
                                         m.optLong("date", 0)));
                             }
                             Collections.reverse(msgs);
