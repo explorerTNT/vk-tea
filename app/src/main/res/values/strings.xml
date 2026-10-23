@@ -81,5 +81,15 @@
     <string name="offline_mode">Офлайн-режим: показана сохранённая лента</string>
     <string name="new_posts_fmt">↑ %1$d новых записей</string>
     <string name="stories_title">Истории</string>
+    <string name="message">Написать</string>
+    <string name="add_friend">Добавить в друзья</string>
+    <string name="is_friend">У вас в друзьях</string>
+    <string name="request_sent">Заявка отправлена</string>
+    <string name="online_now">в сети</string>
+    <string name="last_seen_fmt">был(а) в сети %1$s</string>
+    <string name="friends_count_fmt">%1$d друзей</string>
+    <string name="photos_count_fmt">%1$d фотографий</string>
+    <string name="videos_count_fmt">%1$d видеозаписей</string>
+    <string name="followers_count_fmt">%1$d подписчиков</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>

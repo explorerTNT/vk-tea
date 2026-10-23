@@ -1,20 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/msg_root"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:gravity="end|bottom"
+    android:orientation="horizontal"
+    android:paddingRight="6dp">
 
-    <TextView
-        android:id="@+id/msg_text"
+    <LinearLayout
+        android:id="@+id/msg_wrap"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginBottom="6dp"
-        android:background="@drawable/bg_msg_out"
-        android:lineSpacingExtra="2dp"
-        android:paddingLeft="12dp"
-        android:paddingTop="8dp"
-        android:paddingRight="12dp"
-        android:paddingBottom="8dp"
-        android:textColor="@android:color/white"
-        android:textSize="15sp" />
-</FrameLayout>
+        android:layout_marginRight="0dp"
+        android:clipToPadding="false"
+        android:gravity="center_vertical"
+        android:minHeight="44dp"
+        android:orientation="vertical"
+        android:paddingLeft="5dp"
+        android:paddingTop="5dp"
+        android:paddingRight="15dp"
+        android:paddingBottom="6dp">
+
+        <TextView
+            android:id="@+id/msg_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif"
+            android:gravity="center_vertical"
+            android:paddingLeft="8dp"
+            android:paddingTop="4dp"
+            android:paddingRight="8dp"
+            android:paddingBottom="7dp"
+            android:textColor="#ff000000"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/msg_time"
+        android:layout_width="48dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:fontFamily="sans-serif"
+        android:gravity="right|center"
+        android:paddingRight="10dp"
+        android:paddingBottom="12dp"
+        android:textColor="#ff909499"
+        android:textSize="12sp" />
+</LinearLayout>

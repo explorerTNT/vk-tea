@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/cover_frame"
+    android:layout_width="match_parent"
+    android:layout_height="280dp">
+
+    <ImageView
+        android:id="@+id/cover_photo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="centerCrop"
+        android:src="@drawable/bg_profile_cover" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="112dp"
+        android:layout_gravity="top"
+        android:alpha="0.5"
+        android:background="@drawable/scrim_top" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="112dp"
+        android:layout_gravity="bottom"
+        android:alpha="0.5"
+        android:background="@drawable/scrim_bottom" />
+
+    <TextView
+        android:id="@+id/profile_last_seen"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:fontFamily="sans-serif"
+        android:paddingLeft="16dp"
+        android:paddingBottom="16dp"
+        android:singleLine="true"
+        android:textColor="#d9ffffff"
+        android:textSize="15sp" />
+
+    <TextView
+        android:id="@+id/profile_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:fontFamily="sans-serif"
+        android:maxLines="3"
+        android:paddingLeft="16dp"
+        android:paddingBottom="34dp"
+        android:textColor="#ffffffff"
+        android:textSize="24sp" />
+</FrameLayout>

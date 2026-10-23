@@ -22,4 +22,28 @@
         <item name="android:textSize">20sp</item>
         <item name="android:textColor">@android:color/white</item>
     </style>
+
+    <style name="ButtonAction">
+        <item name="android:textSize">14sp</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingLeft">12dp</item>
+        <item name="android:paddingTop">5.5dp</item>
+        <item name="android:paddingRight">12dp</item>
+        <item name="android:paddingBottom">7.5dp</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:singleLine">true</item>
+    </style>
+
+    <style name="ButtonAction.Blue">
+        <item name="android:textColor">#FFFFFFFF</item>
+        <item name="android:background">@drawable/blue_button</item>
+    </style>
+
+    <style name="ButtonAction.Gray">
+        <item name="android:textColor">#FF4774A8</item>
+        <item name="android:background">@drawable/white_button</item>
+        <item name="android:minWidth">85dp</item>
+    </style>
 </resources>
