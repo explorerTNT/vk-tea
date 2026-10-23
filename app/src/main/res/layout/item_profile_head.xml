@@ -37,13 +37,14 @@
             android:id="@+id/profile_last_seen"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
+            android:layout_gravity="top|end"
             android:fontFamily="sans-serif"
+            android:paddingLeft="16dp"
             android:paddingRight="16dp"
-            android:paddingBottom="12dp"
+            android:paddingTop="8dp"
             android:singleLine="true"
             android:textColor="#d9ffffff"
-            android:textSize="13sp" />
+            android:textSize="12sp" />
     </FrameLayout>
 
     <ImageView
