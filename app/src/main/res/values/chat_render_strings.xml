@@ -1,0 +1,16 @@
+<resources>
+    <string name="chat_message_empty">Сообщение без текста</string>
+    <string name="chat_attachment_photo">Фото</string>
+    <string name="chat_attachment_video">Видео</string>
+    <string name="chat_attachment_sticker">Стикер</string>
+    <string name="chat_attachment_doc">Документ</string>
+    <string name="chat_attachment_audio">Аудиозапись</string>
+    <string name="chat_attachment_voice">Голосовое сообщение</string>
+    <string name="chat_attachment_link">Ссылка</string>
+    <string name="chat_attachment_wall">Запись</string>
+    <string name="chat_attachment_gift">Подарок</string>
+    <string name="chat_attachment_poll">Опрос</string>
+    <string name="chat_attachment_market">Товар</string>
+    <string name="chat_attachment_story">История</string>
+    <string name="chat_attachment_unknown">Вложение</string>
+</resources>

@@ -160,6 +160,27 @@ java -jar apktool.jar d -f -s -o vk-tea-reference\apktool-res <apk>
 
 Конкретный пробел Coffee: `api/APIController.java:174–194` содержит предупреждения JADX и заглушку `runRequest(VKAPIRequest,int)` с `Method not decompiled`. Также есть предупреждение о дублированном блоке в `audio/MusicApp.java:122`. Восстановление сетевого и авторизационного слоя требует дополнительного анализа, эти Java-заглушки не являются реализацией. `official-jadx/resources/` в переданной копии пуст: версию APK официального клиента по нему не подтверждаем.
 
+## Отображение чата (23.10.2026)
+
+Пути Coffee ниже — относительно `jadx-code/sources/su/operator555/vkcoffee/`, официального клиента — относительно `official-jadx/sources/`.
+
+| Контракт | Проверенный локальный референс | Реализация Tea |
+| --- | --- | --- |
+| История | Coffee `api/messages/MessagesGetHistory.java:32–45,55–86`: `peer_id`, `offset`, `count`, `photo_sizes=1`, `fields`, `extended=1`, обратный порядок | `ChatActivity.requestHistory`: последние 50 сообщений, `rev=0`, `extended=1`, `photo_sizes=1`; `ChatHistoryParser` возвращает хронологический список. Дополнительные поля `online,last_seen` для шапки берутся из `profiles` этого ответа |
+| Сообщение и вложения | Coffee `Message.java:241–314,636–666`; `attachments/Attachment.java:78–93,138–156,198–208` | Отдельные неизменяемые `ChatMessage` / `ChatAttachment`; обработаны все элементы массива, недоступные типы получают подпись. Ответы и пересылки показывают автора и краткий текст |
+| Фото и пропорции | Coffee `Photo.java:123–134`; `attachments/PhotoAttachment.java:130–145` | Выбирается наибольший размер с исходными пропорциями, с поддержкой `url` / `src` и legacy-полей. Подписанный URL сохраняется целиком. `ChatMediaPreview` показывает полное изображение через `fitCenter` |
+| Видео | Coffee `api/VideoFile.java:145–156,222–226`; официальный `xsna/b74.java:1507–1516,1538–1548` | `image` / `first_frame` и legacy-превью, кнопка воспроизведения, длительность; существующий `VideoPlayerActivity` получает `owner_id`, `id`, optional `access_key` |
+| Документы, стикеры | Coffee `api/Document.java:82–136`; `attachments/Attachment.java:198–208` | Превью фото / граффити / стикера; при отсутствии изображения — название и доступные сведения о вложении |
+| Пузыри и группы | Coffee `apktool-res/res/layout/message_in.xml:2–10`, `message_out.xml:4–8`; `ui/holder/messages/ChatMessageHolder.java:71,539–560` | Существующие `bg_msg_*` используются для одиночных / верхних / средних / нижних строк; измерение пузыря и положение времени реализованы заново |
+| Индикатор видео | Coffee `apktool-res/res/layout/attach_video.xml:2–8` | Пять `drawable-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}-v4/ic_attach_video_play.png` выборочно перенесены как `chat_attachment_video_play.png`; остальные новые векторные заглушки и shape-фоны написаны в Tea |
+| Шапка и поле ввода | Coffee `fragments/messages/ChatFragment.java:2179–2213,4046–4082,4731–4774,5564–5573`; `apktool-res/res/layout/subtitle_toolbar_fragment.xml`, `write_bar.xml`; `ui/WriteBar.java:923` | Аватар, имя и доступный статус; белое многострочное поле без подчёркивания. Системные панели и клавиатура учитываются через WindowInsets |
+
+`ChatMessagesAdapter` ограничивает ширину пузыря фактической шириной списка, переносит длинные строки, группирует соседние входящие и исходящие сообщения одного отправителя в пределах пяти минут и одного дня. Время располагается внутри пузыря; изображения и слушатели очищаются при переиспользовании строки. Даты разделяют дни переписки.
+
+Это исправление представления существующих последних 50 сообщений. Пагинация истории, LongPoll, запись голосовых и отправка вложений остаются отдельными задачами. Референсный `MessagesGetLastActivity` не добавляется: шапка использует данные уже загруженной истории. Проверка UI выполняется на синтетических ответах; личная переписка не используется как тестовый материал.
+
+Проверка этой версии: `:app:assembleDebug :app:testDebugUnitTest :app:lintDebug` — 138 тестов, 0 ошибок / пропусков; lint — 0 ошибок, 218 предупреждений проекта. На API 37 пройдены 30 проверок UI: портрет / альбом, фото / видео / несколько вложений, полный длинный текст, клавиатура, 320dp при fontScale=1.5, empty / error / retry. Временный QA APK не имеет INTERNET; `markRead` и отправка подменены локальными счётчиками. Обычный APK проверен на отсутствие QA entrypoint / фикстур и установлен через `adb install -r` на Pixel 10 (23.10.2026, 14:19), без открытия личного диалога и попыток входа.
+
 ## Экраны и навигация
 
 - `MainActivity` — хост, SlidingMenu (боковое меню) + PagerSlidingTabStrip (табы)

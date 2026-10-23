@@ -72,7 +72,8 @@ public class DialogsAdapter extends RecyclerView.Adapter<DialogsAdapter.DialogVi
                 holder.itemView.getContext().startActivity(
                         new Intent(holder.itemView.getContext(), ChatActivity.class)
                                 .putExtra(ChatActivity.EXTRA_PEER_ID, dialog.peerId)
-                                .putExtra(ChatActivity.EXTRA_TITLE, dialog.title)));
+                                .putExtra(ChatActivity.EXTRA_TITLE, dialog.title)
+                                .putExtra(ChatActivity.EXTRA_PHOTO, dialog.photo)));
     }
 
     @Override
