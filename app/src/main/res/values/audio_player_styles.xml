@@ -1,0 +1,9 @@
+<resources>
+    <style name="audio_player_icon" parent="Widget.AppCompat.ImageButton">
+        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+        <item name="android:scaleType">center</item>
+        <item name="android:padding">0dp</item>
+        <item name="tint">@color/audio_text</item>
+        <item name="android:focusable">true</item>
+    </style>
+</resources>

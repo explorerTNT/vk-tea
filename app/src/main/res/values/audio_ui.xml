@@ -1,0 +1,25 @@
+<resources>
+    <color name="audio_surface">#FFFFFF</color>
+    <color name="audio_text">#2E3033</color>
+    <color name="audio_secondary">#8A8A8A</color>
+    <color name="audio_accent">#5685A6</color>
+    <color name="audio_artwork">#354555</color>
+    <color name="audio_divider">#E9EDF1</color>
+    <string name="audio_my_music">Мои аудиозаписи</string>
+    <string name="audio_unknown_artist">Неизвестный исполнитель</string>
+    <string name="audio_queue">Очередь воспроизведения</string>
+    <string name="audio_save">Сохранить</string>
+    <string name="audio_download">Скачать аудиозапись</string>
+    <string name="audio_lyrics">Текст песни</string>
+    <string name="audio_similar">Показать похожие</string>
+    <string name="audio_copy_title">Копировать название</string>
+    <string name="audio_remove">Удалить</string>
+    <string name="audio_search_artist">Искать исполнителя</string>
+    <string name="audio_share">Поделиться</string>
+    <string name="audio_mark_saved">Отметка сохранена на устройстве</string>
+    <string name="audio_mark_removed">Отметка удалена</string>
+    <string name="audio_export_unavailable">Этот источник пока нельзя скачать</string>
+    <string name="audio_export_done">Аудиозапись сохранена</string>
+    <string name="audio_export_failed">Не удалось сохранить аудиозапись</string>
+    <string name="audio_mini_open">Открыть плеер</string>
+</resources>

@@ -18,7 +18,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
 
-import com.vktea.MainActivity;
+import com.vktea.ui.AudioPlayerActivity;
 import com.vktea.auth.Session;
 
 /** Owns the player independently of Activity and Fragment lifetimes. */
@@ -77,8 +77,7 @@ public class AudioPlaybackService extends MediaSessionService {
                 .setHandleAudioBecomingNoisy(true)
                 .setWakeMode(C.WAKE_MODE_LOCAL)
                 .build();
-        Intent openPlayer = new Intent(this, MainActivity.class)
-                .setAction(AudioPlayback.ACTION_OPEN_AUDIO)
+        Intent openPlayer = new Intent(this, AudioPlayerActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent sessionActivity = PendingIntent.getActivity(this, 1, openPlayer,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -118,6 +117,7 @@ public class AudioPlaybackService extends MediaSessionService {
             return;
         }
         stopping = true;
+        AudioSources.clear();
         if (player != null) {
             player.pause();
             player.stop();

@@ -42,6 +42,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private long feedListId;
     private TextView toolbarTitle;
     private TextView toolbarBadge;
+    private com.vktea.ui.AudioMiniPlayerView miniPlayer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +53,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             return;
         }
         setContentView(R.layout.activity_main);
+        androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView())
+                .setAppearanceLightNavigationBars(false);
 
         menu = buildMenu();
 
@@ -59,14 +62,19 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         View burger = findViewById(R.id.toolbar_burger);
         toolbarTitle = findViewById(R.id.toolbar_title);
         toolbarBadge = findViewById(R.id.toolbar_badge);
+        miniPlayer = findViewById(R.id.audio_mini_player);
 
         burger.setOnClickListener(v -> drawer.openDrawer(menuView));
 
         View titleBtn = findViewById(R.id.toolbar_title_btn);
         titleBtn.setOnClickListener(this::showSectionDropdown);
 
-        findViewById(R.id.toolbar_search).setOnClickListener(v ->
-                Toast.makeText(this, R.string.section_search, Toast.LENGTH_SHORT).show());
+        findViewById(R.id.toolbar_search).setOnClickListener(v -> {
+            androidx.fragment.app.Fragment current = getSupportFragmentManager().findFragmentById(R.id.content);
+            if (currentId == R.id.menu_audios && current instanceof com.vktea.ui.AudioFragment) {
+                ((com.vktea.ui.AudioFragment) current).showAudioSearch();
+            } else Toast.makeText(this, R.string.section_search, Toast.LENGTH_SHORT).show();
+        });
 
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this, drawer, null, 0, 0) {
             @Override
@@ -142,11 +150,22 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         } else {
             for (MenuEntry entry : menu) {
                 if (entry.id == currentId) {
-                    toolbarTitle.setText(entry.titleRes);
+                    toolbarTitle.setText(currentId == R.id.menu_audios ? R.string.audio_my_music : entry.titleRes);
                     break;
                 }
             }
         }
+        toolbarTitle.setTextSize(currentId == R.id.menu_audios ? 20 : 23);
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        if (miniPlayer != null) miniPlayer.start();
+    }
+
+    @Override protected void onStop() {
+        if (miniPlayer != null) miniPlayer.stop();
+        super.onStop();
     }
 
     @Override
@@ -166,6 +185,11 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     }
 
     private void showSectionDropdown(View anchor) {
+        androidx.fragment.app.Fragment current = getSupportFragmentManager().findFragmentById(R.id.content);
+        if (currentId == R.id.menu_audios && current instanceof com.vktea.ui.AudioFragment) {
+            ((com.vktea.ui.AudioFragment) current).showAudioMenu(anchor);
+            return;
+        }
         PopupMenu popup = new PopupMenu(this, anchor);
         popup.getMenu().add(0, 0, 0, R.string.list_newsfeed);
         popup.getMenu().add(0, -1, 1, R.string.list_recommendations);
@@ -235,7 +259,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         for (MenuEntry entry : menu) {
             if (entry.id == menuId) {
                 currentId = menuId;
-                toolbarTitle.setText(entry.titleRes);
+                toolbarTitle.setText(menuId == R.id.menu_audios ? R.string.audio_my_music : entry.titleRes);
+                toolbarTitle.setTextSize(menuId == R.id.menu_audios ? 20 : 23);
                 menuAdapter.setSelectedId(menuId);
                 androidx.fragment.app.Fragment fragment;
                 if (menuId == R.id.menu_settings) {

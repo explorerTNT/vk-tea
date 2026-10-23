@@ -76,7 +76,7 @@ public class AudioNavigationTest {
         executeNavigation();
 
         assertTrue(currentFragment() instanceof AudioFragment);
-        assertEquals(activity().getString(R.string.section_audios),
+        assertEquals(activity().getString(R.string.audio_list_my_audio),
                 toolbarTitle());
     }
 
@@ -113,15 +113,15 @@ public class AudioNavigationTest {
     }
 
     @Test
-    public void audioControlsAreUnavailableWhenSessionConnectionFails() {
+    public void failedSessionDisablesShuffleWhileKeepingLocalImportAvailable() {
         launch(OPEN_AUDIO);
         View root = currentFragment().getView();
         assertNotNull(root);
 
-        // A failed bind must not expose queue actions or playback controls.
-        assertFalse(root.findViewById(R.id.audio_open).isEnabled());
-        assertFalse(root.findViewById(R.id.audio_clear).isEnabled());
-        assertEquals(View.GONE, root.findViewById(R.id.audio_controls).getVisibility());
+        // Documents can be selected for the next connection; playback needs a session.
+        assertFalse(root.findViewById(R.id.audio_list_shuffle).isEnabled());
+        assertTrue(root.findViewById(R.id.audio_list_import).isEnabled());
+        assertEquals(View.VISIBLE, root.findViewById(R.id.audio_list_empty_state).getVisibility());
     }
 
     @Test

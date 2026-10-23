@@ -99,7 +99,9 @@ final class AudioSessionCallback implements MediaSession.Callback {
             return Futures.immediateFailedFuture(new SecurityException("Queue changes are not allowed"));
         }
         try {
-            return Futures.immediateFuture(AudioMediaItems.validate(mediaItems));
+            List<MediaItem> validated = AudioMediaItems.validate(mediaItems);
+            AudioSources.remember(validated);
+            return Futures.immediateFuture(validated);
         } catch (IllegalArgumentException exception) {
             return Futures.immediateFailedFuture(exception);
         }

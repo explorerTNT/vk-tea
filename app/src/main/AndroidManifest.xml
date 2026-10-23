@@ -28,6 +28,12 @@
             android:name=".auth.AuthActivity"
             android:exported="false" />
 
+        <activity android:name=".ui.AudioPlayerActivity"
+            android:theme="@style/Theme.VKTea.AudioPlayer" android:exported="false" />
+        <activity android:name=".audio.AudioExportActivity"
+            android:theme="@style/Theme.VKTea.AudioExport"
+            android:configChanges="orientation|screenSize|keyboardHidden" android:exported="false" />
+
         <activity
             android:name=".auth.AuthWebViewActivity"
             android:exported="true"

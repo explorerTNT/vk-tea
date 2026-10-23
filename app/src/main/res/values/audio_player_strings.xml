@@ -1,0 +1,22 @@
+<resources>
+    <string name="audio_player_collapse">Свернуть плеер</string>
+    <string name="audio_player_play">Воспроизвести</string>
+    <string name="audio_player_pause">Пауза</string>
+    <string name="audio_player_previous">Предыдущая аудиозапись</string>
+    <string name="audio_player_next">Следующая аудиозапись</string>
+    <string name="audio_player_queue">Очередь воспроизведения</string>
+    <string name="audio_player_save">Сохранить</string>
+    <string name="audio_player_unsave">Убрать из сохранённых</string>
+    <string name="audio_player_mute">Выключить звук</string>
+    <string name="audio_player_unmute">Включить звук</string>
+    <string name="audio_player_shuffle">Случайный порядок</string>
+    <string name="audio_player_repeat_off">Повтор выключен</string>
+    <string name="audio_player_repeat_all">Повтор очереди</string>
+    <string name="audio_player_repeat_one">Повтор аудиозаписи</string>
+    <string name="audio_player_download">Скачать аудиозапись</string>
+    <string name="audio_player_menu">Действия с аудиозаписью</string>
+    <string name="audio_player_seek">Позиция воспроизведения</string>
+    <string name="audio_player_quality_bitrate">%1$d kbps</string>
+    <string name="audio_player_quality_size">%1$s МБ</string>
+    <string name="audio_player_artist_quality">%1$s (%2$s)</string>
+</resources>

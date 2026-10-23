@@ -1,4 +1,21 @@
 <resources>
+    <style name="Theme.VKTea.AudioPlayer" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/audio_accent</item>
+        <item name="colorSurface">@color/audio_surface</item>
+        <item name="android:colorBackground">@color/audio_surface</item>
+        <item name="android:colorBackgroundFloating">@color/audio_surface</item>
+        <item name="android:colorAccent">@color/audio_accent</item>
+        <item name="android:statusBarColor">@color/audio_artwork</item>
+        <item name="android:navigationBarColor">@color/vk_blue</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@color/audio_surface</item>
+    </style>
+    <style name="Theme.VKTea.AudioExport" parent="Theme.VKTea.AudioPlayer">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
     <style name="Theme.VKTea" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/vk_blue</item>
         <item name="colorPrimaryDark">@color/vk_blue</item>

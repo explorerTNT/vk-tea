@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_list_shuffle_all">Перемешать все</string>
+    <string name="audio_list_my_audio">Мои аудиозаписи</string>
+    <string name="audio_list_add_files">Добавить аудиофайлы</string>
+    <string name="audio_list_clear_queue">Очистить очередь</string>
+    <string name="audio_list_empty">Добавьте аудиофайлы с устройства — они появятся здесь и будут доступны для фонового воспроизведения.</string>
+    <string name="audio_list_no_results">Ничего не найдено</string>
+    <string name="audio_list_search_title">Поиск в моих аудиозаписях</string>
+    <string name="audio_list_search_hint">Название или исполнитель</string>
+    <string name="audio_list_search_done">Готово</string>
+    <string name="audio_list_search_clear">Сбросить</string>
+    <string name="audio_list_current_track">Текущая аудиозапись</string>
+    <string name="audio_list_local_file">Файл на устройстве</string>
+    <string name="audio_list_saved">Сохранено</string>
+</resources>

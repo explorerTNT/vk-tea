@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/audio_player_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/vk_blue"
+    android:clipChildren="false"
+    android:orientation="vertical">
+
+    <FrameLayout
+        android:id="@+id/audio_player_cover"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:background="@color/audio_artwork">
+
+        <ImageView
+            android:id="@+id/audio_player_artwork"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@null"
+            android:importantForAccessibility="no"
+            android:scaleType="centerCrop"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/audio_player_cover_placeholder"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center"
+            android:contentDescription="@null"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/audio_player_placeholder" />
+
+        <ImageButton
+            android:id="@+id/audio_player_collapse"
+            style="@style/audio_player_icon"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_gravity="top|start"
+            android:contentDescription="@string/audio_player_collapse"
+            android:src="@drawable/audio_player_collapse"
+            app:tint="@null" />
+    </FrameLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/audio_player_body_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/audio_artwork"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        android:scrollbars="none">
+
+        <include layout="@layout/audio_player_body" />
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

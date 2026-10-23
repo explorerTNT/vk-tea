@@ -60,7 +60,64 @@ java -jar apktool.jar d -f -s -o vk-tea-reference\apktool-res <apk>
 - Оффлайн: `SavedTracks`, `DownloadTaskTracks`, `DownloadTrackFileConverter`, `CacheUtils`
 - Системная интеграция: `MediaSessionHelper(21)`, `MediaButtonEventReceiver`
 
-План портирования: Media3 ExoPlayer + свои `DataSource` (паттерн 1:1) + `MediaSessionService` + локальный прокси. `AudioPlayerActivity` — полноэкранный плеер (UI переносить из apktool-res).
+В VK Tea уже используются Media3 ExoPlayer + `MediaSessionService`, список, общий мини-плеер и полноэкранный `AudioPlayerActivity`. Старые движки, прокси и управляемый кеш Coffee пока остаются референсом для следующих этапов. Интерфейс написан заново по разметке и четырём предоставленным скриншотам; отдельные PNG перенесены под новыми именами. Актуальные возможности и границы описаны в [audio-playback.md](audio-playback.md).
+
+### Интерфейс аудио по четырём скриншотам (23.10.2026)
+
+Переданные файлы используются как визуальные референсы и не включаются в репозиторий. Показанные в них названия треков не переносятся в демонстрационные или production-данные.
+
+| Скриншот | Что сопоставляется |
+| --- | --- |
+| `photo_2026-10-23_12-19-12.jpg` | Белый список, синий toolbar «Мои аудиозаписи», строка shuffle, длительности, закреплённый мини-плеер |
+| `photo_2026-10-23_12-19-13.jpg` | Текущая строка с синим индикатором слева, локальные значки, тёмное название, мини-плеер |
+| `photo_2026-10-23_12-19-13 (2).jpg` | Тёмная обложка-заглушка, сворачивание, seek/time, название/исполнитель/качество, два ряда управления |
+| `photo_2026-10-23_12-19-14.jpg` | Порядок пунктов контекстного меню и отметка «Сохранить» |
+
+Пути ресурсов ниже указаны относительно `vk-tea-reference/apktool-res/res/`, Java — относительно `vk-tea-reference/jadx-code/sources/su/operator555/vkcoffee/`. Файлы и обработчики проверены в локальной копии; доступность старых VK API из этого не следует.
+
+| Часть | Точный Coffee-источник | Новая реализация VK Tea |
+| --- | --- | --- |
+| Строка трека | `layout/audio_list_item.xml`, `layout/audio_list_item_common.xml`; `ui/holder/audio/AudioViewHolderBase.java:36–63`, `ui/holder/audio/AudioViewHolderStandard.java:14–43` | `layout/item_audio_track.xml`, `ui/AudioQueueAdapter.java`: название/исполнитель, длительность, отдельный текущий индикатор, локальный значок |
+| Текущий индикатор | `ui/drawable/AudioVisualizerDrawable.java`; установка в `ui/holder/audio/AudioViewHolderStandard.java:17` | Свой вектор `drawable/audio_list_equalizer.xml`; Java-анимация Coffee не копируется |
+| Shuffle над списком | `layout/audio_shuffle_all_item.xml`; `fragments/AudioListFragment.java:542–552` | Строка 60 dp в `layout/fragment_audio.xml`, команда общей очереди в `ui/AudioFragment.java` |
+| Мини-плеер под списком | `layout/audio_bottom_panel.xml`; `fragments/AudioListFragment.java:940–979` | `ui/AudioMiniPlayerView.java`, `layout/view_audio_mini_player.xml`, один общий экземпляр в `MainActivity` |
+| Плеер бокового меню | `layout/menu_audio_player.xml`; `ui/widget/MenuListView.java:1414–1461` и обновление состояния в `906–918` | Компактная композиция обложка/название/исполнитель/кнопка использована общим мини-плеером; старый SlidingMenu не копируется |
+| Полноэкранная композиция | `layout/audio_player.xml`, `layout-v21/audio_player.xml`, `layout-land/audio_player.xml`, `layout-land-v21/audio_player.xml`, `layout/audio_player_cover_scroll.xml`; `AudioPlayerActivity.java:338–419` | `ui/AudioPlayerActivity.java`, `layout/activity_audio_player.xml`, `layout/audio_player_body.xml`: адаптивная обложка, прокручиваемое управление, отступы системных панелей |
+| Транспорт/очередь/shuffle/repeat | `AudioPlayerActivity.java:893–967` | Media3-команды через общий `audio/AudioUi.java`; отдельный ExoPlayer в Activity не создаётся |
+| Полноэкранное меню | `menu/audio.xml`; `AudioPlayerActivity.java:468–588` | `AudioUi.showActions`: порядок соответствует скриншоту, доступность ограничена текущими локальными действиями |
+| Долгое нажатие строки | `fragments/AudioListFragment.java:1041–1105` | То же меню `AudioUi.showActions` для конкретного индекса общей очереди |
+
+Это адаптация интерфейса: исходный `audio_list_item.xml` имеет высоту 72 dp, текущая строка Tea — минимум 68 dp с увеличением под крупный шрифт; размеры текста задаются в sp. Проверка точного визуального совпадения на физическом Pixel ещё не заявляется. Текущий источник списка — документы SAF; настоящий каталог, сетевой поиск и действия над библиотекой VK не имитируются.
+
+#### Перенесённые PNG
+
+Исходные изображения лежат в `drawable-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}-v4/`; назначения — в соответствующих `app/src/main/res/drawable-{density}/`. Сопоставление всех 99 перенесённых вариантов из таблицы проверено по SHA-256: байты совпадают с локальным референсом. У `ic_aplayer_cache_normal.png` нет варианта xxxhdpi в переданной копии, поэтому для него перенесены четыре доступные плотности.
+
+| Назначение Tea (`.png`) | Coffee (`.png`) |
+| --- | --- |
+| `audio_list_shuffle`, `audio_player_shuffle` | `ic_shuffle_24dp` |
+| `audio_list_local` | `ic_music_cached_12dp` |
+| `audio_mini_placeholder` | `placeholder_albumart_56dp` |
+| `audio_mini_play` | `ic_play_24dp` |
+| `audio_mini_pause` | `ic_pause_24dp` |
+| `audio_player_placeholder` | `ic_music_placeholder_120dp` |
+| `audio_player_collapse` | `ic_music_minimize_32dp` |
+| `audio_player_previous` | `ic_previous_48dp` |
+| `audio_player_play` | `ic_play_48dp` |
+| `audio_player_pause` | `ic_pause_48dp` |
+| `audio_player_next` | `ic_next_48dp` |
+| `audio_player_queue` | `ic_playlist_24dp` |
+| `audio_player_add` | `ic_add_24dp` |
+| `audio_player_saved` | `ic_check_24dp` |
+| `audio_player_volume` | `ic_mute_shadow_48dp` |
+| `audio_player_muted` | `ic_unmute_shadow_48dp` |
+| `audio_player_repeat` | `ic_repeat_24dp` |
+| `audio_player_download` | `ic_aplayer_cache_normal` |
+| `audio_player_menu` | `ic_actions_small_24dp` |
+
+В исходных ресурсах встречаются идентичные алиасы: `ic_play_24dp`/`ic_menu_play`, `ic_pause_24dp`/`ic_menu_pause`, `ic_add_24dp`/`ic_add`, `ic_check_24dp`/`ic_ab_done`. В таблице выбран вариант, соответствующий назначению элемента; тождество PNG само по себе не устанавливает, какое имя использовалось при первоначальном копировании.
+
+Важные различия поведения: Coffee `audio_cache` управляет его собственным кешем, а «Сохранить» в Tea сейчас создаёт только локальную отметку. «Скачать аудиозапись» в Tea копирует доступный `content`-документ в выбранное пользователем SAF-назначение; `CaffeineDownloader` и скачивание удалённых ссылок не перенесены. Lyrics/similar/artist-пункты отключены до реализации соответствующих API. Уведомление MediaSession открывает новый полноэкранный плеер. Эти отличия не скрываются под визуальным сходством.
 
 ### Проверенные точки входа аудио (локальная копия, 22.10.2026)
 

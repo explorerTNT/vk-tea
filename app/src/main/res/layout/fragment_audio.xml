@@ -1,31 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/audio_surface"
     android:orientation="vertical">
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/audio_list_shuffle"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp">
+        android:layout_height="60dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:drawableStart="@drawable/audio_list_shuffle"
+        android:drawablePadding="16dp"
+        android:drawableTint="@color/audio_accent"
+        android:focusable="true"
+        android:fontFamily="sans-serif"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:text="@string/audio_list_shuffle_all"
+        android:textColor="@color/audio_accent"
+        android:textSize="16sp" />
 
-        <Button
-            android:id="@+id/audio_open"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/audio_open_files" />
-
-        <Button
-            android:id="@+id/audio_clear"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/audio_clear_queue" />
-    </LinearLayout>
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/audio_divider" />
 
     <TextView
         android:id="@+id/audio_status"
@@ -33,27 +34,49 @@
         android:layout_height="wrap_content"
         android:accessibilityLiveRegion="polite"
         android:padding="16dp"
-        android:text="@string/audio_connecting" />
+        android:textColor="@color/audio_secondary"
+        android:textSize="14sp"
+        android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/audio_empty"
+    <LinearLayout
+        android:id="@+id/audio_list_empty_state"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp"
-        android:text="@string/audio_empty" />
+        android:orientation="vertical"
+        android:paddingTop="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/audio_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="@string/audio_list_empty"
+            android:textColor="@color/audio_secondary"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/audio_list_import"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="@string/audio_list_add_files"
+            android:textColor="@color/audio_accent"
+            android:textSize="16sp" />
+    </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/audio_queue"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <androidx.media3.ui.PlayerControlView
-        android:id="@+id/audio_controls"
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
-        app:animation_enabled="false"
-        app:repeat_toggle_modes="one|all"
-        app:show_shuffle_button="true"
-        app:show_timeout="0" />
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp" />
 </LinearLayout>

@@ -135,6 +135,29 @@ public class AudioSessionCallbackTest {
     }
 
     @Test
+    public void onlyPositiveTypedAudioDetailsSurviveQueueValidation() throws Exception {
+        Bundle details = new Bundle();
+        details.putLong(AudioUi.EXTRA_DURATION_MS, 284_000L);
+        details.putLong(AudioUi.EXTRA_BITRATE, 320_000L);
+        details.putLong(AudioUi.EXTRA_FILE_SIZE, 11_640_000L);
+        details.putString("private_url", "https://example.invalid/synthetic-secret");
+        MediaItem request = track("content://synthetic.audio/details").buildUpon()
+                .setMediaMetadata(new MediaMetadata.Builder().setExtras(details).build()).build();
+        MediaItem accepted = callback.onAddMediaItems(session, owner(), Collections.singletonList(request)).get().get(0);
+        assertEquals(284_000L, AudioUi.duration(accepted));
+        assertEquals(3, accepted.mediaMetadata.extras.size());
+        assertFalse(accepted.mediaMetadata.extras.containsKey("private_url"));
+        assertTrue(AudioUi.canExport(accepted.buildUpon().setUri((Uri) null).build()));
+
+        details.putString(AudioUi.EXTRA_DURATION_MS, "284000");
+        details.putLong(AudioUi.EXTRA_BITRATE, -1);
+        details.putLong(AudioUi.EXTRA_FILE_SIZE, 0);
+        MediaItem invalidDetails = request.buildUpon().setMediaMetadata(
+                new MediaMetadata.Builder().setExtras(details).build()).build();
+        assertNull(AudioMediaItems.validate(Collections.singletonList(invalidDetails)).get(0).mediaMetadata.extras);
+    }
+
+    @Test
     public void revokedAuthorizationBlocksAlreadyConnectedController() throws Exception {
         assertTrue(callback.onConnect(session, owner()).isAccepted);
         context.getSharedPreferences("session", Context.MODE_PRIVATE).edit().clear().commit();

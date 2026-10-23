@@ -33,7 +33,7 @@
 - [ ] P0 **DataSource-слой**: `player/exo/AudioOkHttpDataSource` (сеть), `AudioFileDataSource` (локальный кеш), `AudioCacheHelper` — переносится на Media3 почти 1:1
 - [ ] P0 **Локальный прокси** (обход истекающих URL + кеш) — `player/proxy/PlayerProxy`, `ClientThread`, `LockFile`, `QueryData`
 - [x] P0 **Фоновое воспроизведение + MediaSession** — foreground-сервис, системное управление, audio focus и пауза при отключении проводной гарнитуры через Media3. Эмуляторная проверка описана в [audio-playback.md](audio-playback.md); физическая гарнитура и локскрин телефона требуют отдельной проверки.
-- [ ] P1 **Полноэкранный плеер** — `AudioPlayerActivity` + layouts (`audio_player_*`), портировать UI 1:1
+- [x] P1 **Полноэкранный плеер** — `AudioPlayerActivity` + layouts (`audio_player_*`): обложка-заглушка, перемотка, основные кнопки и меню по скриншотам Coffee; общий мини-плеер закреплён снизу основного экрана. VK-зависимые действия остаются недоступны, локальный экспорт работает через SAF; см. [audio-playback.md](audio-playback.md).
 - [ ] P1 **Скачивание треков / оффлайн** — `SavedTracks`, `SavedTrack`, `DownloadTaskTracks`, `DownloadTrackFileConverter`, `CacheUtils` + сервис `CaffeineDownloader`
 - [ ] P1 **Плейлисты** — `fragments/AudioPlaylistFragment`, `AudioListFragment`
 - [ ] P2 **Голосовые сообщения** — `AudioMessagePlayerService`

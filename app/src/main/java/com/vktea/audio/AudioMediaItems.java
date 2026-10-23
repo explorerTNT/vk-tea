@@ -1,6 +1,7 @@
 package com.vktea.audio;
 
 import android.net.Uri;
+import android.os.Bundle;
 
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -37,6 +38,7 @@ final class AudioMediaItems {
                     .setDisplayTitle(source.displayTitle)
                     .setIsPlayable(true)
                     .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+                    .setExtras(safeDetails(source.extras))
                     .build();
             String mediaId = item.mediaId;
             if (mediaId.isEmpty() || mediaId.contains("://")) {
@@ -51,6 +53,20 @@ final class AudioMediaItems {
                     .build());
         }
         return playable;
+    }
+
+    private static Bundle safeDetails(Bundle requested) {
+        if (requested == null) return null;
+        Bundle safe = new Bundle();
+        copyPositiveLong(requested, safe, AudioUi.EXTRA_DURATION_MS);
+        copyPositiveLong(requested, safe, AudioUi.EXTRA_BITRATE);
+        copyPositiveLong(requested, safe, AudioUi.EXTRA_FILE_SIZE);
+        return safe.isEmpty() ? null : safe;
+    }
+
+    private static void copyPositiveLong(Bundle source, Bundle target, String key) {
+        Object value = source.get(key);
+        if (value instanceof Long && (Long) value > 0) target.putLong(key, (Long) value);
     }
 
     private static void validateUri(Uri uri) {
