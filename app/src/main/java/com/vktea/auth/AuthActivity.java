@@ -35,6 +35,7 @@ public class AuthActivity extends AppCompatActivity {
     private static final String SCOPE = "nohttps,all";
     private static final String API_V = "5.82";
     private static final String USER_AGENT = "VKAndroidApp/8.09-1113 (Android 13; SDK 33; arm64-v8a; samsung SM-S908N; ru)";
+    private static final okhttp3.OkHttpClient CLIENT = new okhttp3.OkHttpClient();
 
     private EditText loginField;
     private EditText passField;
@@ -94,26 +95,26 @@ public class AuthActivity extends AppCompatActivity {
                     url.append("&captcha_sid=").append(captchaSid)
                        .append("&captcha_key=").append(URLEncoder.encode(captchaKey, "UTF-8"));
                 }
-                HttpURLConnection conn = (HttpURLConnection) new URL(url.toString()).openConnection();
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(15000);
-                conn.setRequestProperty("User-Agent", USER_AGENT);
-                int code = conn.getResponseCode();
-                InputStream stream = code < 400 ? conn.getInputStream() : conn.getErrorStream();
-                Scanner scanner = new Scanner(stream, "UTF-8").useDelimiter("\\A");
-                String body = scanner.hasNext() ? scanner.next() : "";
-                scanner.close();
+                okhttp3.Request request = new okhttp3.Request.Builder()
+                        .url(url.toString())
+                        .header("User-Agent", USER_AGENT)
+                        .build();
+                okhttp3.Response response = CLIENT.newCall(request).execute();
+                String body = response.body() != null ? response.body().string() : "";
+                int code = response.code();
                 android.util.Log.e("VKTea", "auth response " + code + ": " + body);
                 JSONObject json = new JSONObject(body);
                 if (json.has("access_token")) {
                     String token = json.getString("access_token");
                     String userId = String.valueOf(json.getLong("user_id"));
+                    String secret = json.optString("secret", null);
                     if (json.has("trusted_hash")) {
                         getSharedPreferences("auth", MODE_PRIVATE).edit()
                                 .putString("trusted_hash", json.getString("trusted_hash")).apply();
                     }
+                    String savedSecret = secret;
                     runOnUiThread(() -> {
-                        Session.save(this, token, userId);
+                        Session.save(this, token, userId, savedSecret);
                         TokenRevealDialog.show(this, token);
                     });
                 } else {
