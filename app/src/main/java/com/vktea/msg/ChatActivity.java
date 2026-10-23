@@ -129,14 +129,45 @@ public class ChatActivity extends AppCompatActivity {
                             for (int i = 0; i < items.length(); i++) {
                                 JSONObject m = items.getJSONObject(i);
                                 long fromId = m.optLong("from_id", peerId);
-                                msgs.add(new ChatMsg(
+                                ChatMsg msg = new ChatMsg(
                                         m.getLong("id"),
                                         m.optInt("out", 0) == 1,
                                         fromId,
                                         names.containsKey(fromId) ? names.get(fromId) : "",
                                         avatars.containsKey(fromId) ? avatars.get(fromId) : "",
                                         m.optString("text", m.optString("body", "")),
-                                        m.optLong("date", 0)));
+                                        m.optLong("date", 0));
+                                JSONArray atts = m.optJSONArray("attachments");
+                                if (atts != null && atts.length() > 0) {
+                                    JSONObject att = atts.getJSONObject(0);
+                                    String type = att.optString("type", "");
+                                    if ("photo".equals(type)) {
+                                        msg.attachUrl = chatPhotoUrl(att.optJSONObject("photo"));
+                                    } else if ("sticker".equals(type)) {
+                                        JSONObject st = att.optJSONObject("sticker");
+                                        if (st != null) {
+                                            msg.attachUrl = st.optString("photo_256", st.optString("photo_128", ""));
+                                        }
+                                    } else if ("video".equals(type)) {
+                                        msg.body = appendLine(msg.body, "🎬 Видео");
+                                    } else if ("audio".equals(type)) {
+                                        msg.body = appendLine(msg.body, "🎵 Аудио");
+                                    } else if ("audio_message".equals(type)) {
+                                        msg.body = appendLine(msg.body, "🎤 Голосовое сообщение");
+                                    } else if ("doc".equals(type)) {
+                                        msg.body = appendLine(msg.body, "📄 Документ");
+                                    } else if ("wall".equals(type)) {
+                                        msg.body = appendLine(msg.body, "📝 Запись");
+                                    } else if ("gift".equals(type)) {
+                                        msg.body = appendLine(msg.body, "🎁 Подарок");
+                                    }
+                                }
+                                JSONArray fwd = m.optJSONArray("fwd_messages");
+                                if (fwd != null && fwd.length() > 0) {
+                                    msg.body = appendLine(msg.body,
+                                            "↪ Пересланное сообщение (" + fwd.length() + ")");
+                                }
+                                msgs.add(msg);
                             }
                             Collections.reverse(msgs);
                             runOnUiThread(() -> {
@@ -175,6 +206,32 @@ public class ChatActivity extends AppCompatActivity {
 
     private static long localId = -100;
 
+    private static String chatPhotoUrl(JSONObject photo) {
+        if (photo == null) {
+            return null;
+        }
+        String[] candidates = {"photo_2560", "photo_1280", "photo_807", "photo_604", "photo_130"};
+        for (String key : candidates) {
+            String u = photo.optString(key, null);
+            if (u != null && !u.isEmpty()) {
+                return u;
+            }
+        }
+        JSONArray sizes = photo.optJSONArray("sizes");
+        if (sizes != null && sizes.length() > 0) {
+            String url = sizes.optJSONObject(sizes.length() - 1).optString("url", null);
+            if (url != null) {
+                url = url.replaceAll("&cs=\\d+x\\d+", "");
+            }
+            return url;
+        }
+        return null;
+    }
+
+    private static String appendLine(String base, String line) {
+        return base.isEmpty() ? line : base + "\n" + line;
+    }
+
     private static String urlEncode(String s) {
         try {
             return URLEncoder.encode(s, "UTF-8");
@@ -189,8 +246,9 @@ public class ChatActivity extends AppCompatActivity {
         final long fromId;
         final String author;
         final String avatar;
-        final String body;
+        String body;
         final long date;
+        String attachUrl;
 
         ChatMsg(long id, boolean out, long fromId, String author, String avatar, String body, long date) {
             this.id = id;
@@ -268,7 +326,17 @@ public class ChatActivity extends AppCompatActivity {
             ChatMsg msg = msgs.get(position);
             Holder h = (Holder) holder;
             h.text.setText(msg.body);
+            h.text.setVisibility(msg.body.isEmpty() ? View.GONE : View.VISIBLE);
             h.time.setText(new SimpleDateFormat("HH:mm", Locale.US).format(new Date(msg.date * 1000L)));
+
+            if (msg.attachUrl != null && !msg.attachUrl.isEmpty()) {
+                h.attach.setVisibility(View.VISIBLE);
+                int target = h.attach.getContext().getResources().getDisplayMetrics().widthPixels / 2;
+                Glide.with(h.attach).load(msg.attachUrl).override(target,
+                        com.bumptech.glide.request.target.Target.SIZE_ORIGINAL).into(h.attach);
+            } else {
+                h.attach.setVisibility(View.GONE);
+            }
 
             int group = groupPos(position);
             String prefixIn = msg.out ? "bg_msg_out" : "bg_msg_in";
@@ -318,6 +386,7 @@ public class ChatActivity extends AppCompatActivity {
             final int viewType;
             final ImageView avatar;
             final TextView text;
+            final ImageView attach;
             final TextView time;
             final View wrap;
 
@@ -326,6 +395,7 @@ public class ChatActivity extends AppCompatActivity {
                 this.viewType = viewType;
                 avatar = itemView.findViewById(R.id.msg_sender_photo);
                 text = itemView.findViewById(R.id.msg_text);
+                attach = itemView.findViewById(R.id.msg_attach);
                 time = itemView.findViewById(R.id.msg_time);
                 wrap = itemView.findViewById(R.id.msg_wrap);
             }

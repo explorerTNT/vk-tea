@@ -21,6 +21,16 @@
         android:paddingRight="15dp"
         android:paddingBottom="6dp">
 
+        <ImageView
+            android:id="@+id/msg_attach"
+            android:layout_width="220dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="4dp"
+            android:adjustViewBounds="true"
+            android:contentDescription="@null"
+            android:scaleType="fitCenter"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/msg_text"
             android:layout_width="wrap_content"
