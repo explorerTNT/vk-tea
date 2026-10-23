@@ -69,7 +69,7 @@ public class ProfileFragment extends Fragment {
 
     private void loadProfile(ProfileAdapter adapter) {
         VKApi.get(requireContext(), "users.get", "user_ids=" + userId
-                        + "&fields=photo_200,status,last_seen,counters,friend_status,online,bdate,city",
+                        + "&fields=photo_200,photo_max_orig,status,last_seen,counters,friend_status,online,bdate,city,cover",
                 new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
@@ -266,6 +266,21 @@ public class ProfileFragment extends Fragment {
                                     new Date(lastSeen.optLong("time", 0) * 1000L))));
                 }
             }
+            String coverUrl = null;
+            JSONObject coverObj = profile.optJSONObject("cover");
+            if (coverObj != null && coverObj.optInt("enabled", 0) == 1) {
+                JSONArray images = coverObj.optJSONArray("images");
+                if (images != null && images.length() > 0) {
+                    coverUrl = images.optJSONObject(images.length() - 1).optString("url", null);
+                }
+            }
+            String photoMax = profile.optString("photo_max_orig", null);
+            if (coverUrl == null || coverUrl.isEmpty()) {
+                coverUrl = photoMax;
+            }
+            if (coverUrl != null && !coverUrl.isEmpty()) {
+                Glide.with(h.cover).load(coverUrl).centerCrop().into(h.cover);
+            }
             Button friendBtn = h.friendBtn;
             if (userId == Long.parseLong(com.vktea.auth.Session.getUserId(requireContext()))) {
                 friendBtn.setVisibility(View.GONE);
@@ -358,6 +373,7 @@ public class ProfileFragment extends Fragment {
         final Button messageBtn;
         final Button friendBtn;
         final LinearLayout counters;
+        final ImageView cover;
 
         HeadHolder(@NonNull View itemView) {
             super(itemView);
@@ -366,6 +382,7 @@ public class ProfileFragment extends Fragment {
             messageBtn = itemView.findViewById(R.id.profile_btn_message);
             friendBtn = itemView.findViewById(R.id.profile_btn_friend);
             counters = itemView.findViewById(R.id.profile_counters);
+            cover = itemView.findViewById(R.id.cover_photo);
         }
     }
 
