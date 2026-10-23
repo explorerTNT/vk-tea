@@ -25,7 +25,7 @@
         android:layout_height="88dp"
         android:layout_below="@id/menu_header_padder"
         android:layout_marginLeft="8dp"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="-44dp"
         android:background="@drawable/bg_avatar"
         android:padding="8dp"
         android:scaleType="centerCrop"
