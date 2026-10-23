@@ -1,0 +1,9 @@
+<resources>
+    <string name="auth_in_progress">Вход…</string>
+    <string name="auth_request_in_progress">Запрос входа уже выполняется.</string>
+    <string name="auth_rate_limited">VK ограничил попытки входа. Такое сообщение может прийти и на первый вход в этом приложении. Отложите вход: автоматических повторов не будет. Приложение не может снять это ограничение сервера.</string>
+    <string name="auth_network_failed">Не удалось получить ответ VK. Автоматического повтора не было. Проверьте соединение перед следующей попыткой.</string>
+    <string name="auth_rejected">VK отклонил вход. Проверьте данные перед следующей попыткой.</string>
+    <string name="auth_validation_returned">Если вы подтвердили вход на странице VK, нажмите «Войти», чтобы продолжить. Возврат со страницы сам по себе не отправляет запрос.</string>
+    <string name="auth_captcha_failed">Не удалось загрузить капчу. Запрос входа не повторялся.</string>
+</resources>

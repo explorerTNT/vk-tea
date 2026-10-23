@@ -13,22 +13,19 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
 
-import com.vktea.BuildConfig;
-import com.vktea.MainActivity;
 import com.vktea.R;
 
 import org.json.JSONObject;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Scanner;
+
+import okhttp3.FormBody;
 
 public class AuthWebViewActivity extends AppCompatActivity {
 
@@ -45,11 +42,36 @@ public class AuthWebViewActivity extends AppCompatActivity {
     private WebView webView;
     private String codeVerifier;
     private String deviceId;
+    private AuthAttemptViewModel requests;
+    private AuthHttpClient authClient;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        requests = new ViewModelProvider(this).get(AuthAttemptViewModel.class);
+        authClient = createAuthClient();
+        requests.getResponse().observe(this, response -> {
+            if (response == null || isFinishing()) {
+                return;
+            }
+            AuthResponse result = requests.takeResponse();
+            if (result == null) {
+                return;
+            }
+            JSONObject json = result.json != null ? result.json : new JSONObject();
+            String token = json.optString("access_token", "");
+            String userId = json.optString("user_id", "0");
+            if (!result.networkFailure && result.httpStatus >= 200 && result.httpStatus < 300
+                    && !token.isEmpty() && json.optLong("user_id", 0) > 0) {
+                Session.save(this, token, userId, json.optString("secret", null));
+                TokenRevealDialog.show(this, token);
+            } else {
+                Toast.makeText(this, AuthErrors.isRateLimited(result)
+                        ? R.string.auth_rate_limited : R.string.auth_rejected, Toast.LENGTH_LONG).show();
+                finish();
+            }
+        });
         setContentView(R.layout.activity_auth_web);
 
         webView = findViewById(R.id.auth_web);
@@ -73,15 +95,6 @@ public class AuthWebViewActivity extends AppCompatActivity {
                 return shouldOverrideUrlLoading(view, request.getUrl().toString());
             }
 
-            @Override
-            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-                android.util.Log.d("VKTea", "auth page: " + url);
-            }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                view.evaluateJavascript("(function(){return document.body ? document.body.innerText.substring(0,400) : ''})()", value -> android.util.Log.d("VKTea", "auth page text: " + value));
-            }
         });
 
         Uri data = getIntent().getData();
@@ -107,12 +120,17 @@ public class AuthWebViewActivity extends AppCompatActivity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        setIntent(intent);
         Uri data = intent.getData();
         if (data != null && data.toString().startsWith(redirectUri())) {
             codeVerifier = loadCodeVerifier();
             deviceId = loadDeviceId();
             onVkIdRedirect(data.toString());
         }
+    }
+
+    protected AuthHttpClient createAuthClient() {
+        return new AuthHttpClient();
     }
 
     private void openInBrowser(String url) {
@@ -154,7 +172,9 @@ public class AuthWebViewActivity extends AppCompatActivity {
     }
 
     private void onVkIdRedirect(String url) {
-        android.util.Log.d("VKTea", "redirect: " + url);
+        if (requests.isBusy() || requests.getResponse().getValue() != null) {
+            return;
+        }
         Map<String, String> params = parseQuery(url.substring(url.indexOf('?') + 1));
         String code = params.get("code");
         String state = params.get("state");
@@ -166,53 +186,35 @@ public class AuthWebViewActivity extends AppCompatActivity {
         if (code != null && STATE.equals(state)) {
             exchangeCode(code);
         } else {
-            android.util.Log.e("VKTea", "redirect rejected: code=" + code + " state=" + state);
             Toast.makeText(this, R.string.auth_failed, Toast.LENGTH_LONG).show();
             finish();
         }
     }
 
     private void exchangeCode(String code) {
-        new Thread(() -> {
-            try {
-                HttpURLConnection conn = (HttpURLConnection) new URL(TOKEN_URL).openConnection();
-                conn.setRequestMethod("POST");
-                conn.setDoOutput(true);
-                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-                String form = "grant_type=authorization_code"
-                        + "&code=" + code
-                        + "&client_id=" + CLIENT_ID
-                        + "&redirect_uri=" + java.net.URLEncoder.encode(redirectUri(), "UTF-8")
-                        + "&code_verifier=" + codeVerifier
-                        + "&device_id=" + deviceId
-                        + "&state=" + STATE;
-                try (OutputStream os = conn.getOutputStream()) {
-                    os.write(form.getBytes(StandardCharsets.UTF_8));
-                }
-                Scanner scanner = new Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
-                String body = scanner.hasNext() ? scanner.next() : "";
-                scanner.close();
-                JSONObject json = new JSONObject(body);
-                String token = json.optString("access_token", null);
-                String userId = String.valueOf(json.optLong("user_id", 0));
-                if (token != null && !"0".equals(userId)) {
-                    runOnUiThread(() -> {
-                        Session.save(this, token, userId);
-                        TokenRevealDialog.show(this, token);
-                    });
-                } else {
-                    runOnUiThread(() -> {
-                        Toast.makeText(this, R.string.auth_failed, Toast.LENGTH_LONG).show();
-                        finish();
-                    });
-                }
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    Toast.makeText(this, R.string.auth_failed, Toast.LENGTH_LONG).show();
-                    finish();
-                });
-            }
-        }).start();
+        if (codeVerifier == null || codeVerifier.isEmpty()) {
+            Toast.makeText(this, R.string.auth_rejected, Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+        FormBody form = new FormBody.Builder()
+                .add("grant_type", "authorization_code")
+                .add("code", code)
+                .add("client_id", CLIENT_ID)
+                .add("redirect_uri", redirectUri())
+                .add("code_verifier", codeVerifier)
+                .add("device_id", deviceId != null ? deviceId : "")
+                .add("state", STATE)
+                .build();
+        AuthHttpClient client = authClient;
+        if (requests.submit(AuthResponse.Method.VK_ID, () -> client.vkId(TOKEN_URL, form))) {
+            // A callback code is single-use. Configuration changes retain the
+            // ViewModel; later duplicate intents cannot start another exchange.
+            getSharedPreferences("auth", MODE_PRIVATE).edit().remove("code_verifier").apply();
+            codeVerifier = null;
+        } else {
+            Toast.makeText(this, R.string.auth_request_in_progress, Toast.LENGTH_LONG).show();
+        }
     }
 
     private static String makeVerifier() {
@@ -237,7 +239,7 @@ public class AuthWebViewActivity extends AppCompatActivity {
         for (String pair : query.split("&")) {
             int eq = pair.indexOf('=');
             if (eq > 0) {
-                params.put(pair.substring(0, eq), pair.substring(eq + 1));
+                params.put(Uri.decode(pair.substring(0, eq)), Uri.decode(pair.substring(eq + 1)));
             }
         }
         return params;

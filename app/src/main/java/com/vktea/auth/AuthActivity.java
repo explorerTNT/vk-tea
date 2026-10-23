@@ -10,22 +10,20 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.Toast;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
 
-import com.vktea.MainActivity;
 import com.vktea.R;
 
 import org.json.JSONObject;
 
-import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.Scanner;
+
+import okhttp3.HttpUrl;
 
 public class AuthActivity extends AppCompatActivity {
 
@@ -35,110 +33,164 @@ public class AuthActivity extends AppCompatActivity {
     private static final String SCOPE = "nohttps,all";
     private static final String API_V = "5.82";
 
+    private static final int VALIDATION_REQUEST = 1;
     private EditText loginField;
     private EditText passField;
+    private TextView loginButton;
+    private View tokenButton;
+    private TextView status;
+    private AuthAttemptViewModel requests;
+    private AuthHttpClient authClient;
     private String captchaSid;
-    private int validationAttempts = 0;
+    private String captchaKey = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_auth);
-
         loginField = findViewById(R.id.auth_login);
         passField = findViewById(R.id.auth_pass);
-        View loginButton = findViewById(R.id.auth_login_btn);
-        View forgotButton = findViewById(R.id.auth_forgot);
-
+        loginButton = findViewById(R.id.auth_login_btn);
+        tokenButton = findViewById(R.id.auth_token_btn);
+        status = findViewById(R.id.auth_status);
+        authClient = createAuthClient();
+        requests = new ViewModelProvider(this).get(AuthAttemptViewModel.class);
         loginButton.setOnClickListener(v -> doAuth());
-        View tokenButton = findViewById(R.id.auth_token_btn);
         tokenButton.setOnClickListener(v -> showTokenLogin());
-        forgotButton.setOnClickListener(v ->
+        findViewById(R.id.auth_forgot).setOnClickListener(v ->
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://m.vk.com/restore"))));
+        requests.getBusy().observe(this, busy -> setBusy(Boolean.TRUE.equals(busy)));
+        requests.getResponse().observe(this, response -> {
+            if (response != null && !isFinishing()) {
+                AuthResponse result = requests.takeResponse();
+                if (result != null) {
+                    handleResponse(result);
+                }
+            }
+        });
+    }
+
+    /** Kept injectable for offline tests; production transport never retries auth. */
+    protected AuthHttpClient createAuthClient() {
+        return new AuthHttpClient();
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == 1 && validationAttempts < 3) {
-            doAuth();
+        if (requestCode == VALIDATION_REQUEST) {
+            // Back/cancel is not proof that validation succeeded. Any continuation
+            // requires an explicit user action, never a lifecycle-triggered retry.
+            showStatus(R.string.auth_validation_returned);
         }
     }
 
     private void doAuth() {
-        String login = loginField.getText().toString().trim();
-        String pass = passField.getText().toString();
-        if (login.isEmpty() || pass.isEmpty()) {
-            Toast.makeText(this, R.string.auth_failed, Toast.LENGTH_SHORT).show();
+        if (requests.isBusy()) {
+            showStatus(R.string.auth_request_in_progress);
             return;
         }
-        new Thread(() -> {
-            try {
-                StringBuilder url = new StringBuilder(TOKEN_URL)
-                        .append("?grant_type=password")
-                        .append("&client_id=").append(CLIENT_ID)
-                        .append("&client_secret=").append(CLIENT_SECRET)
-                        .append("&username=").append(URLEncoder.encode(login, "UTF-8"))
-                        .append("&password=").append(URLEncoder.encode(pass, "UTF-8"))
-                        .append("&scope=").append(SCOPE)
-                        .append("&v=").append(API_V);
-                if (captchaSid != null) {
-                    url.append("&captcha_sid=").append(captchaSid)
-                       .append("&captcha_key=").append(URLEncoder.encode(captchaKey, "UTF-8"));
-                }
-                String trustedHash = getSharedPreferences("auth", MODE_PRIVATE).getString("trusted_hash", null);
-                if (trustedHash != null && !trustedHash.isEmpty()) {
-                    url.append("&trusted_hash=").append(URLEncoder.encode(trustedHash, "UTF-8"));
-                }
-                HttpURLConnection conn = (HttpURLConnection) new URL(url.toString()).openConnection();
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(15000);
-                int code = conn.getResponseCode();
-                InputStream stream = code < 400 ? conn.getInputStream() : conn.getErrorStream();
-                Scanner scanner = new Scanner(stream, "UTF-8").useDelimiter("\\A");
-                String body = scanner.hasNext() ? scanner.next() : "";
-                scanner.close();
-                android.util.Log.e("VKTea", "auth response " + code + ": " + body);
-                JSONObject json = new JSONObject(body);
-                if (json.has("access_token")) {
-                    String token = json.getString("access_token");
-                    String userId = String.valueOf(json.getLong("user_id"));
-                    if (json.has("trusted_hash")) {
-                        getSharedPreferences("auth", MODE_PRIVATE).edit()
-                                .putString("trusted_hash", json.getString("trusted_hash")).apply();
-                    }
-                    runOnUiThread(() -> {
-                        Session.save(this, token, userId);
-                        TokenRevealDialog.show(this, token);
-                    });
-                } else {
-                    String error = json.optString("error", "");
-                    if (json.has("captcha_sid")) {
-                        captchaSid = json.getString("captcha_sid");
-                        String captchaImg = json.getString("captcha_img");
-                        runOnUiThread(() -> showCaptcha(captchaImg));
-                    } else if ("need_validation".equals(error) && json.has("validation_sid")) {
-                        String redirect = json.optString("redirect_uri",
-                                "https://m.vk.com/login?act=authcheck&sid=" + json.getString("validation_sid"));
-                        validationAttempts++;
-                        runOnUiThread(() -> {
-                            Intent intent = new Intent(this, AuthWebViewActivity.class);
-                            intent.setData(Uri.parse(redirect));
-                            startActivityForResult(intent, 1);
-                        });
-                    } else {
-                        String message = json.optString("error_description", getString(R.string.auth_failed));
-                        captchaSid = null;
-                        runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_LONG).show());
-                    }
-                }
-            } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(this, R.string.auth_failed, Toast.LENGTH_LONG).show());
+        String login = loginField.getText().toString().trim();
+        String password = passField.getText().toString();
+        if (login.isEmpty() || password.isEmpty()) {
+            showStatus(R.string.auth_rejected);
+            return;
+        }
+        HttpUrl.Builder url = HttpUrl.get(TOKEN_URL).newBuilder()
+                .addQueryParameter("grant_type", "password")
+                .addQueryParameter("client_id", CLIENT_ID)
+                .addQueryParameter("client_secret", CLIENT_SECRET)
+                .addQueryParameter("username", login)
+                .addQueryParameter("password", password)
+                .addQueryParameter("scope", SCOPE)
+                .addQueryParameter("v", API_V);
+        if (captchaSid != null && !captchaKey.isEmpty()) {
+            url.addQueryParameter("captcha_sid", captchaSid)
+                    .addQueryParameter("captcha_key", captchaKey);
+        }
+        String trustedHash = getSharedPreferences("auth", MODE_PRIVATE)
+                .getString("trusted_hash", null);
+        if (trustedHash != null && !trustedHash.isEmpty()) {
+            url.addQueryParameter("trusted_hash", trustedHash);
+        }
+        HttpUrl requestUrl = url.build();
+        AuthHttpClient client = authClient;
+        if (requests.submit(AuthResponse.Method.PASSWORD, () -> client.password(requestUrl))) {
+            captchaSid = null;
+            captchaKey = "";
+        } else {
+            showStatus(R.string.auth_request_in_progress);
+        }
+    }
+
+    private void handleResponse(AuthResponse response) {
+        if (response.networkFailure) {
+            showStatus(R.string.auth_network_failed);
+            return;
+        }
+        if (AuthErrors.isRateLimited(response)) {
+            showStatus(R.string.auth_rate_limited);
+            return;
+        }
+        JSONObject json = response.json != null ? response.json : new JSONObject();
+        if (response.method == AuthResponse.Method.TOKEN) {
+            org.json.JSONArray users = json.optJSONArray("response");
+            JSONObject user = users != null ? users.optJSONObject(0) : null;
+            if (response.httpStatus >= 200 && response.httpStatus < 300 && user != null
+                    && user.optLong("id") > 0) {
+                Session.save(this, response.suppliedToken, user.optString("id"), response.suppliedSecret);
+                TokenRevealDialog.show(this, response.suppliedToken);
+            } else {
+                showStatus(R.string.token_invalid);
             }
-        }).start();
+            return;
+        }
+        String token = json.optString("access_token", "");
+        String userId = json.optString("user_id", "");
+        if (response.httpStatus >= 200 && response.httpStatus < 300
+                && !token.isEmpty() && json.optLong("user_id", 0) > 0) {
+            String trustedHash = json.optString("trusted_hash", "");
+            if (!trustedHash.isEmpty()) {
+                getSharedPreferences("auth", MODE_PRIVATE).edit()
+                        .putString("trusted_hash", trustedHash).apply();
+            }
+            Session.save(this, token, userId, json.optString("secret", null));
+            passField.setText("");
+            TokenRevealDialog.show(this, token);
+        } else if (json.has("captcha_sid") && json.has("captcha_img")) {
+            captchaSid = json.optString("captcha_sid");
+            showCaptcha(json.optString("captcha_img"));
+        } else if ("need_validation".equals(json.optString("error")) && json.has("validation_sid")) {
+            String redirect = json.optString("redirect_uri",
+                    "https://m.vk.com/login?act=authcheck&sid=" + json.optString("validation_sid"));
+            Intent intent = new Intent(this, AuthWebViewActivity.class);
+            intent.setData(Uri.parse(redirect));
+            startActivityForResult(intent, VALIDATION_REQUEST);
+        } else {
+            showStatus(R.string.auth_rejected);
+        }
+    }
+
+    private void setBusy(boolean busy) {
+        loginButton.setEnabled(!busy);
+        tokenButton.setEnabled(!busy);
+        loginField.setEnabled(!busy);
+        passField.setEnabled(!busy);
+        loginButton.setText(busy ? R.string.auth_in_progress : R.string.log_in);
+        if (busy) {
+            showStatus(R.string.auth_request_in_progress);
+        }
+    }
+
+    private void showStatus(int message) {
+        status.setText(message);
+        status.setVisibility(View.VISIBLE);
     }
 
     private void showTokenLogin() {
+        if (requests.isBusy()) {
+            return;
+        }
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
@@ -164,43 +216,11 @@ public class AuthActivity extends AppCompatActivity {
         String[] parts = input.trim().split("\\s+");
         String token = parts[0];
         String secret = parts.length > 1 ? parts[1] : null;
-        new Thread(() -> {
-            try {
-                String query = "v=5.82&lang=ru&https=1&access_token=" + token;
-                String url = "https://api.vk.com/method/users.get?" + query;
-                if (secret != null && !secret.isEmpty()) {
-                    java.security.MessageDigest digest = java.security.MessageDigest.getInstance("MD5");
-                    byte[] hash = digest.digest(("/method/users.get?" + query + secret).getBytes("UTF-8"));
-                    StringBuilder sb = new StringBuilder();
-                    for (byte b : hash) {
-                        sb.append(String.format("%02x", b));
-                    }
-                    url = url + "&sig=" + sb;
-                }
-                HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(15000);
-                Scanner scanner = new Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
-                String body = scanner.hasNext() ? scanner.next() : "";
-                scanner.close();
-                JSONObject json = new JSONObject(body);
-                if (json.has("response")) {
-                    JSONObject user = json.getJSONArray("response").getJSONObject(0);
-                    String userId = String.valueOf(user.getLong("id"));
-                    runOnUiThread(() -> {
-                        Session.save(this, token, userId, secret);
-                        TokenRevealDialog.show(this, token);
-                    });
-                } else {
-                    runOnUiThread(() -> Toast.makeText(this, R.string.token_invalid, Toast.LENGTH_LONG).show());
-                }
-            } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(this, R.string.token_invalid, Toast.LENGTH_LONG).show());
-            }
-        }).start();
+        AuthHttpClient client = authClient;
+        if (!requests.submit(AuthResponse.Method.TOKEN, () -> client.token(token, secret))) {
+            showStatus(R.string.auth_request_in_progress);
+        }
     }
-
-    private String captchaKey = "";
 
     private void showCaptcha(String imageUrl) {
         LinearLayout box = new LinearLayout(this);
@@ -222,18 +242,40 @@ public class AuthActivity extends AppCompatActivity {
                 .setView(box)
                 .setPositiveButton(R.string.ok, (d, w) -> {
                     captchaKey = input.getText().toString();
-                    doAuth();
+                    if (!captchaKey.isEmpty()) {
+                        doAuth();
+                    }
                 })
                 .setNegativeButton(android.R.string.cancel, (d, w) -> captchaSid = null)
                 .setOnCancelListener(d -> captchaSid = null)
                 .show();
         new Thread(() -> {
+            HttpURLConnection connection = null;
             try {
-                HttpURLConnection conn = (HttpURLConnection) new URL(imageUrl).openConnection();
-                Bitmap bmp = BitmapFactory.decodeStream(conn.getInputStream());
-                runOnUiThread(() -> image.setImageBitmap(bmp));
+                connection = (HttpURLConnection) new URL(imageUrl).openConnection();
+                connection.setConnectTimeout(15000);
+                connection.setReadTimeout(15000);
+                connection.setInstanceFollowRedirects(false);
+                Bitmap bitmap;
+                try (java.io.InputStream stream = connection.getInputStream()) {
+                    bitmap = BitmapFactory.decodeStream(stream);
+                }
+                runOnUiThread(() -> {
+                    if (!isFinishing() && !isDestroyed() && dialog.isShowing()) {
+                        image.setImageBitmap(bitmap);
+                    }
+                });
             } catch (Exception ignored) {
+                runOnUiThread(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        showStatus(R.string.auth_captcha_failed);
+                    }
+                });
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
             }
-        }).start();
+        }, "auth-captcha-image").start();
     }
 }
