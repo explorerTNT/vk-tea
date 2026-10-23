@@ -76,13 +76,6 @@ public class ProfileFragment extends Fragment {
                         try {
                             JSONObject u = response.getJSONArray("response").getJSONObject(0);
                             adapter.setProfile(u);
-                            ImageView avatar = view.findViewById(R.id.profile_avatar);
-                            Glide.with(avatar)
-                                    .load(u.optString("photo_max_orig", u.optString("photo_200", "")))
-                                    .apply(com.bumptech.glide.request.RequestOptions.circleCropTransform())
-                                    .into(avatar);
-                            friendStatus = u.optInt("friend_status", 0);
-                            isFriend = friendStatus == 3;
                         } catch (Exception ignored) {
                         }
                     }
@@ -260,6 +253,13 @@ public class ProfileFragment extends Fragment {
                 return;
             }
             h.name.setText(profile.optString("first_name") + " " + profile.optString("last_name"));
+            String avatarUrl = profile.optString("photo_max_orig",
+                    profile.optString("photo_200", ""));
+            if (!avatarUrl.isEmpty()) {
+                Glide.with(h.cover).load(avatarUrl)
+                        .apply(RequestOptions.circleCropTransform())
+                        .into(h.avatar);
+            }
             boolean online = profile.optInt("online", 0) == 1;
             if (online) {
                 h.lastSeen.setText(R.string.online_now);
@@ -379,6 +379,7 @@ public class ProfileFragment extends Fragment {
         final Button friendBtn;
         final LinearLayout counters;
         final ImageView cover;
+        final ImageView avatar;
 
         HeadHolder(@NonNull View itemView) {
             super(itemView);
@@ -388,6 +389,7 @@ public class ProfileFragment extends Fragment {
             friendBtn = itemView.findViewById(R.id.profile_btn_friend);
             counters = itemView.findViewById(R.id.profile_counters);
             cover = itemView.findViewById(R.id.cover_photo);
+            avatar = itemView.findViewById(R.id.profile_avatar);
         }
     }
 
