@@ -59,7 +59,8 @@ public class DialogsFragment extends Fragment {
                                 adapter.add(new Dialog(
                                         peerId,
                                         message.optString("title", ""),
-                                        message.optString("body", ""),
+                                        message.optString("photo_100", ""),
+                                        message.optString("text", message.optString("body", "")),
                                         message.optLong("date", 0),
                                         message.optInt("out", 0) == 0 && message.optInt("read_state", 1) == 0));
                             }

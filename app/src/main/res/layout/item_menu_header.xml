@@ -2,25 +2,29 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="@color/menu_header_bg">
+    android:layout_height="230dp">
+
+    <ImageView
+        android:id="@+id/menu_header_cover"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="centerCrop"
+        android:src="@drawable/bg_profile_cover" />
 
     <View
-        android:id="@+id/menu_header_padder"
         android:layout_width="match_parent"
-        android:layout_height="0dp" />
+        android:layout_height="match_parent"
+        android:background="#66000000" />
 
     <ImageView
         android:id="@+id/menu_header_avatar"
         android:layout_width="88dp"
         android:layout_height="88dp"
-        android:layout_below="@id/menu_header_padder"
-        android:layout_marginLeft="8dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/bg_avatar"
-        android:padding="8dp"
-        android:scaleType="centerCrop"
-        android:src="@drawable/bg_avatar" />
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="20dp"
+        android:contentDescription="@null"
+        android:scaleType="centerCrop" />
 
     <TextView
         android:id="@+id/menu_header_name"
@@ -28,41 +32,41 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/menu_header_avatar"
         android:layout_marginLeft="16dp"
-        android:layout_marginTop="4dp"
-        android:layout_marginRight="16dp"
-        android:layout_toLeftOf="@id/menu_header_search"
+        android:layout_marginTop="10dp"
+        android:layout_marginRight="60dp"
         android:ellipsize="end"
         android:fontFamily="sans-serif-medium"
+        android:shadowColor="#80000000"
+        android:shadowDy="1"
+        android:shadowRadius="4"
         android:singleLine="true"
         android:text="@string/menu_user_name"
         android:textColor="@android:color/white"
-        android:textSize="16sp" />
+        android:textSize="17sp" />
 
     <TextView
         android:id="@+id/menu_header_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/menu_header_name"
-        android:layout_alignLeft="@id/menu_header_name"
-        android:layout_alignRight="@id/menu_header_name"
-        android:layout_marginBottom="17dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="60dp"
+        android:layout_marginBottom="14dp"
         android:ellipsize="end"
-        android:paddingBottom="17dp"
         android:singleLine="true"
         android:text="@string/menu_user_status"
-        android:textColor="@color/menu_header_status"
+        android:textColor="#B3FFFFFF"
         android:textSize="14sp" />
 
     <ImageView
         android:id="@+id/menu_header_search"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:layout_below="@id/menu_header_padder"
         android:layout_alignParentRight="true"
         android:layout_marginTop="4dp"
         android:layout_marginRight="4dp"
-        android:scaleType="center"
+        android:contentDescription="@null"
+        android:scaleType="centerInside"
         android:src="@drawable/ic_menu_multi"
         app:tint="@android:color/white" />
-
 </RelativeLayout>

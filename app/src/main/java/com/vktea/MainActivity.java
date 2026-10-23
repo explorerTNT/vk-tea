@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
         loadUserFeedLists();
 
-        com.vktea.api.VKApi.get(this, "users.get", "fields=photo_200,status,counters", new com.vktea.api.VKApi.Callback() {
+        com.vktea.api.VKApi.get(this, "users.get", "fields=photo_200,status,counters,cover", new com.vktea.api.VKApi.Callback() {
             @Override
             public void success(org.json.JSONObject response) {
                 try {
@@ -116,13 +116,30 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                                 c.optInt("notifications", 0),
                                 c.optInt("groups", 0));
                     }
+                    String coverUrl = null;
+                    org.json.JSONObject cover = u.optJSONObject("cover");
+                    if (cover != null && cover.optInt("enabled", 0) == 1) {
+                        org.json.JSONArray images = cover.optJSONArray("images");
+                        if (images != null) {
+                            for (int i = 0; i < images.length(); i++) {
+                                org.json.JSONObject img = images.optJSONObject(i);
+                                if (img != null && "o".equals(img.optString("type", ""))) {
+                                    coverUrl = img.optString("url", null);
+                                }
+                            }
+                            if (coverUrl == null && images.length() > 0) {
+                                coverUrl = images.optJSONObject(images.length() - 1).optString("url", null);
+                            }
+                        }
+                    }
                     final com.vktea.api.User user = new com.vktea.api.User(
                             u.getLong("id"),
                             u.optString("first_name", ""),
                             u.optString("last_name", ""),
                             u.optString("photo_200", null),
                             u.optString("status", ""),
-                            counters);
+                            counters,
+                            coverUrl);
                     runOnUiThread(() -> {
                         menuAdapter.setHeaderUser(user);
                         if (user.counters != null) {
@@ -290,5 +307,14 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 .addToBackStack(null)
                 .commit();
         toolbarTitle.setText(titleRes);
+        drawer.closeDrawer(menuView);
+    }
+
+    public void onMenuHeaderClick() {
+        String uid = Session.getUserId(this);
+        if (uid != null) {
+            openFragment(com.vktea.feed.ProfileFragment.newInstance(Long.parseLong(uid)),
+                    R.string.profile_title);
+        }
     }
 }

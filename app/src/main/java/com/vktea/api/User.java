@@ -8,14 +8,20 @@ public class User {
     public final String photo200;
     public final String status;
     public final Counters counters;
+    public final String coverUrl;
 
     public User(long id, String firstName, String lastName, String photo200, String status, Counters counters) {
+        this(id, firstName, lastName, photo200, status, counters, null);
+    }
+
+    public User(long id, String firstName, String lastName, String photo200, String status, Counters counters, String coverUrl) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.photo200 = photo200;
         this.status = status;
         this.counters = counters;
+        this.coverUrl = coverUrl;
     }
 
     public String fullName() {
