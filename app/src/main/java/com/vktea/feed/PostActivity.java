@@ -98,59 +98,67 @@ public class PostActivity extends AppCompatActivity {
     }
 
     private void loadComments() {
+        requestComments(new VKApi.Callback() {
+            @Override
+            public void success(JSONObject response) {
+                applyComments(response);
+            }
+
+            @Override
+            public void error(Exception e) {
+            }
+        });
+    }
+
+    protected void requestComments(VKApi.Callback callback) {
         VKApi.get(this, listMethod(),
                 "owner_id=" + post.likeOwnerId + "&" + idParam() + "=" + post.likeItemId
                         + "&need_likes=1&count=50&extended=1&sort=asc",
-                new VKApi.Callback() {
-                    @Override
-                    public void success(JSONObject response) {
-                        try {
-                            JSONObject data = response.getJSONObject("response");
-                            Map<Long, String[]> profiles = new HashMap<>();
-                            JSONArray parr = data.optJSONArray("profiles");
-                            if (parr != null) {
-                                for (int i = 0; i < parr.length(); i++) {
-                                    JSONObject p = parr.getJSONObject(i);
-                                    profiles.put(p.getLong("id"), new String[]{
-                                            p.optString("first_name") + " " + p.optString("last_name"),
-                                            p.optString("photo_100", "")});
-                                }
-                            }
-                            JSONArray garr = data.optJSONArray("groups");
-                            if (garr != null) {
-                                for (int i = 0; i < garr.length(); i++) {
-                                    JSONObject g = garr.getJSONObject(i);
-                                    profiles.put(-g.getLong("id"), new String[]{
-                                            g.optString("name"), g.optString("photo_100", "")});
-                                }
-                            }
-                            List<Comment> comments = new ArrayList<>();
-                            JSONArray items = data.getJSONArray("items");
-                            for (int i = 0; i < items.length(); i++) {
-                                JSONObject c = items.getJSONObject(i);
-                                long fromId = c.optLong("from_id", 0);
-                                String[] src = profiles.containsKey(fromId) ? profiles.get(fromId) : new String[]{"", ""};
-                                JSONObject cl = c.optJSONObject("likes");
-                                comments.add(new Comment(c.getLong("id"), fromId,
-                                        src[0], src[1], c.optString("text", ""),
-                                        c.optLong("date", 0),
-                                        cl != null ? cl.optInt("count", 0) : 0,
-                                        cl != null && cl.optInt("user_likes", 0) == 1));
-                            }
-                            runOnUiThread(() -> {
-                                adapter.setComments(comments);
-                                if (!comments.isEmpty()) {
-                                    list.scrollToPosition(comments.size());
-                                }
-                            });
-                        } catch (Exception ignored) {
-                        }
-                    }
+                callback);
+    }
 
-                    @Override
-                    public void error(Exception e) {
-                    }
-                });
+    private void applyComments(JSONObject response) {
+        try {
+            JSONObject data = response.getJSONObject("response");
+            Map<Long, String[]> profiles = new HashMap<>();
+            JSONArray parr = data.optJSONArray("profiles");
+            if (parr != null) {
+                for (int i = 0; i < parr.length(); i++) {
+                    JSONObject p = parr.getJSONObject(i);
+                    profiles.put(p.getLong("id"), new String[]{
+                            p.optString("first_name") + " " + p.optString("last_name"),
+                            p.optString("photo_100", "")});
+                }
+            }
+            JSONArray garr = data.optJSONArray("groups");
+            if (garr != null) {
+                for (int i = 0; i < garr.length(); i++) {
+                    JSONObject g = garr.getJSONObject(i);
+                    profiles.put(-g.getLong("id"), new String[]{
+                            g.optString("name"), g.optString("photo_100", "")});
+                }
+            }
+            List<Comment> comments = new ArrayList<>();
+            JSONArray items = data.getJSONArray("items");
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject c = items.getJSONObject(i);
+                long fromId = c.optLong("from_id", 0);
+                String[] src = profiles.containsKey(fromId) ? profiles.get(fromId) : new String[]{"", ""};
+                JSONObject cl = c.optJSONObject("likes");
+                comments.add(new Comment(c.getLong("id"), fromId,
+                        src[0], src[1], c.optString("text", ""),
+                        c.optLong("date", 0),
+                        cl != null ? cl.optInt("count", 0) : 0,
+                        cl != null && cl.optInt("user_likes", 0) == 1));
+            }
+            runOnUiThread(() -> {
+                adapter.setComments(comments);
+                if (!comments.isEmpty()) {
+                    list.scrollToPosition(comments.size());
+                }
+            });
+        } catch (Exception ignored) {
+        }
     }
 
     private void sendComment(String text) {
@@ -295,13 +303,8 @@ public class PostActivity extends AppCompatActivity {
             holder.itemView.setOnClickListener(null);
             holder.header.setOnClickListener(null);
 
-            holder.photoContainer.removeAllViews();
-            if (post.photoUrls != null && !post.photoUrls.isEmpty()) {
-                holder.photoContainer.setVisibility(View.VISIBLE);
-                appendPhotos(holder.photoContainer, post.photoUrls);
-            } else {
-                holder.photoContainer.setVisibility(View.GONE);
-            }
+            PostPhotosRenderer.render(holder.photoContainer, post.photoUrls);
+            PostPhotosRenderer.render(holder.repostPhotos, post.repostPhotos);
 
             if (post.isRepost()) {
                 holder.repostBlock.setVisibility(View.VISIBLE);
@@ -314,10 +317,6 @@ public class PostActivity extends AppCompatActivity {
                     Glide.with(holder.repostAvatar).load(post.repostAuthorPhoto)
                             .apply(RequestOptions.circleCropTransform())
                             .into(holder.repostAvatar);
-                }
-                holder.repostPhotos.removeAllViews();
-                if (!post.repostPhotos.isEmpty()) {
-                    appendPhotos(holder.repostPhotos, post.repostPhotos);
                 }
             } else {
                 holder.repostBlock.setVisibility(View.GONE);
@@ -379,62 +378,19 @@ public class PostActivity extends AppCompatActivity {
             holder.options.setVisibility(View.INVISIBLE);
         }
 
-        private void appendPhotos(ViewGroup container, List<String> urls) {
-            android.content.Context ctx = container.getContext();
-            int n = urls.size();
-            if (n == 1) {
-                container.addView(viewerPhoto(ctx, urls.get(0), 0, urls));
-                return;
-            }
-            int cols = n >= 3 ? 3 : 2;
-            int rows = (n + cols - 1) / cols;
-            int cell = ctx.getResources().getDisplayMetrics().widthPixels / cols;
-            for (int r = 0; r < rows; r++) {
-                android.widget.LinearLayout row = new android.widget.LinearLayout(ctx);
-                row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-                for (int c = 0; c < cols; c++) {
-                    int idx = r * cols + c;
-                    if (idx >= n) {
-                        android.view.View spacer = new android.view.View(ctx);
-                        spacer.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, cell, 1f));
-                        row.addView(spacer);
-                        continue;
-                    }
-                    ImageView iv = new ImageView(ctx);
-                    android.widget.LinearLayout.LayoutParams lp =
-                            new android.widget.LinearLayout.LayoutParams(0, cell, 1f);
-                    iv.setLayoutParams(lp);
-                    iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                    final int index = idx;
-                    iv.setOnClickListener(v -> startActivity(new Intent(PostActivity.this, PhotoViewerActivity.class)
-                            .putStringArrayListExtra("photos", new ArrayList<>(urls))
-                            .putExtra("index", index)));
-                    Glide.with(iv).load(urls.get(idx)).into(iv);
-                    row.addView(iv);
-                }
-                container.addView(row);
-            }
-        }
-
-        private ImageView viewerPhoto(android.content.Context ctx, String url, int index, List<String> urls) {
-            ImageView iv = new ImageView(ctx);
-            iv.setLayoutParams(new ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            iv.setAdjustViewBounds(true);
-            iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            iv.setOnClickListener(v -> startActivity(new Intent(PostActivity.this, PhotoViewerActivity.class)
-                    .putStringArrayListExtra("photos", new ArrayList<>(urls))
-                    .putExtra("index", index)));
-            Glide.with(iv).load(url)
-                    .override(ctx.getResources().getDisplayMetrics().widthPixels,
-                            com.bumptech.glide.request.target.Target.SIZE_ORIGINAL)
-                    .into(iv);
-            return iv;
-        }
-
         @Override
         public int getItemCount() {
             return comments.size() + 1;
+        }
+
+        @Override
+        public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+            if (holder instanceof PostCardHolder) {
+                PostCardHolder card = (PostCardHolder) holder;
+                PostPhotosRenderer.render(card.photoContainer, null);
+                PostPhotosRenderer.render(card.repostPhotos, null);
+            }
+            super.onViewRecycled(holder);
         }
 
         @Override
@@ -449,7 +405,7 @@ public class PostActivity extends AppCompatActivity {
         final TextView name;
         final TextView time;
         final TextView text;
-        final ViewGroup photoContainer;
+        final LinearLayout photoContainer;
         final TextView more;
         final TextView likes;
         final TextView comments;

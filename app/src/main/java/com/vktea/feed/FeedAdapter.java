@@ -78,13 +78,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.more.setVisibility(cut && !post.expanded ? View.VISIBLE : View.GONE);
         holder.more.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
 
-        holder.photoContainer.removeAllViews();
-        if (post.photoUrls != null && !post.photoUrls.isEmpty()) {
-            holder.photoContainer.setVisibility(View.VISIBLE);
-            buildPhotoGrid(holder.photoContainer, post.photoUrls);
-        } else {
-            holder.photoContainer.setVisibility(View.GONE);
-        }
+        PostPhotosRenderer.render(holder.photoContainer, post.photoUrls);
 
         bindRepost(holder, post, linkColor);
         bindVideo(holder, post);
@@ -220,6 +214,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
     }
 
     private void bindRepost(PostViewHolder holder, Post post, int linkColor) {
+        PostPhotosRenderer.render(holder.repostPhotos, post.repostPhotos);
         if (!post.isRepost()) {
             holder.repostBlock.setVisibility(View.GONE);
             return;
@@ -234,10 +229,6 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             Glide.with(holder.repostAvatar).load(post.repostAuthorPhoto)
                     .apply(RequestOptions.circleCropTransform())
                     .into(holder.repostAvatar);
-        }
-        holder.repostPhotos.removeAllViews();
-        if (!post.repostPhotos.isEmpty()) {
-            buildPhotoGrid(holder.repostPhotos, post.repostPhotos);
         }
         holder.repostBlock.setOnClickListener(v -> {
             Intent intent = new Intent(v.getContext(), AuthWebViewActivity.class);
@@ -321,82 +312,16 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         return String.format(Locale.US, "%.1fM", count / 1000000f);
     }
 
-    private void buildPhotoGrid(LinearLayout container, List<String> urls) {
-        int n = urls.size();
-        int gap = 1;
-        android.content.Context ctx = container.getContext();
-        if (n == 1) {
-            container.addView(makePhoto(ctx, urls.get(0), 0, urls));
-            return;
-        }
-        int index = 0;
-        boolean firstRow = true;
-        while (index < n) {
-            int remaining = n - index;
-            int perRow;
-            if (firstRow && n > 3) {
-                perRow = 1;
-            } else if (remaining >= 3) {
-                perRow = 3;
-            } else {
-                perRow = remaining;
-            }
-            if (perRow == 1) {
-                container.addView(makePhoto(ctx, urls.get(index), index, urls));
-                index++;
-            } else {
-                container.addView(makeRow(ctx, urls.subList(index, index + perRow), index, urls, gap));
-                index += perRow;
-            }
-            firstRow = false;
-        }
-    }
-
-    private LinearLayout makeRow(android.content.Context ctx, List<String> urls, int offset, List<String> all, int gap) {
-        LinearLayout row = new LinearLayout(ctx);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        for (int i = 0; i < urls.size(); i++) {
-            row.addView(makeCell(ctx, urls.get(i), offset + i, all, gap));
-        }
-        return row;
-    }
-
-    private ImageView makePhoto(android.content.Context ctx, String url, int index, List<String> all) {
-        ImageView iv = new ImageView(ctx);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(1, 1, 1, 1);
-        iv.setLayoutParams(lp);
-        iv.setAdjustViewBounds(true);
-        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int target = ctx.getResources().getDisplayMetrics().widthPixels;
-        Glide.with(iv).load(url).override(target, com.bumptech.glide.request.target.Target.SIZE_ORIGINAL).into(iv);
-        iv.setOnClickListener(v -> openViewer(ctx, all, index));
-        return iv;
-    }
-
-    private ImageView makeCell(android.content.Context ctx, String url, int index, List<String> all, int gap) {
-        ImageView iv = new ImageView(ctx);
-        int h = (int) (160 * ctx.getResources().getDisplayMetrics().density);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, h, 1f);
-        lp.setMargins(gap, gap, gap, gap);
-        iv.setLayoutParams(lp);
-        iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        int target = (int) (200 * ctx.getResources().getDisplayMetrics().density);
-        Glide.with(iv).load(url).override(target, target).into(iv);
-        iv.setOnClickListener(v -> openViewer(ctx, all, index));
-        return iv;
-    }
-
-    private void openViewer(android.content.Context ctx, List<String> urls, int index) {
-        ctx.startActivity(new Intent(ctx, PhotoViewerActivity.class)
-                .putStringArrayListExtra("photos", new ArrayList<>(urls))
-                .putExtra("index", index));
-    }
-
     @Override
     public int getItemCount() {
         return posts.size();
+    }
+
+    @Override
+    public void onViewRecycled(@NonNull PostViewHolder holder) {
+        PostPhotosRenderer.render(holder.photoContainer, null);
+        PostPhotosRenderer.render(holder.repostPhotos, null);
+        super.onViewRecycled(holder);
     }
 
     static class PostViewHolder extends RecyclerView.ViewHolder {

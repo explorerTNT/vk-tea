@@ -239,7 +239,7 @@ public class NewsFeedFragment extends Fragment {
 
     private void load() {
         loading = true;
-        String params = "filters=post,photo&count=" + PAGE_SIZE + "&max_photos=1"
+        String params = "filters=post,photo&count=" + PAGE_SIZE + "&max_photos=1&photo_sizes=1"
                 + (listId != 0 ? "&list_id=" + listId : "")
                 + (nextFrom.isEmpty() ? "" : "&start_from=" + nextFrom);
         VKApi.get(requireContext(), "newsfeed.get", params,
@@ -614,44 +614,8 @@ public class NewsFeedFragment extends Fragment {
     }
 
     private String pickPhotoUrl(JSONObject photo) {
-        String[] candidates = {"photo_2560", "photo_1280", "photo_807", "photo_604", "photo_130"};
-        for (String key : candidates) {
-            String url = photo.optString(key, null);
-            if (url != null && !url.isEmpty()) {
-                return url;
-            }
-        }
-        JSONArray sizes = photo.optJSONArray("sizes");
-        if (sizes != null && sizes.length() > 0) {
-            String[] typeOrder = {"w", "z", "y", "r", "q", "p", "x", "m", "s"};
-            String best = null;
-            int bestRank = -1;
-            for (int i = 0; i < sizes.length(); i++) {
-                JSONObject s = sizes.optJSONObject(i);
-                if (s == null) {
-                    continue;
-                }
-                String type = s.optString("type", "");
-                int rank = -1;
-                for (int t = 0; t < typeOrder.length; t++) {
-                    if (typeOrder[t].equals(type)) {
-                        rank = t;
-                    }
-                }
-                if (rank > bestRank) {
-                    bestRank = rank;
-                    best = s.optString("url", null);
-                }
-            }
-            if (best == null) {
-                best = sizes.optJSONObject(sizes.length() - 1).optString("url", null);
-            }
-            if (best != null) {
-                best = best.replaceAll("&cs=\\d+x\\d+", "");
-            }
-            return best;
-        }
-        return null;
+        String url = PostPhoto.bestUrl(photo);
+        return url.isEmpty() ? null : url;
     }
 
     private static class Source {

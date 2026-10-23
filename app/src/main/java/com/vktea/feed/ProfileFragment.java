@@ -69,9 +69,7 @@ public class ProfileFragment extends Fragment {
     }
 
     private void loadProfile(ProfileAdapter adapter) {
-        VKApi.get(requireContext(), "users.get", "user_ids=" + userId
-                        + "&fields=photo_200,photo_max_orig,status,last_seen,counters,friend_status,online,bdate,city,cover",
-                new VKApi.Callback() {
+        requestProfile(new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
                         try {
@@ -88,8 +86,7 @@ public class ProfileFragment extends Fragment {
     }
 
     private void loadWall(ProfileAdapter adapter) {
-        VKApi.get(requireContext(), "wall.get", "owner_id=" + userId + "&count=20&extended=1",
-                new VKApi.Callback() {
+        requestWall(new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
                         try {
@@ -125,7 +122,7 @@ public class ProfileFragment extends Fragment {
                                         JSONObject att = attachments.getJSONObject(a);
                                         if ("photo".equals(att.optString("type"))) {
                                             String purl = pickFromSizes(att.getJSONObject("photo"));
-                                            if (purl != null) {
+                                            if (!purl.isEmpty()) {
                                                 photoUrls.add(purl);
                                             }
                                         }
@@ -155,31 +152,19 @@ public class ProfileFragment extends Fragment {
                 });
     }
 
+    protected void requestProfile(VKApi.Callback callback) {
+        VKApi.get(requireContext(), "users.get", "user_ids=" + userId
+                + "&fields=photo_200,photo_max_orig,status,last_seen,counters,friend_status,online,bdate,city,cover",
+                callback);
+    }
+
+    protected void requestWall(VKApi.Callback callback) {
+        VKApi.get(requireContext(), "wall.get", "owner_id=" + userId
+                + "&count=20&extended=1&photo_sizes=1", callback);
+    }
+
     private String pickFromSizes(JSONObject photo) {
-        JSONArray sizes = photo.optJSONArray("sizes");
-        if (sizes == null || sizes.length() == 0) {
-            return photo.optString("photo_604", null);
-        }
-        String best = null;
-        int bestRank = -1;
-        String[] order = {"w", "z", "y", "r", "q", "p", "x", "m", "s"};
-        for (int i = 0; i < sizes.length(); i++) {
-            JSONObject s = sizes.optJSONObject(i);
-            if (s == null) {
-                continue;
-            }
-            String type = s.optString("type", "");
-            for (int t = 0; t < order.length; t++) {
-                if (order[t].equals(type) && t > bestRank) {
-                    bestRank = t;
-                    best = s.optString("url", null);
-                }
-            }
-        }
-        if (best != null) {
-            best = best.replaceAll("&cs=\\d+x\\d+", "");
-        }
-        return best;
+        return PostPhoto.bestUrl(photo);
     }
 
     class ProfileAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -221,31 +206,7 @@ public class ProfileFragment extends Fragment {
                 h.name.setText(post.sourceName);
                 h.time.setText(com.vktea.util.RuDate.format(post.date));
                 h.text.setText(post.text);
-                h.photoContainer.removeAllViews();
-                if (!post.photoUrls.isEmpty()) {
-                    h.photoContainer.setVisibility(View.VISIBLE);
-                    int cell = h.photoContainer.getContext().getResources().getDisplayMetrics().widthPixels / 3;
-                    for (int r = 0; r < (post.photoUrls.size() + 2) / 3; r++) {
-                        LinearLayout row = new LinearLayout(h.photoContainer.getContext());
-                        row.setOrientation(LinearLayout.HORIZONTAL);
-                        for (int c = 0; c < 3; c++) {
-                            int idx = r * 3 + c;
-                            if (idx >= post.photoUrls.size()) {
-                                break;
-                            }
-                            ImageView iv = new ImageView(h.photoContainer.getContext());
-                            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, cell, 1f);
-                            iv.setLayoutParams(lp);
-                            iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                            Glide.with(iv).load(post.photoUrls.get(idx))
-                                    .override(cell, cell).into(iv);
-                            row.addView(iv);
-                        }
-                        h.photoContainer.addView(row);
-                    }
-                } else {
-                    h.photoContainer.setVisibility(View.GONE);
-                }
+                PostPhotosRenderer.render(h.photoContainer, post.photoUrls);
             }
         }
 
@@ -288,7 +249,7 @@ public class ProfileFragment extends Fragment {
                 Glide.with(h.cover).load(coverUrl).centerCrop().into(h.cover);
             }
             Button friendBtn = h.friendBtn;
-            if (userId == Long.parseLong(com.vktea.auth.Session.getUserId(requireContext()))) {
+            if (String.valueOf(userId).equals(com.vktea.auth.Session.getUserId(requireContext()))) {
                 friendBtn.setVisibility(View.GONE);
             } else if (isFriend) {
                 friendBtn.setText(R.string.is_friend);
@@ -365,6 +326,14 @@ public class ProfileFragment extends Fragment {
         @Override
         public int getItemCount() {
             return wall.size() + (profile != null ? 1 : 0);
+        }
+
+        @Override
+        public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+            if (holder instanceof PostHolder) {
+                PostPhotosRenderer.render(((PostHolder) holder).photoContainer, null);
+            }
+            super.onViewRecycled(holder);
         }
 
         @Override
