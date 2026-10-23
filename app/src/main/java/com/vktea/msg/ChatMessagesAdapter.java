@@ -245,10 +245,13 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
 
     private static final class GlideImages implements Images {
         @Override public void load(ImageView target, String url, boolean circle, @Nullable ImageSize size) {
+            if (circle) {
+                MessageAvatars.bind(target, url, false);
+                return;
+            }
             com.bumptech.glide.RequestBuilder<Drawable> request = Glide.with(target).load(url)
-                    .placeholder(circle ? R.drawable.chat_avatar_placeholder : R.drawable.chat_attachment_placeholder)
-                    .error(circle ? R.drawable.chat_avatar_placeholder : R.drawable.chat_attachment_placeholder).dontAnimate();
-            request = circle ? request.circleCrop() : request.fitCenter();
+                    .placeholder(R.drawable.chat_attachment_placeholder)
+                    .error(R.drawable.chat_attachment_placeholder).dontAnimate().fitCenter();
             if (size != null) request = request.listener(new RequestListener<Drawable>() {
                 @Override public boolean onLoadFailed(@Nullable GlideException error, Object model,
                                                        Target<Drawable> target, boolean first) { return false; }

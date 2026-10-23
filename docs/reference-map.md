@@ -194,6 +194,21 @@ java -jar apktool.jar d -f -s -o vk-tea-reference\apktool-res <apk>
 
 Проверка: build / 156 unit-тестов / lint завершились успешно (0 ошибок, 218 предупреждений проекта). На офлайн API 37 проверены настоящие Profile / Feed / Post bind-пути с синтетическими фото 9:16, 1:1, 16:9 и 1:10, все четыре цветные метки по углам, выбор крупного источника вместо контрольной миниатюры, ширина 320dp / альбом, порядок пяти фото и открытие с ненулевого индекса. QA APK не имеет INTERNET и не содержит реальной сессии. Обычный APK проверен на отсутствие QA экранов / изображений и установлен на Pixel 10 через `adb install -r` 23.10.2026 с сохранением данных.
 
+## Аватарки сообщений (23.10.2026)
+
+В `DialogsAdapter.applyUser` обновление фото ошибочно зависело от пустого заголовка, а при повторном использовании строки отсутствующий URL оставлял старый Glide target. Фото теперь обновляется независимо от имени; общий `MessageAvatars` отменяет прежний запрос, задаёт круглую заглушку и загружает изображение с `circleCrop` по размеру ImageView. Фиксированный decode 120px удалён. Тот же binder используется шапкой чата и загрузчиком аватарок отправителей; размеры выбираются через `photo_200 → photo_100 → photo_50` с пропуском пустых полей.
+
+`DialogsParser` сохраняет правильную личность диалога: legacy `chat_id` имеет приоритет над `user_id` отправителя, беседа получает peer `2000000000 + chat_id`, сообщество — отрицательный ID. Поддерживаются inline фото и `conversation.chat_settings.photo`. Существующий Tea-запрос `messages.getDialogs(count=40,preview_length=64)` сохранён. Отдельные read-only `users.get` (`user_ids`, `fields=photo_200,photo_100,photo_50`) и `groups.getById` (`group_ids`) заполняют фото людей и сообществ. Устаревшие callbacks после обновления списка или уничтожения view игнорируются.
+
+Проверенные Coffee-пути относительно `jadx-code/sources/su/operator555/vkcoffee/`:
+
+- `ui/holder/messages/DialogHolder.java:36–51` → `ui/DialogEntryView.java:184–202,360,369–375`: круглая форма, placeholder, передача фото в чат, очистка пустого URL.
+- `ui/holder/messages/ChatMessageHolder.java:183,309–318`: круглый senderPhoto и видимость аватарки входящего сообщения.
+- `api/messages/MessagesGetDialogs.java:32–43,50–69,101–132,178–236`; `Message.java:251–271`: профили, беседы и идентификатор peer. Coffee использует `messages.getConversations` либо legacy `execute.getDialogsWithProfilesNewFixGroups` (`caffeine/BadMethods.java:15`); совместимость формы ответа в Tea не меняет его текущий endpoint.
+- `api/groups/GroupsGetById.java:12–22`, `api/Group.java:77–94`: фото группы и legacy `response`-массив. Batch `group_ids` и современный `response.groups` подтверждены в частичном официальном клиенте `official-jadx/sources/xsna/ruu.java:24–37,70–80`.
+
+Проверка: build / 176 unit-тестов / lint прошли успешно (0 ошибок, 218 предупреждений проекта). Офлайн API 37: 134 проверки цвета и круглой маски на синтетических аватарках, заполненное имя до загрузки фото, отсутствующий / недоступный URL, личные диалоги / беседы / сообщества, переход в шапку чата, прокрутка и ширина 320dp. QA APK без INTERNET; реальные диалоги, `markAsRead` и отправка в проверках не используются. Обычная сборка без QA экранов / фикстур установлена на Pixel 10 через `adb install -r` 23.10.2026 с сохранением данных.
+
 ## Экраны и навигация
 
 - `MainActivity` — хост, SlidingMenu (боковое меню) + PagerSlidingTabStrip (табы)

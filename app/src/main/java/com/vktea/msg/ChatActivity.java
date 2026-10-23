@@ -21,7 +21,6 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
 import com.vktea.R;
 import com.vktea.api.VKApi;
 import com.vktea.feed.PhotoViewerActivity;
@@ -136,7 +135,7 @@ public class ChatActivity extends AppCompatActivity {
     protected void requestHistory(VKApi.Callback callback) {
         VKApi.get(this, "messages.getHistory", "peer_id=" + peerId
                 + "&count=50&rev=0&extended=1&photo_sizes=1"
-                + "&fields=first_name,last_name,photo_100,photo_50,online,last_seen", callback);
+                + "&fields=first_name,last_name,photo_200,photo_100,photo_50,online,last_seen", callback);
     }
 
     protected void markRead() {
@@ -205,8 +204,7 @@ public class ChatActivity extends AppCompatActivity {
             String name = peerId < 0 ? peer.optString("name")
                     : (peer.optString("first_name") + " " + peer.optString("last_name")).trim();
             if (!name.isEmpty()) peerName.setText(name);
-            String photo = peer.optString("photo_100", peer.optString("photo_50"));
-            if (!photo.isEmpty()) bindPeerPhoto(photo);
+            bindPeerPhoto(MessageAvatars.photoUrl(peer));
             if (peer.optInt("online") == 1) {
                 peerStatus.setText(R.string.online_now);
                 peerStatus.setVisibility(View.VISIBLE);
@@ -223,9 +221,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void bindPeerPhoto(String photo) {
-        Glide.with(this).load(photo == null || photo.isEmpty() ? null : photo)
-                .circleCrop().placeholder(R.drawable.bg_avatar).error(R.drawable.bg_avatar)
-                .into(peerAvatar);
+        MessageAvatars.bind(peerAvatar, photo, peerId < 0 || peerId >= 2_000_000_000L);
     }
 
     protected void sendMessage(String text) {

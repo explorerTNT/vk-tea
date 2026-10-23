@@ -83,7 +83,7 @@ public final class ChatHistoryParser {
     }
 
     private static String avatar(JSONObject row) {
-        return first(string(row, "photo_100", ""), string(row, "photo_200", ""), string(row, "photo_50", ""));
+        return MessageAvatars.photoUrl(row);
     }
 
     private static Person person(Map<Long, Person> people, long id, boolean out) {
