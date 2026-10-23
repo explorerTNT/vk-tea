@@ -76,6 +76,11 @@ public class ProfileFragment extends Fragment {
                         try {
                             JSONObject u = response.getJSONArray("response").getJSONObject(0);
                             adapter.setProfile(u);
+                            ImageView avatar = view.findViewById(R.id.profile_avatar);
+                            Glide.with(avatar)
+                                    .load(u.optString("photo_max_orig", u.optString("photo_200", "")))
+                                    .apply(com.bumptech.glide.request.RequestOptions.circleCropTransform())
+                                    .into(avatar);
                             friendStatus = u.optInt("friend_status", 0);
                             isFriend = friendStatus == 3;
                         } catch (Exception ignored) {

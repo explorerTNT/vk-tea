@@ -6,7 +6,78 @@
     android:background="@android:color/white"
     android:orientation="vertical">
 
-    <include layout="@layout/item_profile_cover" />
+    <FrameLayout
+        android:id="@+id/cover_frame"
+        android:layout_width="match_parent"
+        android:layout_height="240dp">
+
+        <ImageView
+            android:id="@+id/cover_photo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@null"
+            android:scaleType="centerCrop"
+            android:src="@drawable/bg_profile_cover" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="112dp"
+            android:layout_gravity="top"
+            android:alpha="0.5"
+            android:background="@drawable/scrim_top" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="112dp"
+            android:layout_gravity="bottom"
+            android:alpha="0.5"
+            android:background="@drawable/scrim_bottom" />
+
+        <TextView
+            android:id="@+id/profile_last_seen"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:fontFamily="sans-serif"
+            android:paddingLeft="16dp"
+            android:paddingBottom="12dp"
+            android:singleLine="true"
+            android:textColor="#d9ffffff"
+            android:textSize="15sp" />
+    </FrameLayout>
+
+    <ImageView
+        android:id="@+id/profile_avatar"
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="-48dp"
+        android:background="@drawable/bg_avatar"
+        android:contentDescription="@null"
+        android:elevation="4dp"
+        android:padding="3dp"
+        android:scaleType="centerCrop" />
+
+    <TextView
+        android:id="@+id/profile_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:textColor="@color/almost_black"
+        android:textSize="20sp" />
+
+    <TextView
+        android:id="@+id/profile_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center"
+        android:paddingLeft="24dp"
+        android:paddingRight="24dp"
+        android:textColor="@color/post_time"
+        android:textSize="14sp" />
 
     <LinearLayout
         android:id="@+id/profile_buttons_wrap"
