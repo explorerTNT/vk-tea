@@ -73,7 +73,18 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             androidx.fragment.app.Fragment current = getSupportFragmentManager().findFragmentById(R.id.content);
             if (currentId == R.id.menu_audios && current instanceof com.vktea.ui.AudioFragment) {
                 ((com.vktea.ui.AudioFragment) current).showAudioSearch();
+            } else if (current instanceof com.vktea.friends.FriendsFragment) {
+                ((com.vktea.friends.FriendsFragment) current).showFriendsSearch();
             } else Toast.makeText(this, R.string.section_search, Toast.LENGTH_SHORT).show();
+        });
+        getSupportFragmentManager().addOnBackStackChangedListener(() -> {
+            if (getSupportFragmentManager().findFragmentById(R.id.content) instanceof com.vktea.friends.FriendsFragment) {
+                toolbarTitle.setText(R.string.section_friends);
+                toolbarTitle.setTextSize(23);
+            } else if (getSupportFragmentManager().findFragmentById(R.id.content) instanceof com.vktea.feed.ProfileFragment) {
+                toolbarTitle.setText(R.string.profile_title);
+                toolbarTitle.setTextSize(23);
+            }
         });
 
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this, drawer, null, 0, 0) {
@@ -173,6 +184,10 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             }
         }
         toolbarTitle.setTextSize(currentId == R.id.menu_audios ? 20 : 23);
+        if (getSupportFragmentManager().findFragmentById(R.id.content) instanceof com.vktea.feed.ProfileFragment) {
+            toolbarTitle.setText(R.string.profile_title);
+            toolbarTitle.setTextSize(23);
+        }
     }
 
     @Override protected void onStart() {
@@ -205,6 +220,10 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         androidx.fragment.app.Fragment current = getSupportFragmentManager().findFragmentById(R.id.content);
         if (currentId == R.id.menu_audios && current instanceof com.vktea.ui.AudioFragment) {
             ((com.vktea.ui.AudioFragment) current).showAudioMenu(anchor);
+            return;
+        }
+        if (current instanceof com.vktea.friends.FriendsFragment) {
+            ((com.vktea.friends.FriendsFragment) current).showFriendsMenu(anchor);
             return;
         }
         PopupMenu popup = new PopupMenu(this, anchor);
@@ -288,6 +307,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.msg.DialogsFragment();
                 } else if (menuId == R.id.menu_audios) {
                     fragment = new com.vktea.ui.AudioFragment();
+                } else if (menuId == R.id.menu_friends) {
+                    fragment = new com.vktea.friends.FriendsFragment();
                 } else {
                     fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
                 }

@@ -53,7 +53,7 @@
 
 - [ ] P0 **Лента новостей** — `fragments/NewsFragment` (лента + фильтры `NewsfeedFilterListFragment`), сегмент «Истории | Запись»
 - [ ] P1 **Профиль** — `fragments/ProfileFragment` (+ `fragments/discussions/ProfileUtils`)
-- [ ] P1 **Друзья** — `fragments/friends/FriendsFragment`, кеш `data/Friends`
+- [x] P1 **Друзья: основной раздел** — «Все» / «Онлайн», поиск по полному списку, сортировка по имени, аватарки / статусы, обновление свайпом, переходы в профиль и диалог; состояние удерживает `FriendsViewModel`. Референс — `fragments/friends/FriendsFragment`, `FriendsListFragment`, `data/Friends`. Заявки, папки, дни рождения и дисковый кеш остаются отдельными задачами.
 - [ ] P1 **Сообщества** — `fragments/groups/GroupsFragment`, кеш `data/Groups`
 - [ ] P1 **Фото** — `fragments/photos/*`, `ImagePickerActivity`, `PostPhotoActivity`
 - [ ] P1 **Видео** — `activities/VideoPlayerActivity`, `YouTubeVideoPlayerActivity`, `VideoEmbedPlayerActivity`, `fragments/videos/VideosFragment`
