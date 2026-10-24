@@ -28,12 +28,16 @@ public class ShareViewModel extends AndroidViewModel {
         public final Destination destination;
         public final Target selected;
         public final List<Target> targets;
+        public final List<Target> recentTargets;
         public final boolean open, loading, busy, retrying, canSubmit;
+        public final boolean recentLoading, recentLoaded;
         public final String query, draft;
         public final PhotoSocialError error;
+        public final PhotoSocialError recentError;
         public final Event event;
         private State(ShareViewModel model) {
             attachment = model.attachment; destination = model.destination; selected = model.selected; targets = model.targets;
+            recentTargets = model.recentTargets; recentLoading = model.recentLoading; recentLoaded = model.recentLoaded; recentError = model.recentError;
             open = model.open; loading = model.loading; busy = model.busy; retrying = model.attempted;
             canSubmit = model.canSubmit(); query = model.query; draft = model.draft; error = model.error; event = model.event;
         }
@@ -46,12 +50,17 @@ public class ShareViewModel extends AndroidViewModel {
     private Destination destination;
     private Target selected;
     private List<Target> targets = Collections.emptyList(), allCommunities = Collections.emptyList(), allFriends = Collections.emptyList();
+    private List<Target> recentTargets = Collections.emptyList();
     private boolean open, loading, busy, attempted, cleared;
+    private boolean recentAttempted, recentLoading, recentLoaded, selectedFromRecent;
     private String query = "", draft = "";
     private int generation, randomId;
+    private int recentGeneration;
     private PhotoSocialError error;
+    private PhotoSocialError recentError;
     private Event event;
     private PhotoShareRepository.Request lookup, mutation;
+    private PhotoShareRepository.Request recentRequest;
     private Runnable deferred;
     public ShareViewModel(Application application) { this(application, PhotoShareRepository.create(application)); }
     public ShareViewModel(Application application, PhotoShareRepository repository) { super(application); this.repository = repository; publish(); }
@@ -59,12 +68,24 @@ public class ShareViewModel extends AndroidViewModel {
     public void open(ShareAttachment value) {
         if (cleared || busy || value == null || !value.hasIdentity()) return;
         if (open && attachment != null && attachment.object().equals(value.object())) return;
-        cancelLookup(); generation++; attachment = value; open = true; destination = null; selected = null;
+        cancelLookup(); cancelRecent(); generation++; attachment = value; open = true; destination = null; selected = null;
+        recentTargets = Collections.emptyList(); recentAttempted = recentLoading = recentLoaded = selectedFromRecent = false; recentError = null;
         targets = allCommunities = allFriends = Collections.emptyList(); query = draft = ""; loading = attempted = false; randomId = 0; error = null; event = null; publish();
+    }
+    /** The bottom panel explicitly calls this; recreating its views never repeats an attempted read. */
+    public void preloadRecent() { if (!cleared && open && !recentAttempted && !recentLoading) requestRecent(); }
+    public void retryRecent() { if (!cleared && open && !busy && !recentLoading) requestRecent(); }
+    public void selectRecent(Target value) {
+        if (!open || busy || destination != null || value == null || recentLoading) return;
+        Target found = null;
+        for (Target known : recentTargets) if (known.id == value.id) { found = known; break; }
+        if (found == null) return;
+        generation++; cancelLookup(); destination = Destination.DIALOG; selected = found; selectedFromRecent = true;
+        targets = recentTargets; query = draft = ""; attempted = false; randomId = 0; error = null; event = null; loading = false; publish();
     }
     public void chooseDestination(Destination value) {
         if (!open || busy || value == null || value == destination || (!isMessage(value) && !attachment.canRepost)) return;
-        generation++; cancelLookup(); destination = value; selected = null; targets = Collections.emptyList();
+        generation++; cancelLookup(); destination = value; selected = null; selectedFromRecent = false; targets = Collections.emptyList();
         query = draft = ""; attempted = false; randomId = 0; error = null; event = null; loading = false;
         if (value == Destination.OWN_WALL) { selected = new Target(0, "", ""); publish(); }
         else if (value == Destination.COMMUNITY) loadCommunities(); else if (value == Destination.FRIENDS) loadFriends(); else loadDialogs(false);
@@ -74,13 +95,14 @@ public class ShareViewModel extends AndroidViewModel {
         Target found = null;
         for (Target known : targets) if (known.id == value.id) { found = known; break; }
         if (found == null) return;
-        generation++; cancelLookup(); selected = found; draft = ""; attempted = false; randomId = 0; error = null; event = null; publish();
+        generation++; cancelLookup(); selected = found; selectedFromRecent = false; draft = ""; attempted = false; randomId = 0; error = null; event = null; publish();
     }
     public void back() {
         if (!open || busy) return;
         generation++; cancelLookup(); loading = false; error = null; event = null; attempted = false; randomId = 0; draft = "";
-        if (selected != null && destination != Destination.OWN_WALL) selected = null;
+        if (selected != null && destination != Destination.OWN_WALL && !selectedFromRecent) selected = null;
         else { selected = null; destination = null; targets = Collections.emptyList(); query = ""; }
+        selectedFromRecent = false;
         publish();
     }
     public void setQuery(String value) {
@@ -120,6 +142,29 @@ public class ShareViewModel extends AndroidViewModel {
     private boolean canSubmit() {
         return !cleared && open && attachment != null && attachment.hasIdentity() && destination != null && selected != null
                 && !loading && !busy && (isMessage(destination) || attachment.canRepost && !attempted);
+    }
+    private void requestRecent() {
+        int request = ++recentGeneration;
+        if (recentRequest != null) recentRequest.cancel();
+        recentAttempted = true; recentLoading = true; recentError = null; publish();
+        recentRequest = repository.recipients("", new PhotoShareRepository.Callback<List<PhotoShareRepository.Recipient>>() {
+            @Override public void success(List<PhotoShareRepository.Recipient> result) {
+                if (!currentRecent(request)) return;
+                recentRequest = null; recentLoading = false; recentLoaded = true; List<Target> rows = new ArrayList<>();
+                for (PhotoShareRepository.Recipient recipient : result)
+                    if (recipient.peerId != 0) rows.add(new Target(recipient.peerId, recipient.title, recipient.photo));
+                recentTargets = Collections.unmodifiableList(rows); publish();
+            }
+            @Override public void error(PhotoSocialError failure) {
+                if (!currentRecent(request)) return;
+                recentRequest = null; recentLoading = false; recentError = failure; publish();
+            }
+        });
+    }
+    private boolean currentRecent(int request) { return !cleared && open && recentGeneration == request; }
+    private void cancelRecent() {
+        recentGeneration++;
+        if (recentRequest != null) recentRequest.cancel(); recentRequest = null;
     }
     private void loadCommunities() {
         int request = ++generation; cancelLookup(); loading = true; error = null; event = null; publish();
@@ -187,5 +232,5 @@ public class ShareViewModel extends AndroidViewModel {
         if (lookup != null) lookup.cancel(); lookup = null;
     }
     private void publish() { if (!cleared) state.setValue(new State(this)); }
-    @Override protected void onCleared() { cleared = true; cancelLookup(); if (mutation != null) mutation.cancel(); repository.close(); }
+    @Override protected void onCleared() { cleared = true; cancelLookup(); cancelRecent(); if (mutation != null) mutation.cancel(); repository.close(); }
 }

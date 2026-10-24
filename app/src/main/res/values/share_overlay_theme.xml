@@ -1,0 +1,16 @@
+<resources>
+    <style name="Theme.VKTea.ShareOverlay" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="colorPrimary">@color/vk_blue</item>
+        <item name="colorAccent">@color/vk_blue</item>
+    </style>
+</resources>

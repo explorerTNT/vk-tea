@@ -1,10 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="share_title">Поделиться</string>
+    <string name="share_sheet_wall">На своей\nстранице</string>
+    <string name="share_sheet_community">На странице\nсообщества</string>
+    <string name="share_sheet_copy">Скопировать\nссылку</string>
+    <string name="share_sheet_more">Ещё</string>
+    <string name="share_copied">Ссылка скопирована</string>
+    <string name="share_search_communities">Найти сообщество</string>
+    <item name="share_own_wall" type="id" />
+    <item name="share_community" type="id" />
+    <item name="share_copy" type="id" />
+    <item name="share_more" type="id" />
     <string name="share_back">Назад</string>
-    <string name="share_choose_destination">Куда поделиться?</string>
     <string name="share_own_wall">На своей странице</string>
-    <string name="share_community_wall">В сообществе</string>
     <string name="share_dialog">В диалог</string>
     <string name="share_friends">Другу</string>
     <string name="share_friends_title">Выберите друга</string>
@@ -33,9 +41,6 @@
     <string name="share_publish_again">Повторить публикацию</string>
     <string name="share_sent">Отправлено</string>
     <string name="share_published">Опубликовано</string>
-    <string name="share_photo">Фотография</string>
-    <string name="share_post">Запись</string>
-    <string name="share_not_repostable">VK не разрешает публиковать этот материал на стене. Его можно отправить сообщением.</string>
     <string name="share_error">Не удалось выполнить действие. Попробуйте позже.</string>
     <string name="share_error_auth">Сессия недоступна. Войдите в аккаунт снова.</string>
     <string name="share_error_access">VK не разрешил это действие</string>

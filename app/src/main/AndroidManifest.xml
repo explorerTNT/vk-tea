@@ -69,6 +69,7 @@
             android:exported="false" />
 
         <activity android:name=".share.ShareActivity"
+            android:theme="@style/Theme.VKTea.ShareOverlay"
             android:windowSoftInputMode="adjustResize" android:exported="false" />
 
         <provider
