@@ -1,0 +1,26 @@
+<resources>
+    <string name="groups_all">Все</string>
+    <string name="groups_management">Управление</string>
+    <string name="groups_all_count">Все (%1$d)</string>
+    <string name="groups_management_count">Управление (%1$d)</string>
+    <string name="groups_search">Поиск сообществ</string>
+    <string name="groups_clear_search">Очистить поиск</string>
+    <string name="groups_refresh">Обновить</string>
+    <string name="groups_retry">Повторить</string>
+    <string name="groups_loading">Загружаем сообщества…</string>
+    <string name="groups_empty">Ваш список сообществ пока пуст</string>
+    <string name="groups_no_management">У вас пока нет сообществ в управлении</string>
+    <string name="groups_not_found">Сообщества не найдены</string>
+    <string name="groups_load_failed">Не удалось загрузить сообщества</string>
+    <string name="groups_error_network">Не удалось загрузить список. Проверьте подключение к интернету.</string>
+    <string name="groups_error_auth">Сессия ВКонтакте недоступна. Проверьте авторизацию.</string>
+    <string name="groups_error_access">ВКонтакте не разрешил доступ к списку сообществ.</string>
+    <string name="groups_error_rate">ВКонтакте ограничил запросы. Повторите позже.</string>
+    <string name="groups_error_generic">Не удалось обновить список сообществ. Попробуйте ещё раз.</string>
+    <string name="groups_type_group">Группа</string>
+    <string name="groups_type_page">Публичная страница</string>
+    <string name="groups_type_event">Мероприятие</string>
+    <string name="groups_type_unknown">Сообщество</string>
+    <string name="groups_profile_title">Сообщество</string>
+    <string name="groups_members_count">Участников: %1$s</string>
+</resources>

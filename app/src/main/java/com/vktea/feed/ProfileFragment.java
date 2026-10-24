@@ -23,6 +23,7 @@ import com.bumptech.glide.request.RequestOptions;
 import com.vktea.R;
 import com.vktea.api.VKApi;
 import com.vktea.msg.ChatActivity;
+import com.vktea.msg.MessageAvatars;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -54,6 +55,10 @@ public class ProfileFragment extends Fragment {
         ProfileFragment fragment = new ProfileFragment();
         fragment.setArguments(args);
         return fragment;
+    }
+
+    public int navigationTitleRes() {
+        return requireArguments().getLong(ARG_USER_ID) < 0 ? R.string.groups_profile_title : R.string.profile_title;
     }
 
     @Nullable
@@ -99,7 +104,10 @@ public class ProfileFragment extends Fragment {
                     public void success(JSONObject response) {
                         if (!current(adapter, version)) return;
                         try {
-                            JSONObject u = response.getJSONArray("response").getJSONObject(0);
+                            JSONArray rows = response.optJSONArray("response");
+                            if (rows == null && userId < 0) rows = response.getJSONObject("response").getJSONArray("groups");
+                            JSONObject u = rows.getJSONObject(0);
+                            if (userId < 0 && u.optLong("id", 0) != -userId) throw new IllegalArgumentException("Unexpected community");
                             adapter.setProfile(u);
                         } catch (Exception ignored) {
                         } finally {
@@ -215,6 +223,11 @@ public class ProfileFragment extends Fragment {
     }
 
     protected void requestProfile(VKApi.Callback callback) {
+        if (userId < 0) {
+            VKApi.get(requireContext(), "groups.getById", "group_id=" + (-userId)
+                    + "&fields=members_count,activity,description,cover", callback);
+            return;
+        }
         VKApi.get(requireContext(), "users.get", "user_ids=" + userId
                 + "&fields=photo_200,photo_max_orig,status,last_seen,counters,friend_status,online,bdate,city,cover",
                 callback);
@@ -280,6 +293,13 @@ public class ProfileFragment extends Fragment {
             if (profile == null) {
                 return;
             }
+            if (userId < 0) {
+                bindGroupHead(h);
+                return;
+            }
+            h.buttons.setVisibility(View.VISIBLE);
+            h.messageBtn.setVisibility(View.VISIBLE);
+            h.friendBtn.setVisibility(View.VISIBLE);
             h.name.setText(profile.optString("first_name") + " " + profile.optString("last_name"));
             String avatarUrl = profile.optString("photo_max_orig",
                     profile.optString("photo_200", ""));
@@ -366,6 +386,33 @@ public class ProfileFragment extends Fragment {
             }
         }
 
+        private void bindGroupHead(HeadHolder h) {
+            h.name.setText(profile.optString("name", getString(R.string.groups_profile_title)));
+            MessageAvatars.bind(h.avatar, MessageAvatars.photoUrl(profile), true);
+            h.lastSeen.setText(profile.optString("activity", ""));
+            h.status.setText(profile.optString("description", ""));
+            h.status.setMaxLines(4);
+            h.status.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            h.buttons.setVisibility(View.GONE);
+            h.friendBtn.setOnClickListener(null);
+            h.messageBtn.setOnClickListener(null);
+            Glide.with(h.cover).clear(h.cover);
+            h.cover.setImageResource(R.drawable.bg_profile_cover);
+            JSONObject cover = profile.optJSONObject("cover");
+            if (cover != null && cover.optInt("enabled", 0) == 1) {
+                JSONArray images = cover.optJSONArray("images");
+                if (images != null && images.length() > 0) {
+                    JSONObject image = images.optJSONObject(images.length() - 1);
+                    String url = image == null ? "" : image.optString("url", "");
+                    if (!url.isEmpty()) Glide.with(h.cover).load(url).centerCrop().into(h.cover);
+                }
+            }
+            h.counters.removeAllViews();
+            long members = profile.optLong("members_count", -1);
+            if (members >= 0) addCounter(h.counters, R.drawable.ic_menu_followers,
+                    getString(R.string.groups_members_count, Long.toString(members)));
+        }
+
         private void addCounter(LinearLayout parent, int icon, String text) {
             LinearLayout row = new LinearLayout(parent.getContext());
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -411,6 +458,8 @@ public class ProfileFragment extends Fragment {
     static class HeadHolder extends RecyclerView.ViewHolder {
         final TextView name;
         final TextView lastSeen;
+        final TextView status;
+        final View buttons;
         final Button messageBtn;
         final Button friendBtn;
         final LinearLayout counters;
@@ -421,6 +470,8 @@ public class ProfileFragment extends Fragment {
             super(itemView);
             name = itemView.findViewById(R.id.profile_name);
             lastSeen = itemView.findViewById(R.id.profile_last_seen);
+            status = itemView.findViewById(R.id.profile_status);
+            buttons = itemView.findViewById(R.id.profile_buttons_wrap);
             messageBtn = itemView.findViewById(R.id.profile_btn_message);
             friendBtn = itemView.findViewById(R.id.profile_btn_friend);
             counters = itemView.findViewById(R.id.profile_counters);

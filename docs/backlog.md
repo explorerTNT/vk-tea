@@ -54,7 +54,7 @@
 - [ ] P0 **Лента новостей** — `fragments/NewsFragment` (лента + фильтры `NewsfeedFilterListFragment`), сегмент «Истории | Запись»
 - [ ] P1 **Профиль** — `fragments/ProfileFragment` (+ `fragments/discussions/ProfileUtils`)
 - [x] P1 **Друзья: основной раздел** — «Все» / «Онлайн», поиск по полному списку, сортировка по имени, аватарки / статусы, обновление свайпом, переходы в профиль и диалог; состояние удерживает `FriendsViewModel`. Референс — `fragments/friends/FriendsFragment`, `FriendsListFragment`, `data/Friends`. Заявки, папки, дни рождения и дисковый кеш остаются отдельными задачами.
-- [ ] P1 **Сообщества** — `fragments/groups/GroupsFragment`, кеш `data/Groups`
+- [x] P1 **Сообщества: основной список** — вкладки «Все» / «Управление», поиск по названию / короткому адресу, аватарки, тип и число участников, обновление свайпом; `GroupsViewModel` удерживает полный снимок при повороте, строка открывает нативную страницу сообщества со стеной. Референс — `fragments/groups/GroupsFragment`, `AllGroupsFragment`, `data/Groups`, `api/groups/GroupsGet`. Приглашения, отдельный календарь мероприятий, вступление / выход, создание и дисковый кеш остаются отдельными задачами.
 - [ ] P1 **Фото** — `fragments/photos/*`, `ImagePickerActivity`, `PostPhotoActivity`
 - [ ] P1 **Видео** — `activities/VideoPlayerActivity`, `YouTubeVideoPlayerActivity`, `VideoEmbedPlayerActivity`, `fragments/videos/VideosFragment`
 - [ ] P1 **Ответы/уведомления** — `fragments/feedback/FeedbackFragment`, `NotificationActivity`
