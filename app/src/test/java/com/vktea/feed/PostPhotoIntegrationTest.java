@@ -184,6 +184,7 @@ public class PostPhotoIntegrationTest {
         assertTrue(content.getHeight() >= 2560);
         assertEquals(content.getNaturalContentHeight(), content.getHeight());
         assertEquals(View.GONE, item.findViewById(R.id.post_more).getVisibility());
+        assertEquals(View.GONE, item.findViewById(R.id.post_collapse_top).getVisibility());
     }
 
     private static void stopPhotoLoads(View view) {

@@ -69,6 +69,22 @@
             android:src="@drawable/ic_card_actions" />
     </RelativeLayout>
 
+    <TextView
+        android:id="@+id/post_collapse_top"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:text="@string/feed_collapse"
+        android:textColor="@color/vk_blue"
+        android:textSize="15sp"
+        android:fontFamily="sans-serif-medium"
+        android:background="?attr/selectableItemBackground"
+        android:focusable="true"
+        android:visibility="gone" />
+
     <com.vktea.feed.FeedPostContent
         android:id="@+id/post_content"
         android:layout_width="match_parent"

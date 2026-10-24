@@ -48,6 +48,7 @@ public class FeedPostContentTest {
         measure(holder.itemView, 320);
         assertEquals(holder.content.getNaturalContentHeight(), holder.content.getHeight());
         assertEquals(View.GONE, holder.more.getVisibility());
+        assertEquals(View.GONE, holder.collapseTop.getVisibility());
         assertEquals(Integer.MAX_VALUE, holder.text.getMaxLines());
         LinearLayout root = (LinearLayout) holder.itemView;
         assertEquals(root.indexOfChild(holder.content) + 1, root.indexOfChild(holder.more));
@@ -90,14 +91,19 @@ public class FeedPostContentTest {
         View firstMain = holder.photoContainer.getChildAt(0), firstRepost = holder.repostPhotos.getChildAt(0);
         int loads = images.loads;
         holder.more.performClick();
+        assertEquals(View.VISIBLE, holder.collapseTop.getVisibility());
+        assertEquals("Свернуть", holder.collapseTop.getText().toString());
+        LinearLayout root = (LinearLayout) holder.itemView;
+        assertEquals(root.indexOfChild(holder.collapseTop) + 1, root.indexOfChild(holder.content));
         measure(holder.itemView, 320);
         assertTrue(post.expanded);
         assertEquals(holder.content.getNaturalContentHeight(), holder.content.getHeight());
         assertEquals(View.VISIBLE, holder.more.getVisibility());
         assertEquals("Свернуть", holder.more.getText().toString());
-        holder.more.performClick();
+        holder.collapseTop.performClick();
         measure(holder.itemView, 320);
         assertFalse(post.expanded);
+        assertEquals(View.GONE, holder.collapseTop.getVisibility());
         assertEquals(holder.content.getHeightBudget(), holder.content.getHeight());
         assertEquals(View.VISIBLE, holder.more.getVisibility());
         assertEquals("Показать полностью", holder.more.getText().toString());
@@ -142,6 +148,7 @@ public class FeedPostContentTest {
         adapter.onBindViewHolder(holder, 1);
         measure(holder.itemView, 320);
         assertFalse(second.expanded);
+        assertEquals(View.GONE, holder.collapseTop.getVisibility());
         assertEquals(View.GONE, holder.more.getVisibility());
         assertEquals(holder.content.getNaturalContentHeight(), holder.content.getHeight());
         adapter.onBindViewHolder(holder, 0);
@@ -150,17 +157,20 @@ public class FeedPostContentTest {
         measure(holder.itemView, 320);
         assertTrue(first.expanded);
         assertEquals(holder.content.getNaturalContentHeight(), holder.content.getHeight());
+        assertEquals(View.VISIBLE, holder.collapseTop.getVisibility());
         assertEquals(View.VISIBLE, holder.more.getVisibility());
         assertEquals("Свернуть", holder.more.getText().toString());
         holder.more.performClick();
         adapter.onBindViewHolder(holder, 0);
         measure(holder.itemView, 320);
         assertFalse(first.expanded);
+        assertEquals(View.GONE, holder.collapseTop.getVisibility());
         assertEquals(holder.content.getHeightBudget(), holder.content.getHeight());
         assertEquals("Показать полностью", holder.more.getText().toString());
         adapter.onViewRecycled(holder);
         assertNull(holder.boundPost);
         assertFalse(holder.more.performClick());
+        assertFalse(holder.collapseTop.performClick());
         assertEquals(View.GONE, holder.more.getVisibility());
     }
 
@@ -209,6 +219,7 @@ public class FeedPostContentTest {
         assertTrue(viewport.getHeight() >= 2560);
         assertEquals(viewport.getNaturalContentHeight(), viewport.getHeight());
         assertEquals(View.GONE, item.findViewById(R.id.post_more).getVisibility());
+        assertEquals(View.GONE, item.findViewById(R.id.post_collapse_top).getVisibility());
     }
 
     private FeedAdapter.PostViewHolder bind(Post post) {

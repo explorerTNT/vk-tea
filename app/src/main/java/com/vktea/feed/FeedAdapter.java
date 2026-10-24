@@ -69,21 +69,28 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.content.reset();
         holder.more.setVisibility(View.GONE);
         holder.more.setOnClickListener(null);
+        holder.collapseTop.setVisibility(View.GONE);
+        holder.collapseTop.setOnClickListener(null);
         holder.repostBlock.setOnClickListener(null);
         holder.videoBlock.setOnClickListener(null);
         holder.showComments.setOnClickListener(null);
         holder.boundPost = post;
+        holder.collapseTop.setVisibility(post.expanded ? View.VISIBLE : View.GONE);
         holder.more.setText(post.expanded ? R.string.feed_collapse : R.string.feed_show_full);
         holder.content.bindForFeed(post.expanded, overflowing -> {
             if (holder.boundPost == post) holder.more.setVisibility(overflowing ? View.VISIBLE : View.GONE);
         });
-        holder.more.setOnClickListener(view -> {
+        View.OnClickListener toggleContent = view -> {
             if (holder.boundPost != post) return;
+            if (view == holder.collapseTop && !post.expanded) return;
             post.expanded = !post.expanded;
             holder.content.setExpanded(post.expanded);
             holder.more.setText(post.expanded ? R.string.feed_collapse : R.string.feed_show_full);
+            holder.collapseTop.setVisibility(post.expanded ? View.VISIBLE : View.GONE);
             if (!post.expanded) anchorCollapsedPost(holder);
-        });
+        };
+        holder.more.setOnClickListener(toggleContent);
+        holder.collapseTop.setOnClickListener(toggleContent);
         int linkColor = ContextCompat.getColor(holder.text.getContext(), R.color.post_name);
 
         holder.name.setText(post.sourceName);
@@ -331,7 +338,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.boundPost = null;
         holder.content.reset();
         holder.more.setVisibility(View.GONE);
-        for (View view : new View[]{holder.more, holder.text, holder.itemView, holder.likes, holder.comments,
+        holder.collapseTop.setVisibility(View.GONE);
+        for (View view : new View[]{holder.more, holder.collapseTop, holder.text, holder.itemView, holder.likes, holder.comments,
                 holder.reposts, holder.header, holder.options, holder.showComments, holder.repostBlock, holder.videoBlock})
             view.setOnClickListener(null);
         PostPhotosRenderer.render(holder.photoContainer, null);
@@ -349,6 +357,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         final TextView text;
         final LinearLayout photoContainer;
         final TextView more;
+        final TextView collapseTop;
         final TextView likes;
         final TextView comments;
         final TextView reposts;
@@ -375,6 +384,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             text = itemView.findViewById(R.id.post_text);
             photoContainer = itemView.findViewById(R.id.post_photos);
             more = itemView.findViewById(R.id.post_more);
+            collapseTop = itemView.findViewById(R.id.post_collapse_top);
             likes = itemView.findViewById(R.id.post_likes);
             comments = itemView.findViewById(R.id.post_comments);
             reposts = itemView.findViewById(R.id.post_reposts);
