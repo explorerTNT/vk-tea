@@ -1,5 +1,7 @@
 package com.vktea.msg;
 
+import com.vktea.feed.ViewerPhoto;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -218,7 +220,25 @@ public final class ChatHistoryParser {
         int height = image != null && image.width > 0 && image.height > 0 ? image.height : positiveInt(value, "height");
         if (width == 0 || height == 0) { width = 0; height = 0; }
         return new ChatAttachment(type, title, subtitle, image == null ? "" : image.url,
-                url, width, height, duration, id, owner, key);
+                url, width, height, duration, id, owner, key, viewerPhoto(type, value));
+    }
+
+    private static ViewerPhoto viewerPhoto(String type, JSONObject value) {
+        if ("photo".equals(type) || "posted_photo".equals(type)) return ViewerPhoto.parse(value);
+        JSONObject photo = value.optJSONObject("photo");
+        if (photo == null && "market".equals(type)) photo = value.optJSONObject("main_photo");
+        if (photo == null && ("album".equals(type) || "market_album".equals(type))) photo = value.optJSONObject("thumb");
+        if (photo == null && ("wall".equals(type) || "wall_reply".equals(type))) {
+            JSONArray attachments = value.optJSONArray("attachments");
+            if (attachments != null) for (int i = 0; i < attachments.length(); i++) {
+                JSONObject attachment = attachments.optJSONObject(i);
+                if (attachment != null && "photo".equals(attachment.optString("type"))) {
+                    photo = attachment.optJSONObject("photo");
+                    if (photo != null) break;
+                }
+            }
+        }
+        return photo == null ? null : ViewerPhoto.parse(photo);
     }
 
     private static ChatAttachment unavailable(String type) {

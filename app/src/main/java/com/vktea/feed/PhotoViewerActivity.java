@@ -3,6 +3,7 @@ package com.vktea.feed;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -14,12 +15,12 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.PopupMenu;
-import androidx.core.content.FileProvider;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.core.widget.TextViewCompat;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.viewpager2.widget.ViewPager2;
 
@@ -33,12 +34,18 @@ public class PhotoViewerActivity extends AppCompatActivity {
     public static final String EXTRA_PHOTOS = "photos", EXTRA_INDEX = "index";
     private static final String STATE_INDEX = "photo_index", STATE_CHROME = "photo_chrome",
             STATE_DOCUMENT = "photo_document";
-    private static final int SAVE = 1, COPY = 2, SHARE = 3, RESET = 4;
+    private static final int SAVE = 1, COPY = 2, RESET = 4, REFRESH = 5;
     private final List<String> photos = new ArrayList<>();
+    private final List<ViewerPhoto> photoDetails = new ArrayList<>();
     private ViewPager2 pager;
     private PhotoPagerAdapter adapter;
     private PhotoExportViewModel exports;
-    private View top, bottom, previous, next, save, share, reset;
+    private View top, bottom, previous, next;
+    private TextView like, comments, repost;
+    private PhotoDismissLayout dismissLayout;
+    private PhotoSocialViewModel social;
+    private PhotoSocialController socialController;
+    private PhotoSocialViewModel.State socialState;
     private TextView counter;
     private boolean chromeVisible = true, zoomed;
     private PhotoPagerAdapter.LoadState[] loads;
@@ -65,6 +72,7 @@ public class PhotoViewerActivity extends AppCompatActivity {
             adapter.resetZoom(position);
             pager.setUserInputEnabled(true);
             if (menu != null) menu.dismiss();
+            if (social != null) social.select(currentPhoto());
             updateControls();
         }
     };
@@ -74,12 +82,19 @@ public class PhotoViewerActivity extends AppCompatActivity {
         setTheme(R.style.Theme_VKTea_PhotoViewer);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         ArrayList<String> input = getIntent().getStringArrayListExtra(EXTRA_PHOTOS);
+        ArrayList<ViewerPhoto> details = getIntent().getParcelableArrayListExtra(ViewerPhoto.EXTRA_PHOTOS);
+        if (details != null && !details.isEmpty()) {
+            input = new ArrayList<>();
+            for (ViewerPhoto photo : details) input.add(photo == null ? null : photo.url);
+        }
         int requested = Math.max(0, getIntent().getIntExtra(EXTRA_INDEX, 0)), filteredIndex = 0;
         if (input != null) for (int i = 0; i < input.size(); i++) {
             String source = input.get(i);
             if (source != null && !source.trim().isEmpty()) {
                 if (i < requested) filteredIndex++;
                 photos.add(source);
+                photoDetails.add(details != null && i < details.size() && details.get(i) != null
+                        ? details.get(i) : ViewerPhoto.fromUrl(source));
             }
         }
         if (photos.isEmpty()) { finish(); return; }
@@ -98,19 +113,21 @@ public class PhotoViewerActivity extends AppCompatActivity {
         bottom = findViewById(R.id.viewer_bottom);
         previous = findViewById(R.id.viewer_previous);
         next = findViewById(R.id.viewer_next);
-        save = findViewById(R.id.viewer_save);
-        share = findViewById(R.id.viewer_share);
-        reset = findViewById(R.id.viewer_reset);
+        like = findViewById(R.id.viewer_like);
+        comments = findViewById(R.id.viewer_comments);
+        repost = findViewById(R.id.viewer_repost);
         counter = findViewById(R.id.viewer_counter);
         pager = findViewById(R.id.photo_pager);
         loads = new PhotoPagerAdapter.LoadState[photos.size()];
         exports = new ViewModelProvider(this).get(PhotoExportViewModel.class);
+        social = createPhotoSocialViewModel();
+        socialController = new PhotoSocialController(this, social);
         adapter = createPhotoAdapter(photos, new PhotoPagerAdapter.Callback() {
             @Override public void onToggleChrome() { setChromeVisible(!chromeVisible); }
             @Override public void onZoomChanged(int position, boolean value) {
                 if (position != pager.getCurrentItem()) return;
                 zoomed = value;
-                pager.setUserInputEnabled(!value);
+                pager.setUserInputEnabled(!value && (dismissLayout == null || !dismissLayout.isMultiTouchActive()));
                 updateControls();
             }
             @Override public void onLoadStateChanged(int position, PhotoPagerAdapter.LoadState value) {
@@ -121,20 +138,37 @@ public class PhotoViewerActivity extends AppCompatActivity {
         pager.setAdapter(adapter);
         pager.setCurrentItem(initial, false);
         pager.registerOnPageChangeCallback(pages);
+        dismissLayout = findViewById(R.id.viewer_middle);
+        dismissLayout.bind(pager, new PhotoDismissLayout.Listener() {
+            @Override public boolean canDismiss() {
+                return !zoomed && pager.getScrollState() == ViewPager2.SCROLL_STATE_IDLE;
+            }
+            @Override public void onProgress(float fraction) {
+                top.setAlpha(1f - fraction);
+                bottom.setAlpha(1f - fraction);
+                previous.setAlpha(1f - fraction);
+                next.setAlpha(1f - fraction);
+                pager.setUserInputEnabled(fraction == 0f && !zoomed);
+            }
+            @Override public void onDismiss() { finish(); }
+            @Override public void onMultiTouch() { pager.setUserInputEnabled(false); }
+            @Override public void onTouchEnd() { pager.setUserInputEnabled(!zoomed); }
+        });
         findViewById(R.id.viewer_back).setOnClickListener(view -> finish());
         findViewById(R.id.viewer_more).setOnClickListener(this::showActions);
         previous.setOnClickListener(view -> move(-1));
         next.setOnClickListener(view -> move(1));
-        save.setOnClickListener(view -> onSavePhoto(currentSource()));
-        share.setOnClickListener(view -> onSharePhoto(currentSource()));
-        reset.setOnClickListener(view -> adapter.resetZoom(pager.getCurrentItem()));
+        like.setOnClickListener(view -> social.toggleLike());
+        comments.setOnClickListener(view -> social.openComments());
+        repost.setOnClickListener(view -> social.openRepost());
+        social.state().observe(this, value -> { socialState = value; updateControls(); });
+        social.select(currentPhoto());
         exports.state().observe(this, value -> {
             updateControls();
             if (value == null || value.busy || value.handled) return;
             value.handled = true;
             if (value.kind == PhotoExportViewModel.Kind.ERROR) toast(R.string.photo_action_error);
             else if (value.kind == PhotoExportViewModel.Kind.SAVED) toast(R.string.photo_action_saved);
-            else if (value.kind == PhotoExportViewModel.Kind.SHARE) dispatchShare(value.photo);
             else if (value.kind == PhotoExportViewModel.Kind.DOCUMENT) chooseDocument(value.photo);
         });
         setChromeVisible(chromeVisible);
@@ -146,7 +180,12 @@ public class PhotoViewerActivity extends AppCompatActivity {
         return new PhotoPagerAdapter(sources, callback);
     }
 
+    protected PhotoSocialViewModel createPhotoSocialViewModel() {
+        return new ViewModelProvider(this).get(PhotoSocialViewModel.class);
+    }
+
     private String currentSource() { return photos.get(pager.getCurrentItem()); }
+    private ViewerPhoto currentPhoto() { return photoDetails.get(pager.getCurrentItem()); }
     private boolean ready() { return loads[pager.getCurrentItem()] == PhotoPagerAdapter.LoadState.READY; }
     private boolean busy() { return exports.isBusy() || pendingDocument != null; }
 
@@ -156,9 +195,22 @@ public class PhotoViewerActivity extends AppCompatActivity {
         counter.setText(getString(R.string.photo_viewer_counter, index + 1, photos.size()));
         previous.setVisibility(chromeVisible && index > 0 ? View.VISIBLE : View.GONE);
         next.setVisibility(chromeVisible && index + 1 < photos.size() ? View.VISIBLE : View.GONE);
-        enabled(save, ready() && !busy());
-        enabled(share, ready() && !busy());
-        enabled(reset, zoomed);
+        boolean samePhoto = socialState != null && socialState.photo != null
+                && socialState.photo.ownerId == currentPhoto().ownerId && socialState.photo.id == currentPhoto().id;
+        ViewerPhoto photo = samePhoto ? socialState.photo : currentPhoto();
+        boolean available = samePhoto && photo.hasIdentity() && !socialState.loading && !socialState.busy;
+        enabled(like, available && (photo.canLike || photo.liked));
+        enabled(comments, available);
+        enabled(repost, available && photo.canRepost);
+        count(like, photo.likes, photo.liked ? R.string.photo_viewer_unlike : R.string.photo_viewer_like);
+        count(comments, photo.comments, R.string.photo_viewer_comments);
+        count(repost, photo.reposts, R.string.photo_viewer_repost);
+        TextViewCompat.setCompoundDrawableTintList(like, ColorStateList.valueOf(photo.liked ? 0xffff6b7d : 0xffffffff));
+    }
+
+    private void count(TextView view, int number, int action) {
+        view.setText(number > 0 ? FeedAdapter.formatCount(number) : "");
+        view.setContentDescription(getString(R.string.photo_viewer_action_count, getString(action), number));
     }
 
     private static void enabled(View view, boolean enabled) {
@@ -191,13 +243,16 @@ public class PhotoViewerActivity extends AppCompatActivity {
                 androidx.appcompat.R.style.ThemeOverlay_AppCompat_Light), anchor);
         menu.getMenu().add(0, SAVE, 0, R.string.photo_viewer_save).setEnabled(ready() && !busy());
         menu.getMenu().add(0, COPY, 1, R.string.photo_action_copy);
-        menu.getMenu().add(0, SHARE, 2, R.string.photo_viewer_share).setEnabled(ready() && !busy());
         menu.getMenu().add(0, RESET, 3, R.string.photo_action_reset).setEnabled(zoomed);
+        if (currentPhoto().hasIdentity() && socialState != null && socialState.error != null) {
+            menu.getMenu().add(0, REFRESH, 4, R.string.photo_action_refresh)
+                    .setEnabled(!socialState.loading && !socialState.busy);
+        }
         menu.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == SAVE) onSavePhoto(currentSource());
             else if (item.getItemId() == COPY) copyPhotoLink();
-            else if (item.getItemId() == SHARE) onSharePhoto(currentSource());
             else if (item.getItemId() == RESET) adapter.resetZoom(pager.getCurrentItem());
+            else if (item.getItemId() == REFRESH) social.refresh();
             else return false;
             return true;
         });
@@ -211,33 +266,14 @@ public class PhotoViewerActivity extends AppCompatActivity {
                 ? PhotoExportViewModel.Kind.SAVED : PhotoExportViewModel.Kind.DOCUMENT);
     }
 
-    protected void onSharePhoto(String source) {
-        if (!busy() && ready()) {
-            toast(R.string.photo_action_preparing);
-            exports.start(source, PhotoExportViewModel.Kind.SHARE);
-        }
-    }
-
     protected void copyPhotoLink() {
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         if (clipboard != null) {
-            clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.photo_viewer_photo), currentSource()));
+            ViewerPhoto photo = currentPhoto();
+            String link = photo.hasIdentity() ? "https://vk.com/photo" + photo.ownerId + "_" + photo.id : currentSource();
+            clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.photo_viewer_photo), link));
             if (Build.VERSION.SDK_INT < 33) toast(R.string.photo_action_copied);
         }
-    }
-
-    protected void dispatchShare(PhotoExports.SavedPhoto photo) {
-        try {
-            Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".photo-files", photo.file);
-            startActivity(Intent.createChooser(shareIntent(uri, photo.mimeType), getString(R.string.photo_viewer_share)));
-        } catch (RuntimeException ignored) { toast(R.string.photo_action_error); }
-    }
-
-    static Intent shareIntent(Uri uri, String mimeType) {
-        Intent intent = new Intent(Intent.ACTION_SEND).setType(mimeType).putExtra(Intent.EXTRA_STREAM, uri)
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        intent.setClipData(ClipData.newRawUri("Photo", uri));
-        return intent;
     }
 
     private void chooseDocument(PhotoExports.SavedPhoto photo) {
@@ -273,6 +309,8 @@ public class PhotoViewerActivity extends AppCompatActivity {
         if (menu != null) menu.dismiss();
         if (pager != null) pager.unregisterOnPageChangeCallback(pages);
         if (adapter != null) adapter.release();
+        if (socialController != null) socialController.destroy();
+        if (dismissLayout != null) dismissLayout.reset();
         super.onDestroy();
     }
 }

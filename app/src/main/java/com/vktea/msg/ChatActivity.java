@@ -23,7 +23,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.vktea.R;
 import com.vktea.api.VKApi;
-import com.vktea.feed.PhotoViewerActivity;
+import com.vktea.feed.PostPhotosRenderer;
+import com.vktea.feed.ViewerPhoto;
 import com.vktea.feed.VideoPlayerActivity;
 
 import org.json.JSONArray;
@@ -285,10 +286,11 @@ public class ChatActivity extends AppCompatActivity {
                     .putExtra("access_key", attachment.accessKey));
         } else if (!attachment.previewUrl.isEmpty()) {
             ArrayList<String> photos = new ArrayList<>();
-            photos.add("photo".equals(attachment.type) && !attachment.url.isEmpty()
+            ViewerPhoto metadata = attachment.viewerPhoto;
+            photos.add(metadata != null && !metadata.url.isEmpty() ? metadata.url
+                    : ("photo".equals(attachment.type) || "posted_photo".equals(attachment.type)) && !attachment.url.isEmpty()
                     ? attachment.url : attachment.previewUrl);
-            startActivity(new Intent(this, PhotoViewerActivity.class)
-                    .putStringArrayListExtra("photos", photos).putExtra("index", 0));
+            PostPhotosRenderer.openViewer(this, photos, Collections.singletonList(metadata), 0);
         }
     }
 

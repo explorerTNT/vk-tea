@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="photo_social_comment_row">%1$s\n%2$s</string>
+    <string name="photo_social_comments">Комментарии</string>
+    <string name="photo_social_repost">Опубликовать на моей стене</string>
+    <string name="photo_social_publish">Опубликовать</string>
+    <string name="photo_social_send">Отправить</string>
+    <string name="photo_social_close">Закрыть</string>
+    <string name="photo_social_cancel">Отмена</string>
+    <string name="photo_social_retry">Обновить</string>
+    <string name="photo_social_loading">Загрузка…</string>
+    <string name="photo_social_empty">Комментариев пока нет</string>
+    <string name="photo_social_latest">Последние %1$d из %2$d</string>
+    <string name="photo_social_comment_hint">Ваш комментарий</string>
+    <string name="photo_social_repost_hint">Добавить текст (необязательно)</string>
+    <string name="photo_social_no_comment">Владелец запретил комментирование</string>
+    <string name="photo_social_comment_sent">Комментарий отправлен</string>
+    <string name="photo_social_reposted">Фотография опубликована на вашей стене</string>
+    <string name="photo_social_error_auth">Сессия недоступна. Войдите в аккаунт снова.</string>
+    <string name="photo_social_error_access">Для этого действия нет доступа</string>
+    <string name="photo_social_error_rate">VK ограничил запросы. Попробуйте позже.</string>
+    <string name="photo_social_error_network">Не удалось подтвердить результат запроса. Проверьте состояние перед повторной отправкой.</string>
+    <string name="photo_social_error_generic">VK не выполнил запрос. Попробуйте позже.</string>
+</resources>

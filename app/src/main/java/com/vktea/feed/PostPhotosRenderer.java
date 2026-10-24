@@ -1,6 +1,7 @@
 package com.vktea.feed;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.view.View;
@@ -30,16 +31,29 @@ public final class PostPhotosRenderer {
     private PostPhotosRenderer() { }
 
     public static void render(LinearLayout container, List<String> urls) {
-        render(container, urls, GLIDE);
+        render(container, urls, null, GLIDE);
+    }
+
+    public static void render(LinearLayout container, List<String> urls, List<ViewerPhoto> details) {
+        render(container, urls, details, GLIDE);
     }
 
     static void render(LinearLayout container, List<String> urls, Images images) {
+        render(container, urls, null, images);
+    }
+
+    static void render(LinearLayout container, List<String> urls, List<ViewerPhoto> details, Images images) {
         clear(container, images);
         container.removeAllViews();
         container.setOrientation(LinearLayout.VERTICAL);
         ArrayList<String> photos = new ArrayList<>();
-        if (urls != null) for (String url : urls) {
-            if (url != null && !url.trim().isEmpty()) photos.add(url);
+        ArrayList<ViewerPhoto> metadata = new ArrayList<>();
+        if (urls != null) for (int index = 0; index < urls.size(); index++) {
+            String url = urls.get(index);
+            if (url != null && !url.trim().isEmpty()) {
+                photos.add(url);
+                metadata.add(detail(url, details, index));
+            }
         }
         container.setVisibility(photos.isEmpty() ? View.GONE : View.VISIBLE);
         for (int i = 0; i < photos.size(); i++) {
@@ -51,16 +65,26 @@ public final class PostPhotosRenderer {
             Object binding = new Object();
             photo.binding = binding;
             final int index = i;
-            photo.setOnClickListener(view -> {
-                Intent intent = new Intent(view.getContext(), PhotoViewerActivity.class)
-                        .putStringArrayListExtra("photos", new ArrayList<>(photos)).putExtra("index", index);
-                if (!(view.getContext() instanceof Activity)) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                view.getContext().startActivity(intent);
-            });
+            photo.setOnClickListener(view -> openViewer(view.getContext(), photos, metadata, index));
             images.load(photo, photos.get(i), (width, height) -> {
                 if (photo.binding == binding && photo.getParent() == container) photo.setSourceSize(width, height);
             });
         }
+    }
+
+    public static void openViewer(Context context, List<String> urls, List<ViewerPhoto> details, int index) {
+        ArrayList<ViewerPhoto> aligned = new ArrayList<>();
+        for (int item = 0; item < urls.size(); item++) aligned.add(detail(urls.get(item), details, item));
+        Intent intent = new Intent(context, PhotoViewerActivity.class)
+                .putStringArrayListExtra("photos", new ArrayList<>(urls)).putExtra("index", index)
+                .putParcelableArrayListExtra(ViewerPhoto.EXTRA_PHOTOS, aligned);
+        if (!(context instanceof Activity)) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
+    }
+
+    private static ViewerPhoto detail(String url, List<ViewerPhoto> details, int index) {
+        ViewerPhoto photo = details != null && index < details.size() ? details.get(index) : null;
+        return photo != null && photo.url.equals(url) ? photo : ViewerPhoto.fromUrl(url);
     }
 
     private static void clear(View view, Images images) {

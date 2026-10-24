@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.vktea.R;
 import com.vktea.api.VKApi;
+import com.vktea.feed.ViewerPhoto;
 
 import org.json.JSONObject;
 import org.junit.After;
@@ -69,6 +70,26 @@ public class ChatActivityTest {
         assertEquals(View.GONE, activity.findViewById(R.id.chat_loading).getVisibility());
         assertEquals(View.GONE, activity.findViewById(R.id.chat_state).getVisibility());
         assertEquals(1, activity.readCalls);
+    }
+
+    @Test public void chatPhotoViewerRetainsResponsePhotoIdentityAccessKeyAndCounts() throws Exception {
+        open(42);
+        deliver("{\"response\":{\"items\":[{\"id\":999,\"from_id\":42,\"date\":1234,\"attachments\":["
+                + "{\"type\":\"photo\",\"photo\":{\"id\":73,\"owner_id\":-91,\"access_key\":\"synthetic-chat-key\","
+                + "\"likes\":{\"count\":4,\"user_likes\":1},\"photo_604\":\"file:///synthetic-chat-photo.png\"}}]}]}}");
+        RecyclerView list = activity.findViewById(R.id.chat_list);
+        ChatMessagesAdapter adapter = (ChatMessagesAdapter) list.getAdapter();
+        ChatMessagesAdapter.Holder holder = adapter.onCreateViewHolder(list, adapter.getItemViewType(0));
+        adapter.onBindViewHolder(holder, 0);
+        assertTrue(holder.attachments.getChildAt(0).performClick());
+        Intent opened = shadowOf(activity).getNextStartedActivity();
+        java.util.ArrayList<ViewerPhoto> metadata = opened.getParcelableArrayListExtra(ViewerPhoto.EXTRA_PHOTOS);
+        assertEquals(73, metadata.get(0).id);
+        assertEquals(-91, metadata.get(0).ownerId);
+        assertEquals("synthetic-chat-key", metadata.get(0).accessKey);
+        assertEquals(4, metadata.get(0).likes);
+        assertTrue(metadata.get(0).liked);
+        assertEquals(metadata.get(0).url, opened.getStringArrayListExtra("photos").get(0));
     }
 
     @Test public void failedAndMalformedHistoryOfferSingleExplicitRetryAndEmptyIsDifferent() throws Exception {

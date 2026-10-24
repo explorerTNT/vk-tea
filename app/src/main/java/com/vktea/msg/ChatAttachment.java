@@ -1,5 +1,7 @@
 package com.vktea.msg;
 
+import com.vktea.feed.ViewerPhoto;
+
 /** URLs are retained exactly as provided; presentation must not rewrite CDN crop/signature parameters. */
 public final class ChatAttachment {
     public final String type;
@@ -13,9 +15,16 @@ public final class ChatAttachment {
     public final long id;
     public final long ownerId;
     public final String accessKey;
+    public final ViewerPhoto viewerPhoto;
 
     public ChatAttachment(String type, String title, String subtitle, String previewUrl, String url,
                           int width, int height, int duration, long id, long ownerId, String accessKey) {
+        this(type, title, subtitle, previewUrl, url, width, height, duration, id, ownerId, accessKey, null);
+    }
+
+    public ChatAttachment(String type, String title, String subtitle, String previewUrl, String url,
+                          int width, int height, int duration, long id, long ownerId, String accessKey,
+                          ViewerPhoto viewerPhoto) {
         this.type = type == null || type.isEmpty() ? "unknown" : type;
         this.title = title == null || title.trim().isEmpty() ? "Вложение" : title;
         this.subtitle = subtitle == null ? "" : subtitle;
@@ -27,5 +36,8 @@ public final class ChatAttachment {
         this.id = id;
         this.ownerId = ownerId;
         this.accessKey = accessKey == null ? "" : accessKey;
+        this.viewerPhoto = viewerPhoto != null ? viewerPhoto
+                : ("photo".equals(this.type) || "posted_photo".equals(this.type))
+                ? new ViewerPhoto(this.url, id, ownerId, this.accessKey, 0, 0, 0, false, false, false, false) : null;
     }
 }

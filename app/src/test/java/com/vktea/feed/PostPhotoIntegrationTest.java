@@ -46,7 +46,8 @@ public class PostPhotoIntegrationTest {
         profile.profileCallback.success(new JSONObject("{\"response\":[{\"id\":42,"
                 + "\"first_name\":\"Synthetic\",\"last_name\":\"Profile\"}]}"));
         profile.wallCallback.success(new JSONObject("{\"response\":{\"items\":[{\"id\":9,"
-                + "\"from_id\":42,\"attachments\":[{\"type\":\"photo\",\"photo\":{\"sizes\":["
+                + "\"from_id\":42,\"attachments\":[{\"type\":\"photo\",\"photo\":{\"id\":17,\"owner_id\":-91,"
+                + "\"access_key\":\"synthetic-wall-key\",\"likes\":{\"count\":7},\"sizes\":["
                 + "{\"type\":\"w\",\"width\":1600,\"height\":900,\"url\":\"file:///synthetic-wide.png\"},"
                 + "{\"type\":\"s\",\"width\":75,\"height\":42,\"url\":\"file:///small-sentinel.png\"}]}}]}]}}"));
         RecyclerView list = profile.requireView().findViewById(R.id.profile_wall);
@@ -60,6 +61,11 @@ public class PostPhotoIntegrationTest {
         holder.photoContainer.getChildAt(0).performClick();
         Intent opened = shadowOf(host.get()).getNextStartedActivity();
         assertEquals(Collections.singletonList("file:///synthetic-wide.png"), opened.getStringArrayListExtra("photos"));
+        java.util.ArrayList<ViewerPhoto> metadata = opened.getParcelableArrayListExtra(ViewerPhoto.EXTRA_PHOTOS);
+        assertEquals(17, metadata.get(0).id);
+        assertEquals(-91, metadata.get(0).ownerId);
+        assertEquals("synthetic-wall-key", metadata.get(0).accessKey);
+        assertEquals(7, metadata.get(0).likes);
         adapter.onViewRecycled(holder);
         assertEquals(0, holder.photoContainer.getChildCount());
     }
@@ -70,6 +76,8 @@ public class PostPhotoIntegrationTest {
         FeedAdapter adapter = new FeedAdapter(null);
         Post populated = post();
         populated.repostPhotos.add("file:///synthetic-repost.png");
+        populated.repostPhotoDetails.add(new ViewerPhoto("file:///synthetic-repost.png", 601, -22,
+                "synthetic-repost-key", 0, 0, 0, false, false, false, false));
         adapter.addAll(Arrays.asList(populated, new Post(42, "Synthetic", null, "", 0,
                 Collections.emptyList(), 0, 0, 0, 0, false, Post.TYPE_POST, 42, 10)));
         RecyclerView parent = new RecyclerView(host.get());
@@ -83,6 +91,13 @@ public class PostPhotoIntegrationTest {
         Intent opened = shadowOf(host.get()).getNextStartedActivity();
         assertEquals(populated.photoUrls, opened.getStringArrayListExtra("photos"));
         assertEquals(1, opened.getIntExtra("index", -1));
+        java.util.ArrayList<ViewerPhoto> metadata = opened.getParcelableArrayListExtra(ViewerPhoto.EXTRA_PHOTOS);
+        assertEquals(502, metadata.get(1).id);
+        holder.repostPhotos.getChildAt(0).performClick();
+        Intent repost = shadowOf(host.get()).getNextStartedActivity();
+        java.util.ArrayList<ViewerPhoto> repostMetadata = repost.getParcelableArrayListExtra(ViewerPhoto.EXTRA_PHOTOS);
+        assertEquals(601, repostMetadata.get(0).id);
+        assertEquals(-22, repostMetadata.get(0).ownerId);
         adapter.onBindViewHolder(holder, 1);
         assertEquals(0, holder.photoContainer.getChildCount());
         assertEquals(0, holder.repostPhotos.getChildCount());
@@ -107,15 +122,24 @@ public class PostPhotoIntegrationTest {
         assertEquals(2, holder.photoContainer.getChildCount());
         assertEquals(1, holder.repostPhotos.getChildCount());
         assertTrue(holder.photoContainer.getChildAt(0) instanceof PostPhotoView);
+        holder.photoContainer.getChildAt(1).performClick();
+        Intent opened = shadowOf(detail.get()).getNextStartedActivity();
+        java.util.ArrayList<ViewerPhoto> metadata = opened.getParcelableArrayListExtra(ViewerPhoto.EXTRA_PHOTOS);
+        assertEquals(502, metadata.get(1).id);
         adapter.onViewRecycled(holder);
         assertEquals(0, holder.photoContainer.getChildCount());
         assertEquals(0, holder.repostPhotos.getChildCount());
     }
 
     private static Post post() {
-        return new Post(42, "Synthetic", null, "Synthetic post", 100,
+        Post post = new Post(42, "Synthetic", null, "Synthetic post", 100,
                 Arrays.asList("file:///synthetic-portrait.png", "file:///synthetic-wide.png"),
                 0, 0, 0, 0, false, Post.TYPE_POST, 42, 9);
+        post.photoDetails.add(new ViewerPhoto(post.photoUrls.get(0), 501, -11, "portrait-key", 0, 0, 0,
+                false, false, false, false));
+        post.photoDetails.add(new ViewerPhoto(post.photoUrls.get(1), 502, -12, "wide-key", 0, 0, 0,
+                false, false, false, false));
+        return post;
     }
 
     public static class WallHost extends AppCompatActivity {

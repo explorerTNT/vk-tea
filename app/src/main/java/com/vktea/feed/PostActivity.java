@@ -303,8 +303,8 @@ public class PostActivity extends AppCompatActivity {
             holder.itemView.setOnClickListener(null);
             holder.header.setOnClickListener(null);
 
-            PostPhotosRenderer.render(holder.photoContainer, post.photoUrls);
-            PostPhotosRenderer.render(holder.repostPhotos, post.repostPhotos);
+            PostPhotosRenderer.render(holder.photoContainer, post.photoUrls, post.photoDetails);
+            PostPhotosRenderer.render(holder.repostPhotos, post.repostPhotos, post.repostPhotoDetails);
 
             if (post.isRepost()) {
                 holder.repostBlock.setVisibility(View.VISIBLE);

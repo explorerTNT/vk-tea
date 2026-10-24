@@ -1,10 +1,12 @@
 <resources>
+    <string name="photo_viewer_like">Нравится</string>
+    <string name="photo_viewer_unlike">Убрать лайк</string>
+    <string name="photo_viewer_comments">Комментарии</string>
+    <string name="photo_viewer_repost">Репост ВКонтакте</string>
+    <string name="photo_viewer_action_count">%1$s: %2$d</string>
     <string name="photo_viewer_back">Назад</string>
     <string name="photo_viewer_more">Другие действия</string>
     <string name="photo_viewer_save">Сохранить</string>
-    <string name="photo_viewer_share">Поделиться</string>
-    <string name="photo_viewer_send">Отправить</string>
-    <string name="photo_viewer_reset">Вписать</string>
     <string name="photo_viewer_previous">Предыдущее фото</string>
     <string name="photo_viewer_next">Следующее фото</string>
     <string name="photo_viewer_photo">Фотография</string>

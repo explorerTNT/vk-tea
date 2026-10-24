@@ -360,6 +360,7 @@ public class NewsFeedFragment extends Fragment {
             return null;
         }
         List<String> photoUrls = new ArrayList<>();
+        List<ViewerPhoto> photoDetails = new ArrayList<>();
         JSONObject countsHolder = item;
         int likeType = Post.TYPE_POST;
         long likeOwnerId = sourceId;
@@ -380,9 +381,11 @@ public class NewsFeedFragment extends Fragment {
                 likeOwnerId = first.optLong("owner_id", sourceId);
                 likeItemId = first.optLong("id", 0);
                 for (int i = 0; i < photoItems.length() && photoUrls.size() < 10; i++) {
-                    String u = pickPhotoUrl(photoItems.getJSONObject(i));
+                    ViewerPhoto photo = ViewerPhoto.parse(photoItems.getJSONObject(i));
+                    String u = photo.url.isEmpty() ? null : photo.url;
                     if (u != null) {
                         photoUrls.add(u);
+                        photoDetails.add(photo);
                     }
                 }
             }
@@ -393,9 +396,11 @@ public class NewsFeedFragment extends Fragment {
                     JSONObject att = attachments.getJSONObject(i);
                     String attType = att.optString("type");
                     if ("photo".equals(attType)) {
-                        String u = pickPhotoUrl(att.getJSONObject("photo"));
+                        ViewerPhoto photo = ViewerPhoto.parse(att.getJSONObject("photo"));
+                        String u = photo.url.isEmpty() ? null : photo.url;
                         if (u != null && photoUrls.size() < 10) {
                             photoUrls.add(u);
+                            photoDetails.add(photo);
                         }
                     } else if ("video".equals(attType) && videoPreview == null) {
                         JSONObject video = att.getJSONObject("video");
@@ -439,6 +444,7 @@ public class NewsFeedFragment extends Fragment {
                 likeOwnerId,
                 likeItemId);
 
+        post.photoDetails.addAll(photoDetails);
         post.videoPreview = videoPreview;
         post.videoOwner = videoOwner;
         post.videoId = videoId;
@@ -462,9 +468,11 @@ public class NewsFeedFragment extends Fragment {
                 for (int i = 0; i < origAtt.length() && post.repostPhotos.size() < 10; i++) {
                     JSONObject att = origAtt.getJSONObject(i);
                     if ("photo".equals(att.optString("type"))) {
-                        String u = pickPhotoUrl(att.getJSONObject("photo"));
+                        ViewerPhoto photo = ViewerPhoto.parse(att.getJSONObject("photo"));
+                        String u = photo.url.isEmpty() ? null : photo.url;
                         if (u != null) {
                             post.repostPhotos.add(u);
+                            post.repostPhotoDetails.add(photo);
                         }
                     }
                 }
@@ -530,7 +538,8 @@ public class NewsFeedFragment extends Fragment {
                     card.linkUrl = o.optString("url", "");
                     JSONObject photo = o.optJSONObject("photo");
                     if (photo != null) {
-                        card.imageUrl = pickPhotoUrl(photo);
+                        card.imagePhoto = ViewerPhoto.parse(photo);
+                        card.imageUrl = card.imagePhoto.url;
                     } else if (o.has("photo_130")) {
                         card.imageUrl = o.optString("photo_130");
                     }
@@ -547,7 +556,8 @@ public class NewsFeedFragment extends Fragment {
                         photo = o.optJSONObject("cover_photo");
                     }
                     if (photo != null) {
-                        card.imageUrl = pickPhotoUrl(photo);
+                        card.imagePhoto = ViewerPhoto.parse(photo);
+                        card.imageUrl = card.imagePhoto.url;
                     }
                     return card;
                 }
@@ -573,13 +583,10 @@ public class NewsFeedFragment extends Fragment {
                     if (thumbs != null) {
                         for (int i = 0; i < thumbs.length() && i < 3; i++) {
                             JSONObject t = thumbs.getJSONObject(i);
-                            String[] tc = {"photo_604", "photo_130", "photo_75"};
-                            for (String key : tc) {
-                                String u = t.optString(key, null);
-                                if (u != null && !u.isEmpty()) {
-                                    card.photos.add(u);
-                                    break;
-                                }
+                            ViewerPhoto photo = ViewerPhoto.parse(t);
+                            if (!photo.url.isEmpty()) {
+                                card.photos.add(photo.url);
+                                card.photoDetails.add(photo);
                             }
                         }
                     }
@@ -595,7 +602,8 @@ public class NewsFeedFragment extends Fragment {
                     card.subtitle = o.optString("price", "");
                     JSONObject photo = o.optJSONObject("photo");
                     if (photo != null) {
-                        card.imageUrl = pickPhotoUrl(photo);
+                        card.imagePhoto = ViewerPhoto.parse(photo);
+                        card.imageUrl = card.imagePhoto.url;
                     }
                     card.linkUrl = "https://m.vk.com/market";
                     return card;

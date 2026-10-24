@@ -25,6 +25,7 @@ import com.vktea.util.VkTextUtils;
 import org.json.JSONObject;
 
 import java.util.List;
+import java.util.Collections;
 
 public class CardsRenderer {
 
@@ -219,6 +220,8 @@ public class CardsRenderer {
             image.setAdjustViewBounds(true);
             image.setScaleType(ImageView.ScaleType.CENTER_CROP);
             Glide.with(ctx).load(card.imageUrl).into(image);
+            image.setOnClickListener(v -> PostPhotosRenderer.openViewer(ctx,
+                    Collections.singletonList(card.imageUrl), Collections.singletonList(card.imagePhoto), 0));
             box.addView(image);
         }
         TextView title = new TextView(ctx);
@@ -269,6 +272,8 @@ public class CardsRenderer {
         image.setLayoutParams(new LinearLayout.LayoutParams(dp(ctx, 160), dp(ctx, 160)));
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);
         Glide.with(ctx).load(card.imageUrl).into(image);
+        image.setOnClickListener(v -> PostPhotosRenderer.openViewer(ctx,
+                Collections.singletonList(card.imageUrl), Collections.singletonList(card.imagePhoto), 0));
         container.addView(image);
     }
 
@@ -283,13 +288,16 @@ public class CardsRenderer {
         if (!card.photos.isEmpty()) {
             LinearLayout row = new LinearLayout(ctx);
             row.setOrientation(LinearLayout.HORIZONTAL);
-            for (String url : card.photos) {
+            for (int index = 0; index < card.photos.size(); index++) {
+                String url = card.photos.get(index);
                 ImageView iv = new ImageView(ctx);
                 LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(0, dp(ctx, 90), 1f);
                 ilp.rightMargin = dp(ctx, 2);
                 iv.setLayoutParams(ilp);
                 iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 Glide.with(ctx).load(url).into(iv);
+                final int selected = index;
+                iv.setOnClickListener(v -> PostPhotosRenderer.openViewer(ctx, card.photos, card.photoDetails, selected));
                 row.addView(iv);
             }
             box.addView(row);

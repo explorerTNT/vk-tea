@@ -78,7 +78,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.more.setVisibility(cut && !post.expanded ? View.VISIBLE : View.GONE);
         holder.more.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
 
-        PostPhotosRenderer.render(holder.photoContainer, post.photoUrls);
+        PostPhotosRenderer.render(holder.photoContainer, post.photoUrls, post.photoDetails);
 
         bindRepost(holder, post, linkColor);
         bindVideo(holder, post);
@@ -214,7 +214,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
     }
 
     private void bindRepost(PostViewHolder holder, Post post, int linkColor) {
-        PostPhotosRenderer.render(holder.repostPhotos, post.repostPhotos);
+        PostPhotosRenderer.render(holder.repostPhotos, post.repostPhotos, post.repostPhotoDetails);
         if (!post.isRepost()) {
             holder.repostBlock.setVisibility(View.GONE);
             return;

@@ -221,13 +221,13 @@ public class PhotoPagerAdapterTest {
             assertTrue(top.getBottom() <= middle.getTop());
             assertTrue(middle.getBottom() <= bottom.getTop());
             for (int id : new int[]{R.id.viewer_back, R.id.viewer_more, R.id.viewer_previous,
-                    R.id.viewer_next, R.id.viewer_save, R.id.viewer_share, R.id.viewer_reset}) {
+                    R.id.viewer_next, R.id.viewer_like, R.id.viewer_comments, R.id.viewer_repost}) {
                 View control = root.findViewById(id);
                 int minimum = Math.round(48 * root.getResources().getDisplayMetrics().density);
                 assertTrue(control.getWidth() >= minimum && control.getHeight() >= minimum);
                 assertNotNull(control.getContentDescription());
             }
-            for (int id : new int[]{R.id.viewer_save, R.id.viewer_share, R.id.viewer_reset}) {
+            for (int id : new int[]{R.id.viewer_like, R.id.viewer_comments, R.id.viewer_repost}) {
                 TextView label = root.findViewById(id);
                 assertNotNull(label.getLayout());
                 assertTrue(label.getHeight() >= label.getCompoundPaddingTop() + label.getLayout().getHeight() + label.getCompoundPaddingBottom());

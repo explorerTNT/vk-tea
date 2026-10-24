@@ -116,14 +116,17 @@ public class ProfileFragment extends Fragment {
                                 long sid = item.optLong("from_id", userId);
                                 String[] src = sources.containsKey(sid) ? sources.get(sid) : new String[]{"", ""};
                                 java.util.List<String> photoUrls = new ArrayList<>();
+                                java.util.List<ViewerPhoto> photoDetails = new ArrayList<>();
                                 JSONArray attachments = item.optJSONArray("attachments");
                                 if (attachments != null) {
                                     for (int a = 0; a < attachments.length() && photoUrls.size() < 10; a++) {
                                         JSONObject att = attachments.getJSONObject(a);
                                         if ("photo".equals(att.optString("type"))) {
-                                            String purl = pickFromSizes(att.getJSONObject("photo"));
+                                            ViewerPhoto photo = ViewerPhoto.parse(att.getJSONObject("photo"));
+                                            String purl = photo.url;
                                             if (!purl.isEmpty()) {
                                                 photoUrls.add(purl);
+                                                photoDetails.add(photo);
                                             }
                                         }
                                     }
@@ -132,14 +135,16 @@ public class ProfileFragment extends Fragment {
                                 JSONObject comments = item.optJSONObject("comments");
                                 JSONObject reposts = item.optJSONObject("reposts");
                                 JSONObject views = item.optJSONObject("views");
-                                posts.add(new Post(sid, src[0], src[1],
+                                Post post = new Post(sid, src[0], src[1],
                                         item.optString("text", ""), item.optLong("date", 0), photoUrls,
                                         likes != null ? likes.optInt("count", 0) : 0,
                                         comments != null ? comments.optInt("count", 0) : 0,
                                         reposts != null ? reposts.optInt("count", 0) : 0,
                                         views != null ? views.optInt("count", 0) : 0,
                                         likes != null && likes.optInt("user_likes", 0) == 1,
-                                        Post.TYPE_POST, sid, item.optLong("id", 0)));
+                                        Post.TYPE_POST, sid, item.optLong("id", 0));
+                                post.photoDetails.addAll(photoDetails);
+                                posts.add(post);
                             }
                             adapter.setWall(posts);
                         } catch (Exception ignored) {
@@ -206,7 +211,7 @@ public class ProfileFragment extends Fragment {
                 h.name.setText(post.sourceName);
                 h.time.setText(com.vktea.util.RuDate.format(post.date));
                 h.text.setText(post.text);
-                PostPhotosRenderer.render(h.photoContainer, post.photoUrls);
+                PostPhotosRenderer.render(h.photoContainer, post.photoUrls, post.photoDetails);
             }
         }
 
