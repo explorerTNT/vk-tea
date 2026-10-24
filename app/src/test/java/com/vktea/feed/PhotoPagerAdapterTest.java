@@ -227,12 +227,23 @@ public class PhotoPagerAdapterTest {
                 assertTrue(control.getWidth() >= minimum && control.getHeight() >= minimum);
                 assertNotNull(control.getContentDescription());
             }
-            for (int id : new int[]{R.id.viewer_like, R.id.viewer_comments, R.id.viewer_repost}) {
+            for (int id : new int[]{R.id.viewer_like_count, R.id.viewer_comments_count, R.id.viewer_repost_count}) {
                 TextView label = root.findViewById(id);
                 assertNotNull(label.getLayout());
                 assertTrue(label.getHeight() >= label.getCompoundPaddingTop() + label.getLayout().getHeight() + label.getCompoundPaddingBottom());
             }
             int priorHeight = middle.getHeight();
+            ((TextView) root.findViewById(R.id.viewer_like_count)).setText("1");
+            ((TextView) root.findViewById(R.id.viewer_comments_count)).setText("3.4K");
+            ((TextView) root.findViewById(R.id.viewer_repost_count)).setText("");
+            measure(root, 280, 560);
+            int[] icons = {R.id.viewer_like_icon, R.id.viewer_comments_icon, R.id.viewer_repost_icon};
+            for (int index = 0; index < icons.length; index++) {
+                View icon = root.findViewById(icons[index]);
+                assertEquals("icon center is independent of counter width", 280f * (index + .5f) / 3f,
+                        (icon.getLeft() + icon.getRight()) / 2f, 1f);
+            }
+            assertEquals(root.getHeight(), bottom.getBottom());
             top.setVisibility(View.GONE);
             bottom.setVisibility(View.GONE);
             measure(root, 280, 560);

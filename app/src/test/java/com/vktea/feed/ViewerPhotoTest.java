@@ -62,7 +62,8 @@ public class ViewerPhotoTest {
     }
 
     @Test public void parcelRoundTripRetainsEveryField() {
-        ViewerPhoto original = new ViewerPhoto("file:///photo", 17, -91, "synthetic-key", 7, 8, 9, true, true, false, true);
+        ViewerPhoto original = new ViewerPhoto("file:///photo", 17, -91, "synthetic-key", 7, 8, 9, true, true, false, true,
+                "Synthetic author", "file:///avatar", 1700000000, "Synthetic caption");
         Parcel parcel = Parcel.obtain();
         try {
             original.writeToParcel(parcel, 0);
@@ -79,7 +80,67 @@ public class ViewerPhotoTest {
             assertEquals(original.canLike, restored.canLike);
             assertEquals(original.canComment, restored.canComment);
             assertEquals(original.canRepost, restored.canRepost);
+            assertEquals(original.ownerName, restored.ownerName);
+            assertEquals(original.ownerPhoto, restored.ownerPhoto);
+            assertEquals(original.date, restored.date);
+            assertEquals(original.text, restored.text);
             assertEquals(0, restored.describeContents());
+        } finally { parcel.recycle(); }
+    }
+
+    @Test public void legacyParcelStillRestoresPhotoAndDefaultsOptionalDiscussionMetadata() {
+        Parcel parcel = Parcel.obtain();
+        try {
+            parcel.writeString("file:///legacy"); parcel.writeLong(17); parcel.writeLong(-91); parcel.writeString("synthetic-key");
+            parcel.writeInt(7); parcel.writeInt(8); parcel.writeInt(9);
+            parcel.writeByte((byte) 1); parcel.writeByte((byte) 1); parcel.writeByte((byte) 0); parcel.writeByte((byte) 1);
+            parcel.setDataPosition(0);
+            ViewerPhoto restored = ViewerPhoto.CREATOR.createFromParcel(parcel);
+            assertEquals("file:///legacy", restored.url);
+            assertEquals(17, restored.id);
+            assertEquals(-91, restored.ownerId);
+            assertTrue(restored.liked && restored.canLike && restored.canRepost);
+            assertFalse(restored.canComment);
+            assertEquals("", restored.ownerName);
+            assertEquals("", restored.ownerPhoto);
+            assertEquals("", restored.text);
+            assertEquals(0, restored.date);
+        } finally { parcel.recycle(); }
+    }
+
+    @Test public void photoMetadataRetainsCaptionCreationTimeAndOptionalOwnerWithoutUsingPostId() throws Exception {
+        ViewerPhoto parsed = ViewerPhoto.parse(new JSONObject("{\"id\":17,\"owner_id\":-91,\"post_id\":999,"
+                + "\"created\":1700000000,\"text\":\"Synthetic caption\",\"owner_name\":\"Synthetic author\","
+                + "\"owner_photo\":\"file:///avatar\",\"photo_604\":\"file:///photo\"}"));
+        assertEquals(17, parsed.id);
+        assertEquals(1700000000, parsed.date);
+        assertEquals("Synthetic caption", parsed.text);
+        assertEquals("Synthetic author", parsed.ownerName);
+        assertEquals("file:///avatar", parsed.ownerPhoto);
+    }
+
+    @Test public void adjacentLegacyAndEnrichedParcelsPreserveNextObjectBoundaries() {
+        Parcel parcel = Parcel.obtain();
+        try {
+            parcel.writeString("file:///legacy"); parcel.writeLong(17); parcel.writeLong(-91); parcel.writeString("synthetic-key");
+            parcel.writeInt(7); parcel.writeInt(8); parcel.writeInt(9);
+            parcel.writeByte((byte) 1); parcel.writeByte((byte) 1); parcel.writeByte((byte) 0); parcel.writeByte((byte) 1);
+            new ViewerPhoto("file:///new", 18, 42, "", 0, 0, 0, false, true, true, true,
+                    "Synthetic author", "file:///avatar", 1700000000, "Synthetic caption").writeToParcel(parcel, 0);
+            ViewerPhoto.fromUrl("file:///last").writeToParcel(parcel, 0);
+            parcel.writeString("sentinel");
+            parcel.setDataPosition(0);
+            ViewerPhoto legacy = ViewerPhoto.CREATOR.createFromParcel(parcel);
+            ViewerPhoto enriched = ViewerPhoto.CREATOR.createFromParcel(parcel);
+            ViewerPhoto last = ViewerPhoto.CREATOR.createFromParcel(parcel);
+            assertEquals("file:///legacy", legacy.url);
+            assertEquals("", legacy.ownerName);
+            assertEquals("file:///new", enriched.url);
+            assertEquals("Synthetic author", enriched.ownerName);
+            assertEquals("Synthetic caption", enriched.text);
+            assertEquals("file:///last", last.url);
+            assertFalse(last.hasIdentity());
+            assertEquals("sentinel", parcel.readString());
         } finally { parcel.recycle(); }
     }
 

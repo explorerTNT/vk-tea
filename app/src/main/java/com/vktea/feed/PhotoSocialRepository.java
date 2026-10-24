@@ -24,11 +24,22 @@ public interface PhotoSocialRepository extends AutoCloseable {
             this.items = Collections.unmodifiableList(new ArrayList<>(items));
         }
     }
+    final class Owner {
+        public final String name, photo;
+        public Owner(String name, String photo) {
+            this.name = name == null ? "" : name;
+            this.photo = photo == null ? "" : photo;
+        }
+    }
     static PhotoSocialRepository create(Context context) { return new VkPhotoSocialRepository(context.getApplicationContext()); }
     Request load(ViewerPhoto photo, Callback<ViewerPhoto> callback);
     Request like(ViewerPhoto photo, boolean liked, Callback<Integer> callback);
     Request comments(ViewerPhoto photo, Callback<Comments> callback);
     Request comment(ViewerPhoto photo, String text, Callback<Long> callback);
     Request repost(ViewerPhoto photo, String text, Callback<Integer> callback);
+    default Request owner(ViewerPhoto photo, Callback<Owner> callback) {
+        callback.success(new Owner(photo.ownerName, photo.ownerPhoto));
+        return () -> { };
+    }
     @Override void close();
 }

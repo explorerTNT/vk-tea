@@ -77,6 +77,35 @@ public class VkPhotoSocialRepositoryTest {
         }
         assertEquals(md5(raw + "synthetic-secret"), sig); assertEquals(Integer.valueOf(5), result.value);
     }
+    @Test public void discussionOwnerLookupUsesSignedSafeUserOrGroupReadAndChecksIdentity() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":[{\"id\":41,\"first_name\":\"Synthetic\",\"last_name\":\"Author\","
+                + "\"photo_200\":\" \",\"photo_100\":\"file:///avatar\"}]}"));
+        Result<PhotoSocialRepository.Owner> user = new Result<>(); repository.owner(photo(), user); await(user);
+        assertEquals("GET", request.get().method());
+        assertEquals("/method/users.get", request.get().url().encodedPath());
+        assertEquals("41", request.get().url().queryParameter("user_ids"));
+        assertEquals("photo_200", request.get().url().queryParameter("fields"));
+        assertEquals("Synthetic Author", user.value.name); assertEquals("file:///avatar", user.value.photo);
+        assertNotNull(request.get().url().queryParameter("sig"));
+        repository.close(); create(chain -> response(chain, 200, "{\"response\":[{\"id\":91,\"name\":\"Synthetic group\"}]}"));
+        ViewerPhoto groupPhoto = new ViewerPhoto("file:///photo", 17, -91, "", 0, 0, 0, false, false, false, false);
+        Result<PhotoSocialRepository.Owner> group = new Result<>(); repository.owner(groupPhoto, group); await(group);
+        assertEquals("/method/groups.getById", request.get().url().encodedPath());
+        assertEquals("91", request.get().url().queryParameter("group_ids"));
+        assertEquals("Synthetic group", group.value.name);
+        Result<PhotoSocialRepository.Owner> wrong = new Result<>(); repository.owner(photo(), wrong); await(wrong);
+        assertEquals(PhotoSocialError.Kind.UNAVAILABLE, wrong.error.kind);
+    }
+    @Test public void metadataKeepsKnownCaptionDateAndOwnerWhenServerOmitsThem() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":[{\"id\":1,\"owner_id\":41}]}"));
+        ViewerPhoto source = new ViewerPhoto("file:///photo", 1, 41, "synthetic-key", 0, 0, 0, false, false, false, false,
+                "Synthetic owner", "file:///avatar", 1700000000, "Synthetic caption");
+        Result<ViewerPhoto> result = new Result<>(); repository.load(source, result); await(result);
+        assertEquals(source.ownerName, result.value.ownerName);
+        assertEquals(source.ownerPhoto, result.value.ownerPhoto);
+        assertEquals(source.date, result.value.date);
+        assertEquals(source.text, result.value.text);
+    }
     @Test public void likeAndCommentUsePhotoParametersAndActualResponseValues() throws Exception {
         create(chain -> response(chain, 200, chain.request().url().encodedPath().endsWith("likes.delete")
                 ? "{\"response\":{\"likes\":7}}" : "{\"response\":88}"));

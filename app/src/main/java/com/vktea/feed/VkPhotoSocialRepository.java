@@ -6,6 +6,7 @@ import android.os.Looper;
 
 import com.vktea.api.VKApi;
 import com.vktea.auth.Session;
+import com.vktea.msg.MessageAvatars;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -75,7 +76,25 @@ final class VkPhotoSocialRepository implements PhotoSocialRepository {
                     parsed.accessKey.isEmpty() ? photo.accessKey : parsed.accessKey, parsed.likes, parsed.comments, parsed.reposts,
                     parsed.liked, available && flag(value, "can_like", flag(value.optJSONObject("likes"), "can_like", true)),
                     available && flag(value, "can_comment", flag(value.optJSONObject("comments"), "can_post", true)),
-                    available && flag(value, "can_repost", true));
+                    available && flag(value, "can_repost", true),
+                    parsed.ownerName.isEmpty() ? photo.ownerName : parsed.ownerName,
+                    parsed.ownerPhoto.isEmpty() ? photo.ownerPhoto : parsed.ownerPhoto,
+                    value.has("date") || value.has("created") ? parsed.date : photo.date,
+                    value.has("text") ? parsed.text : photo.text);
+        });
+    }
+    @Override public Request owner(ViewerPhoto photo, Callback<Owner> callback) {
+        if (photo == null || !photo.hasIdentity() || photo.ownerId == Long.MIN_VALUE) return invalid(callback);
+        boolean group = photo.ownerId < 0;
+        LinkedHashMap<String, String> args = new LinkedHashMap<>();
+        args.put(group ? "group_ids" : "user_ids", Long.toString(Math.abs(photo.ownerId)));
+        args.put("fields", "photo_200");
+        return execute(photo, group ? "groups.getById" : "users.get", args, false, callback, root -> {
+            JSONObject owner = root.getJSONArray("response").getJSONObject(0);
+            if (owner.optLong("id", 0) != Math.abs(photo.ownerId)) throw new PhotoSocialError(PhotoSocialError.Kind.UNAVAILABLE);
+            String name = group ? string(owner, "name")
+                    : (string(owner, "first_name") + " " + string(owner, "last_name")).trim();
+            return new Owner(name, MessageAvatars.photoUrl(owner));
         });
     }
     @Override public Request like(ViewerPhoto photo, boolean liked, Callback<Integer> callback) {

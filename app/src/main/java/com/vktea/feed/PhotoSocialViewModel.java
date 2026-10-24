@@ -40,7 +40,8 @@ public class PhotoSocialViewModel extends AndroidViewModel {
     private String commentDraft = "", repostDraft = "";
     private PhotoSocialError error;
     private Event event;
-    private PhotoSocialRepository.Request metadataRequest, commentsRequest, mutationRequest;
+    private PhotoSocialRepository.Request metadataRequest, commentsRequest, mutationRequest, ownerRequest;
+    private boolean ownerAttempted;
 
     public PhotoSocialViewModel(Application application) { this(application, PhotoSocialRepository.create(application)); }
     public PhotoSocialViewModel(Application application, PhotoSocialRepository repository) {
@@ -59,7 +60,8 @@ public class PhotoSocialViewModel extends AndroidViewModel {
         }
         generation++; commentsGeneration++;
         cancelReads();
-        photo = known.getOrDefault(key(selected), selected);
+        ownerAttempted = false;
+        photo = enrich(known.getOrDefault(key(selected), selected), selected);
         if (!selected.url.isEmpty()) photo = copy(photo, selected.url, photo.likes, photo.comments, photo.reposts, photo.liked);
         comments = Collections.emptyList(); commentsTotal = photo.comments;
         commentsLoading = commentsLoaded = commentsOpen = repostOpen = false;
@@ -84,7 +86,7 @@ public class PhotoSocialViewModel extends AndroidViewModel {
                 if (!current(requestGeneration)) return;
                 metadataRequest = null; loading = false;
                 if (revision != revisions.getOrDefault(key(target), 0L)) { publish(); return; }
-                photo = copy(result, photo.url, result.likes, result.comments, result.reposts, result.liked);
+                photo = copy(enrich(result, photo), photo.url, result.likes, result.comments, result.reposts, result.liked);
                 known.put(key(photo), photo); commentsTotal = photo.comments; publish();
             }
             @Override public void error(PhotoSocialError failure) {
@@ -92,6 +94,25 @@ public class PhotoSocialViewModel extends AndroidViewModel {
                 metadataRequest = null; loading = false;
                 if (revision != revisions.getOrDefault(key(target), 0L)) publish(); else fail(failure);
             }
+        });
+    }
+    /** Author lookup is requested only by the discussion screen, never by observing the viewer. */
+    public void ensureOwner() {
+        if (cleared || photo == null || !photo.hasIdentity() || ownerAttempted
+                || (!photo.ownerName.isEmpty() && !photo.ownerPhoto.isEmpty())) return;
+        ownerAttempted = true;
+        int requestGeneration = generation;
+        ownerRequest = repository.owner(photo, new PhotoSocialRepository.Callback<PhotoSocialRepository.Owner>() {
+            @Override public void success(PhotoSocialRepository.Owner owner) {
+                if (!current(requestGeneration)) return;
+                ownerRequest = null;
+                photo = new ViewerPhoto(photo.url, photo.id, photo.ownerId, photo.accessKey,
+                        photo.likes, photo.comments, photo.reposts, photo.liked, photo.canLike, photo.canComment, photo.canRepost,
+                        owner.name.isEmpty() ? photo.ownerName : owner.name,
+                        owner.photo.isEmpty() ? photo.ownerPhoto : owner.photo, photo.date, photo.text);
+                known.put(key(photo), photo); publish();
+            }
+            @Override public void error(PhotoSocialError failure) { if (current(requestGeneration)) ownerRequest = null; }
         });
     }
     public void toggleLike() {
@@ -174,6 +195,7 @@ public class PhotoSocialViewModel extends AndroidViewModel {
     public void consumeEvent() { if (event != null) { event = null; publish(); } }
     private void beginMutation() { busy = true; error = null; event = null; publish(); }
     private void complete(ViewerPhoto updated) {
+        if (same(updated)) updated = enrich(updated, photo);
         mutationRequest = null; busy = false; known.put(key(updated), updated);
         revisions.put(key(updated), revisions.getOrDefault(key(updated), 0L) + 1L);
         if (same(updated)) {
@@ -194,13 +216,22 @@ public class PhotoSocialViewModel extends AndroidViewModel {
     private static int plusOne(int value) { return value == Integer.MAX_VALUE ? value : value + 1; }
     private static ViewerPhoto copy(ViewerPhoto value, String url, int likes, int comments, int reposts, boolean liked) {
         return new ViewerPhoto(url, value.id, value.ownerId, value.accessKey, likes, comments, reposts, liked,
-                value.canLike, value.canComment, value.canRepost);
+                value.canLike, value.canComment, value.canRepost, value.ownerName, value.ownerPhoto, value.date, value.text);
+    }
+    private static ViewerPhoto enrich(ViewerPhoto value, ViewerPhoto previous) {
+        return new ViewerPhoto(value.url, value.id, value.ownerId, value.accessKey, value.likes, value.comments,
+                value.reposts, value.liked, value.canLike, value.canComment, value.canRepost,
+                value.ownerName.isEmpty() ? previous.ownerName : value.ownerName,
+                value.ownerPhoto.isEmpty() ? previous.ownerPhoto : value.ownerPhoto,
+                value.date > 0 ? value.date : previous.date, value.text.isEmpty() ? previous.text : value.text);
     }
     private void publish() { if (!cleared) state.setValue(new State(this)); }
     private void cancelReads() {
         if (metadataRequest != null) metadataRequest.cancel();
         if (commentsRequest != null) commentsRequest.cancel();
+        if (ownerRequest != null) ownerRequest.cancel();
         metadataRequest = commentsRequest = null;
+        ownerRequest = null;
     }
     @Override protected void onCleared() {
         cleared = true; cancelReads();

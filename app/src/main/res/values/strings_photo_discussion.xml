@@ -1,0 +1,12 @@
+<resources>
+    <string name="photo_discussion_title">Фотография</string>
+    <string name="photo_discussion_owner">Пользователь</string>
+    <string name="photo_discussion_group">Сообщество</string>
+    <string name="photo_discussion_comments">Комментарии</string>
+    <string name="photo_discussion_latest">Последние %1$d из %2$d комментариев</string>
+    <string name="photo_discussion_hint">Ваш комментарий</string>
+    <string name="photo_discussion_send">Отправить комментарий</string>
+    <string name="photo_discussion_unavailable">Комментарии для этого изображения недоступны</string>
+    <string name="photo_discussion_comment">%1$s\n%2$s</string>
+    <string name="photo_discussion_comment_author">%1$s · %2$s</string>
+</resources>

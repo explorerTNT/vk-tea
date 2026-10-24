@@ -78,67 +78,104 @@
             android:src="@drawable/photo_viewer_next" />
     </com.vktea.feed.PhotoDismissLayout>
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/viewer_bottom"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#CC000000"
-        android:gravity="center_vertical"
-        android:minHeight="56dp"
-        android:orientation="horizontal">
+        android:layout_height="56dp"
+        android:background="#CC000000">
 
-        <androidx.appcompat.widget.AppCompatTextView
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/viewer_third_one"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.3333333" />
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/viewer_third_two"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.6666667" />
+
+        <View
             android:id="@+id/viewer_like"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?android:attr/selectableItemBackground"
-            android:clickable="true"
+            style="@style/Widget.VKTea.PhotoActionTarget"
             android:contentDescription="@string/photo_viewer_like"
-            app:drawableStartCompat="@drawable/photo_viewer_like"
-            android:drawablePadding="6dp"
-            android:focusable="true"
-            android:gravity="center"
-            android:minHeight="56dp"
-            android:padding="4dp"
-            android:maxLines="1"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
-        <androidx.appcompat.widget.AppCompatTextView
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/viewer_third_one"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+        <View
             android:id="@+id/viewer_comments"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?android:attr/selectableItemBackground"
-            android:clickable="true"
+            style="@style/Widget.VKTea.PhotoActionTarget"
             android:contentDescription="@string/photo_viewer_comments"
-            app:drawableStartCompat="@drawable/photo_viewer_comments"
-            android:drawablePadding="6dp"
-            android:focusable="true"
-            android:gravity="center"
-            android:minHeight="56dp"
-            android:padding="4dp"
-            android:maxLines="1"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
+            app:layout_constraintStart_toStartOf="@id/viewer_third_one"
+            app:layout_constraintEnd_toStartOf="@id/viewer_third_two"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+        <View
+            android:id="@+id/viewer_repost"
+            style="@style/Widget.VKTea.PhotoActionTarget"
+            android:contentDescription="@string/photo_viewer_repost"
+            app:layout_constraintStart_toStartOf="@id/viewer_third_two"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <ImageView
+            android:id="@+id/viewer_like_icon"
+            style="@style/Widget.VKTea.PhotoActionIcon"
+            android:contentDescription="@null"
+            android:src="@drawable/photo_viewer_like"
+            app:layout_constraintStart_toStartOf="@id/viewer_like"
+            app:layout_constraintEnd_toEndOf="@id/viewer_like"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+        <ImageView
+            android:id="@+id/viewer_comments_icon"
+            style="@style/Widget.VKTea.PhotoActionIcon"
+            android:contentDescription="@null"
+            android:src="@drawable/photo_viewer_comments"
+            app:layout_constraintStart_toStartOf="@id/viewer_comments"
+            app:layout_constraintEnd_toEndOf="@id/viewer_comments"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+        <ImageView
+            android:id="@+id/viewer_repost_icon"
+            style="@style/Widget.VKTea.PhotoActionIcon"
+            android:contentDescription="@null"
+            android:src="@drawable/photo_viewer_repost"
+            app:layout_constraintStart_toStartOf="@id/viewer_repost"
+            app:layout_constraintEnd_toEndOf="@id/viewer_repost"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
         <androidx.appcompat.widget.AppCompatTextView
-            android:id="@+id/viewer_repost"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?android:attr/selectableItemBackground"
-            android:clickable="true"
-            android:contentDescription="@string/photo_viewer_repost"
-            app:drawableStartCompat="@drawable/photo_viewer_repost"
-            android:drawablePadding="6dp"
-            android:focusable="true"
-            android:gravity="center"
-            android:minHeight="56dp"
-            android:padding="4dp"
-            android:maxLines="1"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-    </LinearLayout>
+            android:id="@+id/viewer_like_count"
+            style="@style/Widget.VKTea.PhotoActionCount"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="6dp"
+            app:layout_constraintStart_toEndOf="@id/viewer_like_icon"
+            app:layout_constraintEnd_toStartOf="@id/viewer_comments_icon"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/viewer_comments_count"
+            style="@style/Widget.VKTea.PhotoActionCount"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="6dp"
+            app:layout_constraintStart_toEndOf="@id/viewer_comments_icon"
+            app:layout_constraintEnd_toStartOf="@id/viewer_repost_icon"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/viewer_repost_count"
+            style="@style/Widget.VKTea.PhotoActionCount"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="4dp"
+            app:layout_constraintStart_toEndOf="@id/viewer_repost_icon"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </LinearLayout>

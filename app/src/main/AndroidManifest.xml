@@ -63,6 +63,11 @@
             android:theme="@style/Theme.VKTea.PhotoViewer"
             android:exported="false" />
 
+        <activity
+            android:name=".feed.PhotoDiscussionActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.photo-files"

@@ -124,10 +124,22 @@ public class PhotoViewerActivityTest {
         settle(viewer);
         assertEquals(102, viewer.repo.lastPhoto.id);
         assertEquals(1, viewer.repo.likes);
-        assertEquals("8", ((TextView) viewer.findViewById(R.id.viewer_like)).getText().toString());
+        assertEquals("8", ((TextView) viewer.findViewById(R.id.viewer_like_count)).getText().toString());
         viewer.copyPhotoLink();
         ClipboardManager clipboard = (ClipboardManager) viewer.getSystemService(Context.CLIPBOARD_SERVICE);
         assertEquals("https://vk.com/photo-51_102", clipboard.getPrimaryClip().getItemAt(0).getText().toString());
+        assertNull(shadowOf(viewer).getNextStartedActivity());
+        viewer.findViewById(R.id.viewer_comments).performClick();
+        Intent discussion = shadowOf(viewer).getNextStartedActivity();
+        assertEquals(PhotoDiscussionActivity.class.getName(), discussion.getComponent().getClassName());
+        ViewerPhoto selected = discussion.getParcelableExtra("photo");
+        assertEquals(102, selected.id);
+        assertEquals(8, selected.likes);
+        viewer.findViewById(R.id.viewer_repost).performClick();
+        settle(viewer);
+        assertTrue(viewer.shareModel.state().getValue().open);
+        assertEquals(102, viewer.shareModel.state().getValue().photo.id);
+        assertEquals(1, viewer.recipientReads);
         assertNull(shadowOf(viewer).getNextStartedActivity());
     }
 
@@ -160,7 +172,27 @@ public class PhotoViewerActivityTest {
         PhotoPagerAdapter.Callback callback;
         List<String> sources;
         String saved;
+        PhotoShareViewModel shareModel;
+        int recipientReads;
         FakeRepo repo = new FakeRepo();
+        @Override protected PhotoShareViewModel createPhotoShareViewModel() {
+            shareModel = new ViewModelProvider(this, new ViewModelProvider.Factory() {
+                @Override public <T extends ViewModel> T create(Class<T> modelClass) {
+                    return modelClass.cast(new PhotoShareViewModel(getApplication(), new PhotoShareRepository() {
+                        @Override public Request recipients(String query, Callback<List<Recipient>> callback) {
+                            recipientReads++;
+                            callback.success(java.util.Collections.emptyList());
+                            return () -> { };
+                        }
+                        @Override public Request send(ViewerPhoto photo, Recipient recipient, int randomId, String draft, Callback<Long> callback) {
+                            throw new AssertionError("Choosing Share cannot send a message");
+                        }
+                        @Override public void close() { }
+                    }));
+                }
+            }).get(PhotoShareViewModel.class);
+            return shareModel;
+        }
         @Override protected PhotoSocialViewModel createPhotoSocialViewModel() {
             return new ViewModelProvider(this, new ViewModelProvider.Factory() {
                 @Override public <T extends ViewModel> T create(Class<T> modelClass) {
