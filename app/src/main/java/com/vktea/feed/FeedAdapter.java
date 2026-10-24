@@ -38,6 +38,15 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
 
     private final List<Post> posts = new ArrayList<>();
     private final Listener listener;
+    private final RecyclerView.OnScrollListener collapseScrollListener = new RecyclerView.OnScrollListener() {
+        @Override
+        public void onScrolled(@NonNull RecyclerView list, int dx, int dy) {
+            updateStickyCollapse(list);
+        }
+    };
+    private final View.OnLayoutChangeListener collapseLayoutListener =
+            (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+                    updateStickyCollapse((RecyclerView) view);
 
     public FeedAdapter(Listener listener) {
         this.listener = listener;
@@ -55,6 +64,60 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         notifyItemRangeRemoved(0, size);
     }
 
+    @Override
+    public void onAttachedToRecyclerView(@NonNull RecyclerView list) {
+        super.onAttachedToRecyclerView(list);
+        list.addOnScrollListener(collapseScrollListener);
+        list.addOnLayoutChangeListener(collapseLayoutListener);
+    }
+
+    @Override
+    public void onDetachedFromRecyclerView(@NonNull RecyclerView list) {
+        list.removeOnScrollListener(collapseScrollListener);
+        list.removeOnLayoutChangeListener(collapseLayoutListener);
+        for (int i = 0; i < list.getChildCount(); i++) {
+            RecyclerView.ViewHolder holder = list.getChildViewHolder(list.getChildAt(i));
+            if (holder instanceof PostViewHolder) ((PostViewHolder) holder).collapseTop.setTranslationY(0);
+        }
+        super.onDetachedFromRecyclerView(list);
+    }
+
+    private void updateStickyCollapse(RecyclerView list) {
+        for (int i = 0; i < list.getChildCount(); i++) {
+            RecyclerView.ViewHolder holder = list.getChildViewHolder(list.getChildAt(i));
+            if (holder instanceof PostViewHolder && holder.getBindingAdapter() == this) {
+                updateStickyCollapse((PostViewHolder) holder);
+            }
+        }
+    }
+
+    private static void updateStickyCollapse(PostViewHolder holder) {
+        View button = holder.collapseTop;
+        if (holder.boundPost == null || !holder.boundPost.expanded
+                || button.getVisibility() != View.VISIBLE
+                || !(holder.itemView.getParent() instanceof RecyclerView)) {
+            button.setTranslationY(0);
+            return;
+        }
+        RecyclerView list = (RecyclerView) holder.itemView.getParent();
+        float desired = list.getPaddingTop() - holder.itemView.getY() - button.getTop();
+        // Keep the real, clickable view above the photos, but inside its own post content.
+        float limit = Math.max(0, holder.content.getBottom() - button.getBottom());
+        button.setTranslationY(Math.max(0, Math.min(desired, limit)));
+    }
+
+    @Override
+    public void onViewAttachedToWindow(@NonNull PostViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+        updateStickyCollapse(holder);
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(@NonNull PostViewHolder holder) {
+        holder.collapseTop.setTranslationY(0);
+        super.onViewDetachedFromWindow(holder);
+    }
+
     @NonNull
     @Override
     public PostViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -70,6 +133,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.more.setVisibility(View.GONE);
         holder.more.setOnClickListener(null);
         holder.collapseTop.setVisibility(View.GONE);
+        holder.collapseTop.setTranslationY(0);
         holder.collapseTop.setOnClickListener(null);
         holder.repostBlock.setOnClickListener(null);
         holder.videoBlock.setOnClickListener(null);
@@ -87,10 +151,12 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             holder.content.setExpanded(post.expanded);
             holder.more.setText(post.expanded ? R.string.feed_collapse : R.string.feed_show_full);
             holder.collapseTop.setVisibility(post.expanded ? View.VISIBLE : View.GONE);
+            updateStickyCollapse(holder);
             if (!post.expanded) anchorCollapsedPost(holder);
         };
         holder.more.setOnClickListener(toggleContent);
         holder.collapseTop.setOnClickListener(toggleContent);
+        updateStickyCollapse(holder);
         int linkColor = ContextCompat.getColor(holder.text.getContext(), R.color.post_name);
 
         holder.name.setText(post.sourceName);
@@ -339,6 +405,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.content.reset();
         holder.more.setVisibility(View.GONE);
         holder.collapseTop.setVisibility(View.GONE);
+        holder.collapseTop.setTranslationY(0);
         for (View view : new View[]{holder.more, holder.collapseTop, holder.text, holder.itemView, holder.likes, holder.comments,
                 holder.reposts, holder.header, holder.options, holder.showComments, holder.repostBlock, holder.videoBlock})
             view.setOnClickListener(null);
@@ -385,6 +452,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             photoContainer = itemView.findViewById(R.id.post_photos);
             more = itemView.findViewById(R.id.post_more);
             collapseTop = itemView.findViewById(R.id.post_collapse_top);
+            itemView.addOnLayoutChangeListener((view, left, top, right, bottom,
+                    oldLeft, oldTop, oldRight, oldBottom) -> updateStickyCollapse(this));
             likes = itemView.findViewById(R.id.post_likes);
             comments = itemView.findViewById(R.id.post_comments);
             reposts = itemView.findViewById(R.id.post_reposts);

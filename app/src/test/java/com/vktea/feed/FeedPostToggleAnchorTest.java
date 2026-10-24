@@ -7,6 +7,8 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -29,7 +31,9 @@ import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.LooperMode;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 /** Actual attached RecyclerView holders; synthetic text only, no images, account or transport. */
 @RunWith(RobolectricTestRunner.class)
@@ -77,6 +81,105 @@ public class FeedPostToggleAnchorTest {
         assertFalse(host.last.expanded);
         assertEquals(3, host.adapter.getItemCount());
         assertNull(shadowOf(host).getNextStartedActivity());
+    }
+
+    @Test public void translatedStickyButtonReceivesRealTouchAndCollapsesItsOwnPost() {
+        Host host = openExpanded();
+        host.list.scrollBy(0, host.list.getHeight() + 200);
+        settle(host);
+        FeedAdapter.PostViewHolder holder = holder(host);
+        assertTrue(holder.itemView.getTop() < -host.list.getHeight());
+        assertEquals(View.VISIBLE, holder.collapseTop.getVisibility());
+        assertTrue(holder.collapseTop.getTranslationY() > 0);
+        assertEquals(host.list.getPaddingTop(), holder.itemView.getY() + holder.collapseTop.getY(), .5f);
+
+        touchCenter(host.list, holder.collapseTop);
+        settle(host);
+        holder = holder(host);
+        assertFalse(host.longPost.expanded);
+        assertEquals(host.list.getPaddingTop(), holder.itemView.getTop());
+        assertEquals(View.GONE, holder.collapseTop.getVisibility());
+        assertEquals(0, holder.collapseTop.getTranslationY(), .01f);
+        assertEquals("Показать полностью", holder.more.getText().toString());
+        assertFalse(host.first.expanded);
+        assertFalse(host.last.expanded);
+        assertNull(shadowOf(host).getNextStartedActivity());
+    }
+
+    @Test public void stickyButtonStopsAtItsOwnContentBoundaryBeforeTheNextPost() {
+        Host host = openExpanded();
+        // Trailing short rows let this boundary reach the top without RecyclerView filling an end-of-list gap.
+        List<Post> trailing = new ArrayList<>();
+        for (int index = 0; index < 6; index++) trailing.add(Host.post(index + 4, "Synthetic trailing short post " + index));
+        host.adapter.addAll(trailing);
+        settle(host);
+        FeedAdapter.PostViewHolder holder = holder(host);
+        int desiredContentBottom = host.list.getPaddingTop() + holder.collapseTop.getHeight() / 2;
+        int distance = Math.round(holder.itemView.getY() + holder.content.getBottom() - desiredContentBottom);
+        host.list.scrollBy(0, distance);
+        settle(host);
+        holder = holder(host);
+        View next = host.manager.findViewByPosition(2);
+        assertNotNull(next);
+        assertTrue(holder.collapseTop.getTranslationY() > 0);
+        assertEquals(holder.content.getBottom(), holder.collapseTop.getY() + holder.collapseTop.getHeight(), .5f);
+        float stickyTop = holder.itemView.getY() + holder.collapseTop.getY();
+        float stickyBottom = stickyTop + holder.collapseTop.getHeight();
+        assertTrue("The button must leave the sticky top as its own content ends", stickyTop < host.list.getPaddingTop());
+        assertTrue("Translated button must never cover the next post", stickyBottom <= next.getY());
+        assertTrue(host.longPost.expanded);
+        assertFalse(host.last.expanded);
+        assertNull(shadowOf(host).getNextStartedActivity());
+    }
+
+    @Test public void replacingAdapterClearsStickyTranslationBeforeTheHolderIsReused() {
+        Host host = openExpanded();
+        host.list.scrollBy(0, host.list.getHeight() + 200);
+        settle(host);
+        FeedAdapter.PostViewHolder old = holder(host);
+        assertTrue(old.collapseTop.getTranslationY() > 0);
+        Post replacementPost = Host.post(99, "Synthetic replacement short post");
+        FeedAdapter replacement = new FeedAdapter(null);
+        replacement.addAll(Collections.singletonList(replacementPost));
+        host.list.setAdapter(replacement);
+        settle(host);
+        assertEquals(0, old.collapseTop.getTranslationY(), .01f);
+        assertEquals(View.GONE, old.collapseTop.getVisibility());
+        FeedAdapter.PostViewHolder fresh = (FeedAdapter.PostViewHolder) host.list.findViewHolderForAdapterPosition(0);
+        assertNotNull(fresh);
+        assertSame(replacementPost, fresh.boundPost);
+        assertEquals(0, fresh.collapseTop.getTranslationY(), .01f);
+        assertEquals(View.GONE, fresh.collapseTop.getVisibility());
+        fresh.collapseTop.performClick();
+        assertFalse(replacementPost.expanded);
+        assertTrue("Recycling must preserve the original post's expansion state", host.longPost.expanded);
+        assertNull(shadowOf(host).getNextStartedActivity());
+    }
+
+    private Host openExpanded() {
+        controller = Robolectric.buildActivity(Host.class).setup().visible();
+        Host host = controller.get();
+        settle(host);
+        host.manager.scrollToPositionWithOffset(1, 0);
+        settle(host);
+        holder(host).more.performClick();
+        settle(host);
+        assertTrue(host.longPost.expanded);
+        return host;
+    }
+    private static void touchCenter(RecyclerView list, View target) {
+        int[] targetOrigin = new int[2], listOrigin = new int[2];
+        target.getLocationOnScreen(targetOrigin);
+        list.getLocationOnScreen(listOrigin);
+        float x = targetOrigin[0] - listOrigin[0] + target.getWidth() / 2f;
+        float y = targetOrigin[1] - listOrigin[1] + target.getHeight() / 2f;
+        long down = SystemClock.uptimeMillis();
+        MotionEvent press = MotionEvent.obtain(down, down, MotionEvent.ACTION_DOWN, x, y, 0);
+        MotionEvent release = MotionEvent.obtain(down, down + 100, MotionEvent.ACTION_UP, x, y, 0);
+        try {
+            assertTrue(list.dispatchTouchEvent(press));
+            assertTrue(list.dispatchTouchEvent(release));
+        } finally { press.recycle(); release.recycle(); }
     }
 
     private static FeedAdapter.PostViewHolder holder(Host host) {
