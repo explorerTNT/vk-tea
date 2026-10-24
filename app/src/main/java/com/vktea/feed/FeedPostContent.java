@@ -11,8 +11,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 /** Measures the complete post body at full width, then clips only its feed viewport. */
 public final class FeedPostContent extends FrameLayout {
-    public interface OverflowListener { void onOverflowChanged(boolean clipped); }
-    private boolean folding, expanded, clipped;
+    public interface OverflowListener { void onOverflowChanged(boolean overflowing); }
+    private boolean folding, expanded, overflowing;
     private int naturalHeight, heightBudget;
     private OverflowListener listener;
     private RecyclerView list;
@@ -27,14 +27,14 @@ public final class FeedPostContent extends FrameLayout {
         this.folding = true;
         this.expanded = expanded;
         this.listener = listener;
-        clipped = false;
+        overflowing = false;
         requestLayout();
     }
     public void setExpanded(boolean expanded) {
         if (this.expanded != expanded) { this.expanded = expanded; requestLayout(); }
     }
     public void reset() {
-        folding = expanded = clipped = false;
+        folding = expanded = overflowing = false;
         listener = null;
         requestLayout();
     }
@@ -53,11 +53,11 @@ public final class FeedPostContent extends FrameLayout {
             naturalHeight += body.getMeasuredHeight() + params.topMargin + params.bottomMargin;
         }
         heightBudget = budget();
-        boolean nextClipped = folding && !expanded && naturalHeight > heightBudget;
-        setMeasuredDimension(width, nextClipped ? heightBudget : naturalHeight);
-        if (clipped != nextClipped) {
-            clipped = nextClipped;
-            if (listener != null) listener.onOverflowChanged(clipped);
+        boolean nextOverflow = folding && naturalHeight > heightBudget;
+        setMeasuredDimension(width, nextOverflow && !expanded ? heightBudget : naturalHeight);
+        if (overflowing != nextOverflow) {
+            overflowing = nextOverflow;
+            if (listener != null) listener.onOverflowChanged(overflowing);
         }
     }
     private int budget() {

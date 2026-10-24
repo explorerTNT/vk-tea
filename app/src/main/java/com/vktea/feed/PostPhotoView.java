@@ -22,6 +22,8 @@ public final class PostPhotoView extends AppCompatImageView {
             sourceWidth = width;
             sourceHeight = height;
             requestLayout();
+            // A memory-cache hit can deliver dimensions synchronously inside onSizeChanged.
+            if (isInLayout()) post(this::requestLayout);
         }
     }
 

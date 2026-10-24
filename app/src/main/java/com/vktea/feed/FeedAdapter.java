@@ -14,6 +14,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -72,14 +73,16 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.videoBlock.setOnClickListener(null);
         holder.showComments.setOnClickListener(null);
         holder.boundPost = post;
-        holder.content.bindForFeed(post.expanded, clipped -> {
-            if (holder.boundPost == post) holder.more.setVisibility(clipped ? View.VISIBLE : View.GONE);
+        holder.more.setText(post.expanded ? R.string.feed_collapse : R.string.feed_show_full);
+        holder.content.bindForFeed(post.expanded, overflowing -> {
+            if (holder.boundPost == post) holder.more.setVisibility(overflowing ? View.VISIBLE : View.GONE);
         });
         holder.more.setOnClickListener(view -> {
             if (holder.boundPost != post) return;
-            post.expanded = true;
-            holder.content.setExpanded(true);
-            holder.more.setVisibility(View.GONE);
+            post.expanded = !post.expanded;
+            holder.content.setExpanded(post.expanded);
+            holder.more.setText(post.expanded ? R.string.feed_collapse : R.string.feed_show_full);
+            if (!post.expanded) anchorCollapsedPost(holder);
         });
         int linkColor = ContextCompat.getColor(holder.text.getContext(), R.color.post_name);
 
@@ -139,6 +142,17 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
                 listener.onAuthorClick(post.sourceId);
             }
         });
+    }
+
+    private void anchorCollapsedPost(PostViewHolder holder) {
+        if (!(holder.itemView.getParent() instanceof RecyclerView)) return;
+        RecyclerView list = (RecyclerView) holder.itemView.getParent();
+        int position = holder.getAbsoluteAdapterPosition();
+        if (position == RecyclerView.NO_POSITION || holder.itemView.getTop() >= list.getPaddingTop()) return;
+        if (list.getLayoutManager() instanceof LinearLayoutManager) {
+            list.stopScroll();
+            ((LinearLayoutManager) list.getLayoutManager()).scrollToPositionWithOffset(position, 0);
+        }
     }
 
     private void animateLike(View anchor) {
