@@ -27,6 +27,8 @@ import androidx.lifecycle.ViewModelProvider;
 import com.vktea.R;
 import com.vktea.msg.MessageAvatars;
 import com.vktea.util.RuDate;
+import com.vktea.share.ShareActivity;
+import com.vktea.share.ShareAttachment;
 
 import java.util.Collections;
 import java.util.List;
@@ -90,6 +92,10 @@ public class PhotoDiscussionActivity extends AppCompatActivity {
         });
         send.setOnClickListener(view -> model.sendComment());
         like.setOnClickListener(view -> model.toggleLike());
+        findViewById(R.id.discussion_repost).setOnClickListener(view -> {
+            PhotoSocialViewModel.State current = model.state().getValue();
+            if (current != null && current.photo != null) ShareActivity.start(this, ShareAttachment.photo(current.photo));
+        });
         retry.setOnClickListener(view -> {
             if (requestedComments) model.loadComments(); else model.refresh();
         });
@@ -122,6 +128,7 @@ public class PhotoDiscussionActivity extends AppCompatActivity {
         }
         if (!photo.url.equals(boundUrl)) { boundUrl = photo.url; renderPhoto(photoContainer, photo); }
         boolean canAct = photo.hasIdentity() && !state.loading && !state.busy;
+        findViewById(R.id.discussion_repost).setEnabled(canAct);
         like.setText(photo.likes > 0 ? FeedAdapter.formatCount(photo.likes) : getString(R.string.photo_viewer_like));
         like.setContentDescription(getString(R.string.photo_viewer_action_count,
                 getString(photo.liked ? R.string.photo_viewer_unlike : R.string.photo_viewer_like), photo.likes));

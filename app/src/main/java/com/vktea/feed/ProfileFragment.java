@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
@@ -41,6 +42,11 @@ public class ProfileFragment extends Fragment {
     private long userId;
     private boolean isFriend;
     private int friendStatus = -1;
+    private SwipeRefreshLayout refresh;
+    private RecyclerView recycler;
+    private ProfileAdapter adapter;
+    private boolean profileLoading, wallLoading;
+    private int requestVersion;
 
     public static ProfileFragment newInstance(long userId) {
         Bundle args = new Bundle();
@@ -60,35 +66,62 @@ public class ProfileFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        RecyclerView recycler = view.findViewById(R.id.profile_wall);
+        refresh = view.findViewById(R.id.profile_refresh);
+        refresh.setColorSchemeResources(R.color.vk_blue);
+        recycler = view.findViewById(R.id.profile_wall);
         recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
-        ProfileAdapter adapter = new ProfileAdapter();
+        adapter = new ProfileAdapter();
         recycler.setAdapter(adapter);
-        loadProfile(adapter);
-        loadWall(adapter);
+        refresh.setOnRefreshListener(this::refreshContent);
+        refreshContent();
     }
 
-    private void loadProfile(ProfileAdapter adapter) {
+    void refreshContent() {
+        if (adapter == null || refresh == null || profileLoading || wallLoading) return;
+        int version = ++requestVersion;
+        profileLoading = wallLoading = true;
+        refresh.setRefreshing(true);
+        loadProfile(adapter, version);
+        loadWall(adapter, version);
+    }
+
+    private boolean current(ProfileAdapter target, int version) {
+        return refresh != null && target == adapter && version == requestVersion;
+    }
+
+    private void updateRefreshing() {
+        if (refresh != null) refresh.setRefreshing(profileLoading || wallLoading);
+    }
+
+    private void loadProfile(ProfileAdapter adapter, int version) {
         requestProfile(new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
+                        if (!current(adapter, version)) return;
                         try {
                             JSONObject u = response.getJSONArray("response").getJSONObject(0);
                             adapter.setProfile(u);
                         } catch (Exception ignored) {
+                        } finally {
+                            profileLoading = false;
+                            updateRefreshing();
                         }
                     }
 
                     @Override
                     public void error(Exception e) {
+                        if (!current(adapter, version)) return;
+                        profileLoading = false;
+                        updateRefreshing();
                     }
                 });
     }
 
-    private void loadWall(ProfileAdapter adapter) {
+    private void loadWall(ProfileAdapter adapter, int version) {
         requestWall(new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
+                        if (!current(adapter, version)) return;
                         try {
                             JSONObject data = response.getJSONObject("response");
                             Map<Long, String[]> sources = new HashMap<>();
@@ -142,19 +175,43 @@ public class ProfileFragment extends Fragment {
                                         reposts != null ? reposts.optInt("count", 0) : 0,
                                         views != null ? views.optInt("count", 0) : 0,
                                         likes != null && likes.optInt("user_likes", 0) == 1,
-                                        Post.TYPE_POST, sid, item.optLong("id", 0));
+                                        Post.TYPE_POST, item.optLong("owner_id", userId), item.optLong("id", 0));
                                 post.photoDetails.addAll(photoDetails);
+                                post.readShareMetadata(item);
                                 posts.add(post);
                             }
                             adapter.setWall(posts);
                         } catch (Exception ignored) {
+                            showRefreshError();
+                        } finally {
+                            wallLoading = false;
+                            updateRefreshing();
                         }
                     }
 
                     @Override
                     public void error(Exception e) {
+                        if (!current(adapter, version)) return;
+                        wallLoading = false;
+                        updateRefreshing();
+                        showRefreshError();
                     }
                 });
+    }
+
+    private void showRefreshError() {
+        if (getContext() != null) Toast.makeText(getContext(), R.string.profile_refresh_error, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override public void onDestroyView() {
+        requestVersion++;
+        profileLoading = wallLoading = false;
+        if (refresh != null) refresh.setOnRefreshListener(null);
+        if (recycler != null) recycler.setAdapter(null);
+        refresh = null;
+        recycler = null;
+        adapter = null;
+        super.onDestroyView();
     }
 
     protected void requestProfile(VKApi.Callback callback) {
@@ -181,8 +238,9 @@ public class ProfileFragment extends Fragment {
         private final List<Post> wall = new ArrayList<>();
 
         void setProfile(JSONObject p) {
+            boolean added = profile == null;
             profile = p;
-            notifyItemChanged(0);
+            if (added) notifyItemInserted(0); else notifyItemChanged(0);
         }
 
         void setWall(List<Post> posts) {
@@ -212,6 +270,9 @@ public class ProfileFragment extends Fragment {
                 h.time.setText(com.vktea.util.RuDate.format(post.date));
                 h.text.setText(post.text);
                 PostPhotosRenderer.render(h.photoContainer, post.photoUrls, post.photoDetails);
+                h.reposts.setText(post.reposts > 0 ? FeedAdapter.formatCount(post.reposts) : "");
+                h.reposts.setEnabled(PostSharing.attachment(post).hasIdentity());
+                h.reposts.setOnClickListener(v -> PostSharing.open(v.getContext(), post));
             }
         }
 
@@ -373,6 +434,7 @@ public class ProfileFragment extends Fragment {
         final TextView time;
         final TextView text;
         final LinearLayout photoContainer;
+        final TextView reposts;
 
         PostHolder(@NonNull View itemView) {
             super(itemView);
@@ -380,6 +442,7 @@ public class ProfileFragment extends Fragment {
             time = itemView.findViewById(R.id.post_time);
             text = itemView.findViewById(R.id.post_text);
             photoContainer = itemView.findViewById(R.id.post_photos);
+            reposts = itemView.findViewById(R.id.post_reposts);
         }
     }
 }

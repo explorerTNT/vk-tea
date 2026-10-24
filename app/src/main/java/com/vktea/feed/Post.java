@@ -24,6 +24,16 @@ public class Post {
     public final long likeOwnerId;
     public final long likeItemId;
     public boolean expanded;
+    public String accessKey = "";
+    public boolean canRepost = true;
+
+    public void readShareMetadata(org.json.JSONObject source) {
+        Object key = source.opt("access_key");
+        accessKey = key instanceof String ? (String) key : "";
+        Object allowed = source.opt("can_repost");
+        canRepost = !(allowed instanceof Boolean) || (Boolean) allowed;
+        if (allowed instanceof Number) canRepost = ((Number) allowed).intValue() != 0;
+    }
 
     public String repostAuthorName = "";
     public String repostAuthorPhoto = "";

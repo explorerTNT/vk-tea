@@ -372,6 +372,8 @@ public class PostActivity extends AppCompatActivity {
             });
             holder.comments.setText(post.comments > 0 ? FeedAdapter.formatCount(post.comments) : "");
             holder.reposts.setText(post.reposts > 0 ? FeedAdapter.formatCount(post.reposts) : "");
+            holder.reposts.setEnabled(PostSharing.attachment(post).hasIdentity());
+            holder.reposts.setOnClickListener(view -> PostSharing.open(view.getContext(), post));
             holder.views.setText(post.views > 0 ? FeedAdapter.formatCount(post.views) : "");
             holder.showComments.setVisibility(View.GONE);
             holder.options.setOnClickListener(null);

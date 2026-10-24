@@ -126,9 +126,47 @@ public class PostPhotoIntegrationTest {
         Intent opened = shadowOf(detail.get()).getNextStartedActivity();
         java.util.ArrayList<ViewerPhoto> metadata = opened.getParcelableArrayListExtra(ViewerPhoto.EXTRA_PHOTOS);
         assertEquals(502, metadata.get(1).id);
+        holder.reposts.performClick();
+        Intent sharing = shadowOf(detail.get()).getNextStartedActivity();
+        assertEquals(com.vktea.share.ShareActivity.class.getName(), sharing.getComponent().getClassName());
+        com.vktea.share.ShareAttachment shared = sharing.getParcelableExtra(com.vktea.share.ShareActivity.EXTRA_ATTACHMENT);
+        assertEquals("wall42_9", shared.object());
         adapter.onViewRecycled(holder);
         assertEquals(0, holder.photoContainer.getChildCount());
         assertEquals(0, holder.repostPhotos.getChildCount());
+    }
+
+    @Test public void feedRepostOpensChooserForWallAndPhotoAndDisablesUnknownIdentity() {
+        ActivityController<WallHost> host = Robolectric.buildActivity(WallHost.class).setup();
+        controller = host;
+        FeedAdapter adapter = new FeedAdapter(null);
+        Post wall = post();
+        wall.accessKey = "synthetic-wall-access";
+        Post photo = new Post(-91, "Synthetic", null, "", 0, Collections.emptyList(), 0, 0, 0, 0,
+                false, Post.TYPE_PHOTO, -91, 55);
+        photo.photoDetails.add(new ViewerPhoto("file:///qa.png", 55, -91, "synthetic-photo-access", 0, 0, 0,
+                false, false, false, false));
+        Post unknown = new Post(42, "Synthetic", null, "", 0, Collections.emptyList(), 0, 0, 0, 0,
+                false, Post.TYPE_POST, 42, 0);
+        adapter.addAll(Arrays.asList(wall, photo, unknown));
+        RecyclerView parent = new RecyclerView(host.get());
+        parent.setLayoutManager(new LinearLayoutManager(host.get()));
+        FeedAdapter.PostViewHolder holder = adapter.onCreateViewHolder(parent, 0);
+        adapter.onBindViewHolder(holder, 0);
+        holder.reposts.performClick();
+        Intent opened = shadowOf(host.get()).getNextStartedActivity();
+        assertEquals(com.vktea.share.ShareActivity.class.getName(), opened.getComponent().getClassName());
+        com.vktea.share.ShareAttachment shared = opened.getParcelableExtra(com.vktea.share.ShareActivity.EXTRA_ATTACHMENT);
+        assertEquals("wall42_9", shared.object());
+        assertEquals("synthetic-wall-access", shared.accessKey);
+        adapter.onBindViewHolder(holder, 1);
+        holder.reposts.performClick();
+        shared = shadowOf(host.get()).getNextStartedActivity().getParcelableExtra(com.vktea.share.ShareActivity.EXTRA_ATTACHMENT);
+        assertEquals("photo-91_55", shared.object());
+        assertEquals("synthetic-photo-access", shared.accessKey);
+        adapter.onBindViewHolder(holder, 2);
+        assertFalse(holder.reposts.isEnabled());
+        assertNull(shadowOf(host.get()).getNextStartedActivity());
     }
 
     private static Post post() {

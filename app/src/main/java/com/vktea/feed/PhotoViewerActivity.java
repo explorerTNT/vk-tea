@@ -26,6 +26,8 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.vktea.R;
+import com.vktea.share.ShareActivity;
+import com.vktea.share.ShareAttachment;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -48,8 +50,6 @@ public class PhotoViewerActivity extends AppCompatActivity {
     private PhotoDismissLayout dismissLayout;
     private PhotoSocialViewModel social;
     private PhotoSocialController socialController;
-    private PhotoShareViewModel shareModel;
-    private PhotoShareSheet shareSheet;
     private PhotoSocialViewModel.State socialState;
     private TextView counter;
     private boolean chromeVisible = true, zoomed;
@@ -133,8 +133,6 @@ public class PhotoViewerActivity extends AppCompatActivity {
         exports = new ViewModelProvider(this).get(PhotoExportViewModel.class);
         social = createPhotoSocialViewModel();
         socialController = new PhotoSocialController(this, social);
-        shareModel = createPhotoShareViewModel();
-        shareSheet = new PhotoShareSheet(this, shareModel, () -> social.openRepost());
         adapter = createPhotoAdapter(photos, new PhotoPagerAdapter.Callback() {
             @Override public void onToggleChrome() { setChromeVisible(!chromeVisible); }
             @Override public void onZoomChanged(int position, boolean value) {
@@ -176,7 +174,7 @@ public class PhotoViewerActivity extends AppCompatActivity {
             refreshAfterDiscussion = true;
             openPhotoDiscussion(activePhoto());
         });
-        repost.setOnClickListener(view -> shareSheet.show(activePhoto()));
+        repost.setOnClickListener(view -> openShare(ShareAttachment.photo(activePhoto())));
         social.state().observe(this, value -> { socialState = value; updateControls(); });
         social.select(currentPhoto());
         exports.state().observe(this, value -> {
@@ -200,8 +198,9 @@ public class PhotoViewerActivity extends AppCompatActivity {
         return new ViewModelProvider(this).get(PhotoSocialViewModel.class);
     }
 
-    protected PhotoShareViewModel createPhotoShareViewModel() {
-        return new ViewModelProvider(this).get(PhotoShareViewModel.class);
+    protected void openShare(ShareAttachment attachment) {
+        refreshAfterDiscussion = true;
+        ShareActivity.start(this, attachment);
     }
 
     protected void openPhotoDiscussion(ViewerPhoto photo) { PhotoDiscussionActivity.start(this, photo); }
@@ -352,7 +351,6 @@ public class PhotoViewerActivity extends AppCompatActivity {
         if (pager != null) pager.unregisterOnPageChangeCallback(pages);
         if (adapter != null) adapter.release();
         if (socialController != null) socialController.destroy();
-        if (shareSheet != null) shareSheet.destroy();
         if (dismissLayout != null) dismissLayout.reset();
         super.onDestroy();
     }

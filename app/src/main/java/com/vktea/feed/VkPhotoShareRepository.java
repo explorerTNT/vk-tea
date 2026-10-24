@@ -8,6 +8,7 @@ import com.vktea.auth.Session;
 import com.vktea.msg.Dialog;
 import com.vktea.msg.DialogsParser;
 import com.vktea.msg.MessageAvatars;
+import com.vktea.share.ShareAttachment;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.IOException;
@@ -70,19 +71,103 @@ final class VkPhotoShareRepository implements PhotoShareRepository {
                 root -> search ? searchRecipients(root.getJSONArray("response")) : recentRecipients(root));
     }
     @Override public Request send(ViewerPhoto photo, Recipient recipient, int randomId, String draft, Callback<Long> callback) {
-        if (photo == null || !photo.hasIdentity() || recipient == null || recipient.peerId == 0 || recipient.peerId == CHAT_BASE
+        return send(ShareAttachment.photo(photo), recipient, randomId, draft, callback);
+    }
+    @Override public Request send(ShareAttachment attachment, Recipient recipient, int randomId, String draft, Callback<Long> callback) {
+        if (attachment == null || !attachment.hasIdentity() || recipient == null || recipient.peerId == 0 || recipient.peerId == CHAT_BASE
                 || recipient.peerId == Long.MIN_VALUE || randomId == 0 || draft == null) return invalid(callback);
         LinkedHashMap<String, String> args = new LinkedHashMap<>();
         if (recipient.peerId > CHAT_BASE) args.put("chat_id", Long.toString(recipient.peerId - CHAT_BASE));
         else args.put("peer_id", Long.toString(recipient.peerId));
         args.put("random_id", Integer.toString(randomId));
         if (!draft.isEmpty()) args.put("message", draft);
-        args.put("attachment", "photo" + photo.ownerId + "_" + photo.id + (photo.accessKey.isEmpty() ? "" : "_" + photo.accessKey));
+        args.put("attachment", attachment.messageAttachment());
         return execute("messages.send", args, true, callback, root -> {
             long id = root.getLong("response");
             if (id <= 0) throw new PhotoSocialError(PhotoSocialError.Kind.UNAVAILABLE);
             return id;
         });
+    }
+    @Override public Request repost(ShareAttachment attachment, long groupId, String draft, Callback<Long> callback) {
+        if (attachment == null || !attachment.hasIdentity() || !attachment.canRepost || groupId < 0 || draft == null) return invalid(callback);
+        LinkedHashMap<String, String> args = new LinkedHashMap<>();
+        args.put("object", attachment.object()); args.put("message", draft);
+        if (groupId > 0) args.put("group_id", Long.toString(groupId));
+        if (!attachment.accessKey.isEmpty()) args.put("access_key", attachment.accessKey);
+        return execute("wall.repost", args, true, callback, root -> {
+            long postId = root.getJSONObject("response").getLong("post_id");
+            if (postId <= 0) throw new PhotoSocialError(PhotoSocialError.Kind.UNAVAILABLE);
+            return postId;
+        });
+    }
+    @Override public Request communities(Callback<List<Community>> callback) {
+        LinkedHashMap<String, String> args = new LinkedHashMap<>();
+        args.put("extended", "1"); args.put("filter", "editor"); args.put("fields", "can_post,photo_200,photo_100,photo_50");
+        Pager<Community> pager = new Pager<>("groups.get", args, callback, row -> {
+            long id = row.optLong("id", 0);
+            if (id <= 0 || row.optInt("admin_level", 0) < 2 || !flag(row, "can_post", true)
+                    || !text(row, "deactivated").isEmpty() || flag(row, "deleted", false)) return null;
+            return new Community(id, text(row, "name"), MessageAvatars.photoUrl(row));
+        }, group -> group.id);
+        main.post(pager.next); return pager;
+    }
+    @Override public Request friends(String query, Callback<List<Recipient>> callback) {
+        LinkedHashMap<String, String> args = new LinkedHashMap<>();
+        args.put("order", "hints"); args.put("fields", "first_name,last_name,photo_200,photo_100,photo_50");
+        String needle = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        Pager<Recipient> pager = new Pager<>("friends.get", args, callback, row -> {
+            long id = row.optLong("id", 0); if (id <= 0 || !text(row, "deactivated").isEmpty()) return null;
+            String name = (text(row, "first_name") + " " + text(row, "last_name")).trim();
+            if (!name.toLowerCase(Locale.ROOT).contains(needle)) return null;
+            return new Recipient(id, name.isEmpty() ? "Пользователь" : name, MessageAvatars.photoUrl(row));
+        }, friend -> friend.peerId);
+        main.post(pager.next); return pager;
+    }
+    private interface RowParser<T> { T parse(JSONObject row); }
+    private interface RowId<T> { long get(T row); }
+    /** Accumulates complete lists; raw item count advances offsets even for filtered/malformed rows. */
+    private final class Pager<T> implements Request {
+        final String method;
+        final LinkedHashMap<String, String> args;
+        final Callback<List<T>> callback;
+        final RowParser<T> parser;
+        final RowId<T> id;
+        final Snapshot session = sessions.get();
+        final LinkedHashMap<Long, T> rows = new LinkedHashMap<>();
+        final long started = android.os.SystemClock.elapsedRealtime();
+        Request active;
+        boolean canceled, finished;
+        long offset;
+        final Runnable next = this::page;
+        Pager(String method, LinkedHashMap<String, String> args, Callback<List<T>> callback, RowParser<T> parser, RowId<T> id) {
+            this.method = method; this.args = args; this.callback = callback; this.parser = parser; this.id = id;
+        }
+        void page() {
+            if (canceled || finished || closed) return;
+            if (!session.matches(sessions.get())) { fail(new PhotoSocialError(PhotoSocialError.Kind.AUTH)); return; }
+            if (android.os.SystemClock.elapsedRealtime() - started > 120_000) { fail(new PhotoSocialError(PhotoSocialError.Kind.UNAVAILABLE)); return; }
+            LinkedHashMap<String, String> parameters = new LinkedHashMap<>(args);
+            parameters.put("count", "1000"); parameters.put("offset", Long.toString(offset));
+            active = execute(method, parameters, false, new Callback<JSONObject>() {
+                @Override public void success(JSONObject response) {
+                    if (canceled || finished || closed) return;
+                    if (!session.matches(sessions.get())) { fail(new PhotoSocialError(PhotoSocialError.Kind.AUTH)); return; }
+                    JSONArray items = response.optJSONArray("items");
+                    long count = response.optLong("count", -1);
+                    if (items == null || count < 0 || items.length() == 0 && offset < count) { fail(new PhotoSocialError(PhotoSocialError.Kind.UNAVAILABLE)); return; }
+                    for (int index = 0; index < items.length(); index++) {
+                        JSONObject value = items.optJSONObject(index); T parsed = value == null ? null : parser.parse(value);
+                        if (parsed != null) rows.putIfAbsent(id.get(parsed), parsed);
+                    }
+                    offset += items.length();
+                    if (offset >= count) { finished = true; callback.success(Collections.unmodifiableList(new ArrayList<>(rows.values()))); }
+                    else main.postDelayed(next, 350);
+                }
+                @Override public void error(PhotoSocialError error) { fail(error); }
+            }, root -> root.getJSONObject("response"));
+        }
+        void fail(PhotoSocialError failure) { if (!canceled && !finished && !closed) { finished = true; callback.error(failure); } }
+        @Override public void cancel() { canceled = true; main.removeCallbacks(next); if (active != null) active.cancel(); }
     }
     static List<Recipient> recentRecipients(JSONObject root) throws Exception {
         JSONObject data = root.getJSONObject("response"); data.getJSONArray("items");

@@ -444,6 +444,8 @@ public class NewsFeedFragment extends Fragment {
                 likeOwnerId,
                 likeItemId);
 
+        post.readShareMetadata(countsHolder);
+
         post.photoDetails.addAll(photoDetails);
         post.videoPreview = videoPreview;
         post.videoOwner = videoOwner;

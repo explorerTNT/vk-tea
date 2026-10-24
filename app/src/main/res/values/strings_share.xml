@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="share_title">Поделиться</string>
+    <string name="share_back">Назад</string>
+    <string name="share_choose_destination">Куда поделиться?</string>
+    <string name="share_own_wall">На своей странице</string>
+    <string name="share_community_wall">В сообществе</string>
+    <string name="share_dialog">В диалог</string>
+    <string name="share_friends">Другу</string>
+    <string name="share_friends_title">Выберите друга</string>
+    <string name="share_friends_hint">Выберите друга или найдите его поиском</string>
+    <string name="share_search_friends">Найти друга</string>
+    <string name="share_communities_title">Выберите сообщество</string>
+    <string name="share_dialogs_title">Выберите получателя</string>
+    <string name="share_communities_hint">Сообщества, в которых вы можете публиковать записи</string>
+    <string name="share_dialogs_hint">Недавние диалоги. Другого получателя можно найти поиском.</string>
+    <string name="share_search">Найти друга или беседу</string>
+    <string name="share_search_results">Результаты поиска</string>
+    <string name="share_loading">Загрузка…</string>
+    <string name="share_sending">Отправка…</string>
+    <string name="share_publishing">Публикация…</string>
+    <string name="share_no_communities">Нет доступных сообществ для публикации</string>
+    <string name="share_no_recipients">Получатели не найдены</string>
+    <string name="share_no_friends">Друзья не найдены</string>
+    <string name="share_retry">Повторить загрузку</string>
+    <string name="share_target">Получатель: %1$s</string>
+    <string name="share_publish_target">Публикация: %1$s</string>
+    <string name="share_message_hint">Добавить сообщение (необязательно)</string>
+    <string name="share_comment_hint">Добавить комментарий (необязательно)</string>
+    <string name="share_send">Отправить</string>
+    <string name="share_publish">Опубликовать</string>
+    <string name="share_send_again">Повторить отправку</string>
+    <string name="share_publish_again">Повторить публикацию</string>
+    <string name="share_sent">Отправлено</string>
+    <string name="share_published">Опубликовано</string>
+    <string name="share_photo">Фотография</string>
+    <string name="share_post">Запись</string>
+    <string name="share_not_repostable">VK не разрешает публиковать этот материал на стене. Его можно отправить сообщением.</string>
+    <string name="share_error">Не удалось выполнить действие. Попробуйте позже.</string>
+    <string name="share_error_auth">Сессия недоступна. Войдите в аккаунт снова.</string>
+    <string name="share_error_access">VK не разрешил это действие</string>
+    <string name="share_error_rate">VK ограничил запросы. Попробуйте позже.</string>
+    <string name="share_error_network">Не удалось подключиться к VK</string>
+    <string name="share_unknown_send">Результат отправки не подтверждён. Повтор использует тот же идентификатор сообщения.</string>
+    <string name="share_unknown_publish">Результат публикации не подтверждён. Перед повтором проверьте выбранную стену.</string>
+</resources>

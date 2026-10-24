@@ -137,9 +137,11 @@ public class PhotoViewerActivityTest {
         assertEquals(8, selected.likes);
         viewer.findViewById(R.id.viewer_repost).performClick();
         settle(viewer);
-        assertTrue(viewer.shareModel.state().getValue().open);
-        assertEquals(102, viewer.shareModel.state().getValue().photo.id);
-        assertEquals(1, viewer.recipientReads);
+        Intent sharing = shadowOf(viewer).getNextStartedActivity();
+        assertEquals(com.vktea.share.ShareActivity.class.getName(), sharing.getComponent().getClassName());
+        com.vktea.share.ShareAttachment attachment = sharing.getParcelableExtra(com.vktea.share.ShareActivity.EXTRA_ATTACHMENT);
+        assertEquals(102, attachment.id);
+        assertEquals("photo", attachment.type);
         assertNull(shadowOf(viewer).getNextStartedActivity());
     }
 
@@ -172,27 +174,7 @@ public class PhotoViewerActivityTest {
         PhotoPagerAdapter.Callback callback;
         List<String> sources;
         String saved;
-        PhotoShareViewModel shareModel;
-        int recipientReads;
         FakeRepo repo = new FakeRepo();
-        @Override protected PhotoShareViewModel createPhotoShareViewModel() {
-            shareModel = new ViewModelProvider(this, new ViewModelProvider.Factory() {
-                @Override public <T extends ViewModel> T create(Class<T> modelClass) {
-                    return modelClass.cast(new PhotoShareViewModel(getApplication(), new PhotoShareRepository() {
-                        @Override public Request recipients(String query, Callback<List<Recipient>> callback) {
-                            recipientReads++;
-                            callback.success(java.util.Collections.emptyList());
-                            return () -> { };
-                        }
-                        @Override public Request send(ViewerPhoto photo, Recipient recipient, int randomId, String draft, Callback<Long> callback) {
-                            throw new AssertionError("Choosing Share cannot send a message");
-                        }
-                        @Override public void close() { }
-                    }));
-                }
-            }).get(PhotoShareViewModel.class);
-            return shareModel;
-        }
         @Override protected PhotoSocialViewModel createPhotoSocialViewModel() {
             return new ViewModelProvider(this, new ViewModelProvider.Factory() {
                 @Override public <T extends ViewModel> T create(Class<T> modelClass) {

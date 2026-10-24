@@ -108,7 +108,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             }
         });
         holder.comments.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
-        holder.reposts.setOnClickListener(v -> repost(post, v));
+        holder.reposts.setEnabled(PostSharing.attachment(post).hasIdentity());
+        holder.reposts.setOnClickListener(v -> PostSharing.open(v.getContext(), post));
         holder.itemView.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
         holder.options.setOnClickListener(v -> showPostMenu(v, post, holder.getAdapterPosition()));
         if (post.comments > 0) {
@@ -277,26 +278,6 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
                         post.userLikes = !post.userLikes;
                         post.likes += post.userLikes ? 1 : -1;
                         notifyItemChanged(position);
-                    }
-                });
-    }
-
-    private void repost(Post post, View itemView) {
-        if (post.likeType == Post.TYPE_PHOTO) {
-            Toast.makeText(itemView.getContext(), R.string.repost_photo_unsupported, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        VKApi.get(itemView.getContext(), "wall.repost",
-                "object=wall" + post.likeOwnerId + "_" + post.likeItemId,
-                new VKApi.Callback() {
-                    @Override
-                    public void success(JSONObject response) {
-                        Toast.makeText(itemView.getContext(), R.string.repost_done, Toast.LENGTH_SHORT).show();
-                    }
-
-                    @Override
-                    public void error(Exception e) {
-                        Toast.makeText(itemView.getContext(), R.string.repost_failed, Toast.LENGTH_SHORT).show();
                     }
                 });
     }
