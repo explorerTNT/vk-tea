@@ -1,0 +1,8 @@
+<resources>
+    <string name="photo_action_copy">Копировать ссылку</string>
+    <string name="photo_action_reset">Сбросить масштаб</string>
+    <string name="photo_action_preparing">Подготавливаем фото…</string>
+    <string name="photo_action_saved">Фото сохранено</string>
+    <string name="photo_action_copied">Ссылка скопирована</string>
+    <string name="photo_action_error">Не удалось сохранить или отправить фото. Попробуйте ещё раз.</string>
+</resources>
