@@ -64,17 +64,23 @@ public class PostPhotosRendererTest {
         }
     }
 
-    @Test public void ultraTallFrameIsBoundedAndFitsEntirePhotoWithSideSpace() {
-        PostPhotosRenderer.render(container, Collections.singletonList("synthetic-tall"), images);
-        images.complete(0, 600, 4800);
-        for (int width : new int[]{240, 320, 640}) {
-            measure(container, width);
-            PostPhotoView photo = photo(0);
-            assertEquals(width * 2, photo.getHeight());
-            assertEntireDrawableFits(photo, 600, 4800);
-            RectF actual = new RectF(0, 0, 600, 4800);
-            photo.getImageMatrix().mapRect(actual);
-            assertTrue("full tall image needs side space rather than cropping", actual.width() < photo.getWidth());
+    @Test public void tallPhotosFillWidthWithoutSideSpaceOrCropping() {
+        container.setPadding(17, 0, 23, 0);
+        for (int[] source : new int[][]{{600, 1250}, {600, 1800}, {600, 4800}}) {
+            PostPhotosRenderer.render(container, Collections.singletonList("synthetic-tall"), images);
+            images.complete(images.pending.size() - 1, source[0], source[1]);
+            for (int parentWidth : new int[]{240, 320, 640, 1000}) {
+                measure(container, parentWidth);
+                PostPhotoView photo = photo(0);
+                int width = parentWidth - 40;
+                assertEquals(width, photo.getWidth());
+                assertEquals(Math.round(width * (double) source[1] / source[0]), photo.getHeight());
+                assertEntireDrawableFits(photo, source[0], source[1]);
+                RectF actual = new RectF(0, 0, source[0], source[1]);
+                photo.getImageMatrix().mapRect(actual);
+                assertEquals("left edge fills the available width", 0, actual.left, .5f);
+                assertEquals("right edge fills the available width", width, actual.right, .5f);
+            }
         }
     }
 

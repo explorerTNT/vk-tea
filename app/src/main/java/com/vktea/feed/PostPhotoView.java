@@ -44,7 +44,7 @@ public final class PostPhotoView extends AppCompatImageView {
 
     @Override protected void onMeasure(int widthSpec, int heightSpec) {
         int width = MeasureSpec.getSize(widthSpec);
-        int height = (int) Math.max(1, Math.min((long) width * 2,
+        int height = (int) Math.max(1, Math.min(MEASURED_SIZE_MASK,
                 Math.round(width * (double) sourceHeight / sourceWidth)));
         if (MeasureSpec.getMode(heightSpec) != MeasureSpec.UNSPECIFIED) {
             height = Math.min(height, MeasureSpec.getSize(heightSpec));

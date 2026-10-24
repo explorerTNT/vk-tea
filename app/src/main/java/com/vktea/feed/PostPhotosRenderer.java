@@ -103,7 +103,7 @@ public final class PostPhotosRenderer {
     private static final class GlideImages implements Images {
         @Override public void load(PostPhotoView target, String url, SizeReady ready) {
             target.loadAtMeasuredWidth(width -> Glide.with(target).load(url)
-                    // Bound decoding by this post's width and tallest displayed frame, not the source size.
+                    // Bound bitmap memory independently of the view's full-width aspect-ratio layout.
                     .override(width, (int) Math.min(Integer.MAX_VALUE, (long) width * 2))
                     .fitCenter().dontAnimate().listener(new RequestListener<Drawable>() {
                         @Override public boolean onLoadFailed(@Nullable GlideException error, Object model,
