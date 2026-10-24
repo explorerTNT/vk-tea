@@ -9,9 +9,14 @@ import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.PointF;
+import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.view.InputDevice;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -55,6 +60,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import java.time.Duration;
 
 /** A real in-process media session drives a deterministic player with no media or network I/O. */
 @androidx.annotation.OptIn(markerClass = UnstableApi.class)
@@ -243,6 +249,220 @@ public class AudioPlayerActivityTest {
         assertNotNull(activity().findViewById(R.id.audio_player_seek));
     }
 
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-mdpi")
+    public void downwardArtworkSwipeFinishesUiAndStopPreservesQueueAndPlaybackIntent() throws Exception {
+        player.setMediaItems(Arrays.asList(track("first", "Synthetic title"), track("second", "Other title")));
+        player.play();
+        launch();
+        await(() -> text(R.id.audio_player_title).equals("Synthetic title"));
+        View root = gestureRoot();
+        View cover = activity().findViewById(R.id.audio_player_cover);
+        PointF start = pointInRoot(root, cover, cover.getWidth() / 2f, cover.getHeight() / 4f);
+        stroke(root, start.x, start.y, 0, root.getHeight() * .3f, false);
+        assertTrue(activity().isFinishing());
+        activityController.pause().stop();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(2, player.getMediaItemCount());
+        assertEquals("first", player.getMediaItemAt(0).mediaId);
+        assertEquals("second", player.getMediaItemAt(1).mediaId);
+        assertEquals(0, player.getCurrentMediaItemIndex());
+        assertTrue(player.getPlayWhenReady());
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-mdpi")
+    public void shortUpHorizontalCancelledAndMultiTouchArtworkGesturesKeepPlayerOpen() throws Exception {
+        View root = launchGesturePlayer();
+        View cover = activity().findViewById(R.id.audio_player_cover);
+        PointF start = pointInRoot(root, cover, cover.getWidth() / 2f, cover.getHeight() / 2f);
+        stroke(root, start.x, start.y, 0, dp(12), false);
+        assertFalse("Short movement", activity().isFinishing());
+        stroke(root, start.x, start.y, 0, -dp(120), false);
+        assertFalse("Upward movement", activity().isFinishing());
+        stroke(root, start.x, start.y, dp(130), dp(15), false);
+        assertFalse("Horizontal movement", activity().isFinishing());
+        stroke(root, start.x, start.y - dp(60), 0, dp(160), true);
+        assertFalse("Cancelled movement", activity().isFinishing());
+        multiTouchDownward(root, start.x, start.y - dp(60));
+        assertFalse("Multi touch movement", activity().isFinishing());
+        assertEquals(2, player.getMediaItemCount());
+        assertEquals(0, player.seekCalls);
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-mdpi")
+    public void fullRootThumbCentreAndItsUpperHalfSeekAcrossArtworkBoundaryToRealSessionPositions() throws Exception {
+        View root = launchGesturePlayer();
+        player.seekTo(45_000);
+        SeekBar seek = activity().findViewById(R.id.audio_player_seek);
+        await(() -> seek.getProgress() == 250);
+        layout(root, dp(360), dp(800));
+        PointF centre = thumbCentre(root, seek);
+        View cover = activity().findViewById(R.id.audio_player_cover);
+        float coverBottom = pointInRoot(root, cover, 0, cover.getHeight()).y;
+        assertEquals("The real thumb straddles the artwork/body boundary", coverBottom, centre.y, dp(2));
+        PointF at75 = seekPoint(root, seek, .75f, centre.y);
+        stroke(root, centre.x, centre.y, at75.x - centre.x, 0, false);
+        await(() -> Math.abs(player.getCurrentPosition() - 135_000) <= 400);
+        await(() -> Math.abs(seek.getProgress() - 750) <= 2);
+
+        centre = thumbCentre(root, seek);
+        float upperHalf = centre.y - dp(3);
+        assertTrue("The second drag begins in the thumb's visible upper half over the artwork", upperHalf < coverBottom);
+        PointF at25 = seekPoint(root, seek, .25f, upperHalf);
+        stroke(root, centre.x, upperHalf, at25.x - centre.x, 0, false);
+        await(() -> Math.abs(player.getCurrentPosition() - 45_000) <= 400);
+        assertFalse(activity().isFinishing());
+        assertEquals(2, player.getMediaItemCount());
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-mdpi")
+    public void periodicTickKeepsDragPreviewAndCancelledDragDoesNotSeek() throws Exception {
+        View root = launchGesturePlayer();
+        player.seekTo(45_000);
+        SeekBar seek = activity().findViewById(R.id.audio_player_seek);
+        await(() -> seek.getProgress() == 250);
+        layout(root, dp(360), dp(800));
+        int seeksBefore = player.seekCalls;
+        PointF start = thumbCentre(root, seek);
+        PointF preview = seekPoint(root, seek, .75f, start.y);
+        long down = SystemClock.uptimeMillis();
+        dispatch(root, down, 0, MotionEvent.ACTION_DOWN, start.x, start.y);
+        dispatch(root, down, 150, MotionEvent.ACTION_MOVE, preview.x, preview.y);
+        int draggedProgress = seek.getProgress();
+        String draggedElapsed = text(R.id.audio_player_elapsed);
+        assertTrue(Math.abs(draggedProgress - 750) <= 2);
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1100));
+        assertEquals("Periodic progress must not replace the live drag preview", draggedProgress, seek.getProgress());
+        assertEquals(draggedElapsed, text(R.id.audio_player_elapsed));
+        assertEquals(seeksBefore, player.seekCalls);
+        assertEquals(45_000, player.getCurrentPosition());
+
+        dispatch(root, down, 1250, MotionEvent.ACTION_CANCEL, preview.x, preview.y);
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(seeksBefore, player.seekCalls);
+        assertEquals(45_000, player.getCurrentPosition());
+        await(() -> seek.getProgress() == 250);
+        assertFalse(activity().isFinishing());
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-mdpi")
+    public void losingSeekCommandMidDragCancelsPreviewWithoutCommitAndFreshDragWorksAfterRestoration() throws Exception {
+        View root = launchGesturePlayer();
+        player.seekTo(45_000);
+        SeekBar seek = activity().findViewById(R.id.audio_player_seek);
+        await(() -> seek.getProgress() == 250);
+        layout(root, dp(360), dp(800));
+        int seeksBefore = player.seekCalls;
+        PointF start = thumbCentre(root, seek);
+        PointF preview = seekPoint(root, seek, .75f, start.y);
+        long down = SystemClock.uptimeMillis();
+        dispatch(root, down, 0, MotionEvent.ACTION_DOWN, start.x, start.y);
+        dispatch(root, down, 150, MotionEvent.ACTION_MOVE, preview.x, preview.y);
+        assertTrue(Math.abs(seek.getProgress() - 750) <= 2);
+
+        player.setSeekAvailable(false);
+        await(() -> !seek.isEnabled());
+        await(() -> seek.getProgress() == 250);
+        assertEquals("0:45", text(R.id.audio_player_elapsed));
+        assertEquals(seeksBefore, player.seekCalls);
+        dispatch(root, down, 300, MotionEvent.ACTION_UP, preview.x, preview.y);
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(seeksBefore, player.seekCalls);
+        assertEquals(45_000, player.getCurrentPosition());
+
+        player.setSeekAvailable(true);
+        await(seek::isEnabled);
+        start = thumbCentre(root, seek);
+        preview = seekPoint(root, seek, .75f, start.y);
+        stroke(root, start.x, start.y, preview.x - start.x, 0, false);
+        await(() -> Math.abs(player.getCurrentPosition() - 135_000) <= 400);
+        assertEquals(seeksBefore + 1, player.seekCalls);
+        assertFalse(activity().isFinishing());
+    }
+
+    private View launchGesturePlayer() throws Exception {
+        player.setMediaItems(Arrays.asList(track("first", "Synthetic title"), track("second", "Other title")));
+        launch();
+        await(() -> text(R.id.audio_player_title).equals("Synthetic title"));
+        return gestureRoot();
+    }
+
+    private View gestureRoot() {
+        activityController.visible();
+        View root = activity().findViewById(R.id.audio_player_root);
+        layout(root, dp(360), dp(800));
+        shadowOf(Looper.getMainLooper()).idle();
+        layout(root, dp(360), dp(800));
+        return root;
+    }
+
+    private static PointF pointInRoot(View root, View child, float x, float y) {
+        int[] rootOrigin = new int[2], childOrigin = new int[2];
+        root.getLocationOnScreen(rootOrigin);
+        child.getLocationOnScreen(childOrigin);
+        return new PointF(childOrigin[0] - rootOrigin[0] + x, childOrigin[1] - rootOrigin[1] + y);
+    }
+
+    private static PointF thumbCentre(View root, SeekBar seek) {
+        Rect thumb = seek.getThumb().getBounds();
+        return pointInRoot(root, seek, seek.getPaddingLeft() - seek.getThumbOffset() + thumb.exactCenterX(),
+                seek.getPaddingTop() + thumb.exactCenterY());
+    }
+
+    private static PointF seekPoint(View root, SeekBar seek, float fraction, float rootY) {
+        float localX = seek.getPaddingLeft() + fraction * (seek.getWidth() - seek.getPaddingLeft() - seek.getPaddingRight());
+        PointF point = pointInRoot(root, seek, localX, 0);
+        point.y = rootY;
+        return point;
+    }
+
+    private static void stroke(View root, float x, float y, float dx, float dy, boolean cancel) {
+        long down = SystemClock.uptimeMillis();
+        dispatch(root, down, 0, MotionEvent.ACTION_DOWN, x, y);
+        dispatch(root, down, 100, MotionEvent.ACTION_MOVE, x + dx / 2, y + dy / 2);
+        dispatch(root, down, 200, MotionEvent.ACTION_MOVE, x + dx, y + dy);
+        dispatch(root, down, 300, cancel ? MotionEvent.ACTION_CANCEL : MotionEvent.ACTION_UP, x + dx, y + dy);
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(350));
+    }
+
+    private static void dispatch(View root, long down, long elapsed, int action, float x, float y) {
+        MotionEvent event = MotionEvent.obtain(down, down + elapsed, action, x, y, 0);
+        event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        try { root.dispatchTouchEvent(event); } finally { event.recycle(); }
+    }
+
+    private static void multiTouchDownward(View root, float x, float y) {
+        long down = SystemClock.uptimeMillis();
+        dispatch(root, down, 0, MotionEvent.ACTION_DOWN, x, y);
+        dispatchTwo(root, down, 50, MotionEvent.ACTION_POINTER_DOWN | (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT), x, y);
+        dispatchTwo(root, down, 150, MotionEvent.ACTION_MOVE, x, y + 150);
+        dispatchTwo(root, down, 200, MotionEvent.ACTION_POINTER_UP | (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT), x, y + 150);
+        dispatch(root, down, 250, MotionEvent.ACTION_UP, x, y + 170);
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(300));
+    }
+
+    private static void dispatchTwo(View root, long down, long elapsed, int action, float x, float y) {
+        MotionEvent.PointerProperties[] properties = new MotionEvent.PointerProperties[2];
+        MotionEvent.PointerCoords[] coordinates = new MotionEvent.PointerCoords[2];
+        for (int pointer = 0; pointer < 2; pointer++) {
+            properties[pointer] = new MotionEvent.PointerProperties();
+            properties[pointer].id = pointer;
+            properties[pointer].toolType = MotionEvent.TOOL_TYPE_FINGER;
+            coordinates[pointer] = new MotionEvent.PointerCoords();
+            coordinates[pointer].x = x + pointer * 30;
+            coordinates[pointer].y = y;
+            coordinates[pointer].pressure = 1;
+            coordinates[pointer].size = 1;
+        }
+        MotionEvent event = MotionEvent.obtain(down, down + elapsed, action, 2, properties, coordinates,
+                0, 0, 1, 1, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0);
+        try { root.dispatchTouchEvent(event); } finally { event.recycle(); }
+    }
+
     private void launch() {
         activityController = Robolectric.buildActivity(TestAudioPlayerActivity.class).setup();
     }
@@ -323,11 +543,19 @@ public class AudioPlayerActivityTest {
 
     /** SimpleBasePlayer supplies consistent timeline/state/events without a decoder or source. */
     private static final class OfflinePlayer extends SimpleBasePlayer {
+        int seekCalls;
         private State state = new State.Builder()
                 .setAvailableCommands(new Commands.Builder().addAllCommands().build()).build();
 
         OfflinePlayer() {
             super(Looper.getMainLooper());
+        }
+
+        void setSeekAvailable(boolean available) {
+            Commands.Builder commands = new Commands.Builder().addAllCommands();
+            if (!available) commands.remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
+            state = state.buildUpon().setAvailableCommands(commands.build()).build();
+            invalidateState();
         }
 
         @Override
@@ -384,6 +612,7 @@ public class AudioPlayerActivityTest {
 
         @Override
         protected ListenableFuture<?> handleSeek(int index, long positionMs, int command) {
+            seekCalls++;
             state = state.buildUpon().setCurrentMediaItemIndex(index == C.INDEX_UNSET
                             ? getCurrentMediaItemIndex() : index)
                     .setContentPositionMs(positionMs == C.TIME_UNSET ? 0 : positionMs).build();
