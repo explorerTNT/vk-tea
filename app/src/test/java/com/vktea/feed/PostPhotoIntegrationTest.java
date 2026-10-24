@@ -5,6 +5,8 @@ import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -66,6 +68,7 @@ public class PostPhotoIntegrationTest {
         assertEquals(-91, metadata.get(0).ownerId);
         assertEquals("synthetic-wall-key", metadata.get(0).accessKey);
         assertEquals(7, metadata.get(0).likes);
+        assertUnrestrictedPostBody(holder.itemView);
         adapter.onViewRecycled(holder);
         assertEquals(0, holder.photoContainer.getChildCount());
     }
@@ -122,6 +125,7 @@ public class PostPhotoIntegrationTest {
         assertEquals(2, holder.photoContainer.getChildCount());
         assertEquals(1, holder.repostPhotos.getChildCount());
         assertTrue(holder.photoContainer.getChildAt(0) instanceof PostPhotoView);
+        assertUnrestrictedPostBody(holder.itemView);
         holder.photoContainer.getChildAt(1).performClick();
         Intent opened = shadowOf(detail.get()).getNextStartedActivity();
         java.util.ArrayList<ViewerPhoto> metadata = opened.getParcelableArrayListExtra(ViewerPhoto.EXTRA_PHOTOS);
@@ -167,6 +171,27 @@ public class PostPhotoIntegrationTest {
         adapter.onBindViewHolder(holder, 2);
         assertFalse(holder.reposts.isEnabled());
         assertNull(shadowOf(host.get()).getNextStartedActivity());
+    }
+
+    private static void assertUnrestrictedPostBody(View item) {
+        stopPhotoLoads(item);
+        ViewGroup photos = item.findViewById(R.id.post_photos);
+        ((PostPhotoView) photos.getChildAt(0)).setSourceSize(100, 800);
+        item.measure(View.MeasureSpec.makeMeasureSpec(320, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        item.layout(0, 0, 320, item.getMeasuredHeight());
+        FeedPostContent content = item.findViewById(R.id.post_content);
+        assertTrue(content.getHeight() >= 2560);
+        assertEquals(content.getNaturalContentHeight(), content.getHeight());
+        assertEquals(View.GONE, item.findViewById(R.id.post_more).getVisibility());
+    }
+
+    private static void stopPhotoLoads(View view) {
+        if (view instanceof PostPhotoView) ((PostPhotoView) view).loadAtMeasuredWidth(null);
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) stopPhotoLoads(group.getChildAt(i));
+        }
     }
 
     private static Post post() {

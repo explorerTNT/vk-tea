@@ -64,19 +64,33 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
     @Override
     public void onBindViewHolder(@NonNull PostViewHolder holder, int position) {
         Post post = posts.get(position);
+        holder.boundPost = null;
+        holder.content.reset();
+        holder.more.setVisibility(View.GONE);
+        holder.more.setOnClickListener(null);
+        holder.repostBlock.setOnClickListener(null);
+        holder.videoBlock.setOnClickListener(null);
+        holder.showComments.setOnClickListener(null);
+        holder.boundPost = post;
+        holder.content.bindForFeed(post.expanded, clipped -> {
+            if (holder.boundPost == post) holder.more.setVisibility(clipped ? View.VISIBLE : View.GONE);
+        });
+        holder.more.setOnClickListener(view -> {
+            if (holder.boundPost != post) return;
+            post.expanded = true;
+            holder.content.setExpanded(true);
+            holder.more.setVisibility(View.GONE);
+        });
         int linkColor = ContextCompat.getColor(holder.text.getContext(), R.color.post_name);
 
         holder.name.setText(post.sourceName);
         holder.time.setText(com.vktea.util.RuDate.format(post.date));
 
-        boolean cut = post.text.length() > 300;
-        holder.text.setText(VkTextUtils.parse(cut && !post.expanded ? post.text : post.text,
+        holder.text.setText(VkTextUtils.parse(post.text,
                 linkColor, url -> openUrl(holder.text, url)));
         holder.text.setMovementMethod(LinkMovementMethod.getInstance());
-        holder.text.setMaxLines(cut && !post.expanded ? 7 : Integer.MAX_VALUE);
+        holder.text.setMaxLines(Integer.MAX_VALUE);
         holder.text.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
-        holder.more.setVisibility(cut && !post.expanded ? View.VISIBLE : View.GONE);
-        holder.more.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
 
         PostPhotosRenderer.render(holder.photoContainer, post.photoUrls, post.photoDetails);
 
@@ -300,6 +314,12 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
 
     @Override
     public void onViewRecycled(@NonNull PostViewHolder holder) {
+        holder.boundPost = null;
+        holder.content.reset();
+        holder.more.setVisibility(View.GONE);
+        for (View view : new View[]{holder.more, holder.text, holder.itemView, holder.likes, holder.comments,
+                holder.reposts, holder.header, holder.options, holder.showComments, holder.repostBlock, holder.videoBlock})
+            view.setOnClickListener(null);
         PostPhotosRenderer.render(holder.photoContainer, null);
         PostPhotosRenderer.render(holder.repostPhotos, null);
         super.onViewRecycled(holder);
@@ -308,6 +328,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
     static class PostViewHolder extends RecyclerView.ViewHolder {
 
         final ImageView avatar;
+        final FeedPostContent content;
+        Post boundPost;
         final TextView name;
         final TextView time;
         final TextView text;
@@ -333,6 +355,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         PostViewHolder(@NonNull View itemView) {
             super(itemView);
             avatar = itemView.findViewById(R.id.post_avatar);
+            content = itemView.findViewById(R.id.post_content);
             name = itemView.findViewById(R.id.post_name);
             time = itemView.findViewById(R.id.post_time);
             text = itemView.findViewById(R.id.post_text);
