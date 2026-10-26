@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_show_full">Показать полностью</string>
+    <string name="feed_collapse">Свернуть</string>
+</resources>

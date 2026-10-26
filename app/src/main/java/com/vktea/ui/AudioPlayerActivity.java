@@ -88,7 +88,7 @@ public class AudioPlayerActivity extends AppCompatActivity {
     private float audibleVolume = 1f;
     private int topInset;
 
-    private LinearLayout root;
+    private AudioPlayerLayout root;
     private FrameLayout cover;
     private NestedScrollView body;
     private ImageView artwork;
@@ -171,6 +171,7 @@ public class AudioPlayerActivity extends AppCompatActivity {
         repeatOne = findViewById(R.id.audio_player_repeat_one);
         download = findViewById(R.id.audio_player_download);
         menu = findViewById(R.id.audio_player_menu);
+        root.bind(seek, body, this::finish);
         title.setSelected(true);
         artist.setSelected(true);
     }
@@ -241,7 +242,8 @@ public class AudioPlayerActivity extends AppCompatActivity {
 
             @Override
             public void onStopTrackingTouch(SeekBar view) {
-                if (hasCommand(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) && trackDuration() > 0) {
+                if (!root.isSeekTouchCancelled() && hasCommand(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+                        && trackDuration() > 0) {
                     controller.seekTo(positionForProgress(view.getProgress()));
                 }
                 draggingSeek = false;
@@ -296,6 +298,7 @@ public class AudioPlayerActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         started = false;
+        if (root != null) root.resetGesture();
         handler.removeCallbacks(progressTick);
         if (controller != null) controller.removeListener(playerListener);
         controller = null;
@@ -376,7 +379,13 @@ public class AudioPlayerActivity extends AppCompatActivity {
     private void updateProgress() {
         long total = trackDuration();
         duration.setText(AudioUi.formatTime(total));
-        seek.setEnabled(total > 0 && hasCommand(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM));
+        boolean canSeek = total > 0 && hasCommand(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
+        if (draggingSeek && !canSeek) {
+            // Cancel while SeekBar is still enabled so it delivers its stop callback.
+            root.resetGesture();
+            draggingSeek = false;
+        }
+        seek.setEnabled(canSeek);
         if (!draggingSeek) {
             long position = hasCommand(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
                     ? Math.max(0, controller.getCurrentPosition()) : 0;

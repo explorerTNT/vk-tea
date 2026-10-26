@@ -14,6 +14,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -37,6 +38,15 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
 
     private final List<Post> posts = new ArrayList<>();
     private final Listener listener;
+    private final RecyclerView.OnScrollListener collapseScrollListener = new RecyclerView.OnScrollListener() {
+        @Override
+        public void onScrolled(@NonNull RecyclerView list, int dx, int dy) {
+            updateStickyCollapse(list);
+        }
+    };
+    private final View.OnLayoutChangeListener collapseLayoutListener =
+            (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+                    updateStickyCollapse((RecyclerView) view);
 
     public FeedAdapter(Listener listener) {
         this.listener = listener;
@@ -54,6 +64,60 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         notifyItemRangeRemoved(0, size);
     }
 
+    @Override
+    public void onAttachedToRecyclerView(@NonNull RecyclerView list) {
+        super.onAttachedToRecyclerView(list);
+        list.addOnScrollListener(collapseScrollListener);
+        list.addOnLayoutChangeListener(collapseLayoutListener);
+    }
+
+    @Override
+    public void onDetachedFromRecyclerView(@NonNull RecyclerView list) {
+        list.removeOnScrollListener(collapseScrollListener);
+        list.removeOnLayoutChangeListener(collapseLayoutListener);
+        for (int i = 0; i < list.getChildCount(); i++) {
+            RecyclerView.ViewHolder holder = list.getChildViewHolder(list.getChildAt(i));
+            if (holder instanceof PostViewHolder) ((PostViewHolder) holder).collapseTop.setTranslationY(0);
+        }
+        super.onDetachedFromRecyclerView(list);
+    }
+
+    private void updateStickyCollapse(RecyclerView list) {
+        for (int i = 0; i < list.getChildCount(); i++) {
+            RecyclerView.ViewHolder holder = list.getChildViewHolder(list.getChildAt(i));
+            if (holder instanceof PostViewHolder && holder.getBindingAdapter() == this) {
+                updateStickyCollapse((PostViewHolder) holder);
+            }
+        }
+    }
+
+    private static void updateStickyCollapse(PostViewHolder holder) {
+        View button = holder.collapseTop;
+        if (holder.boundPost == null || !holder.boundPost.expanded
+                || button.getVisibility() != View.VISIBLE
+                || !(holder.itemView.getParent() instanceof RecyclerView)) {
+            button.setTranslationY(0);
+            return;
+        }
+        RecyclerView list = (RecyclerView) holder.itemView.getParent();
+        float desired = list.getPaddingTop() - holder.itemView.getY() - button.getTop();
+        // Keep the real, clickable view above the photos, but inside its own post content.
+        float limit = Math.max(0, holder.content.getBottom() - button.getBottom());
+        button.setTranslationY(Math.max(0, Math.min(desired, limit)));
+    }
+
+    @Override
+    public void onViewAttachedToWindow(@NonNull PostViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+        updateStickyCollapse(holder);
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(@NonNull PostViewHolder holder) {
+        holder.collapseTop.setTranslationY(0);
+        super.onViewDetachedFromWindow(holder);
+    }
+
     @NonNull
     @Override
     public PostViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -64,27 +128,47 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
     @Override
     public void onBindViewHolder(@NonNull PostViewHolder holder, int position) {
         Post post = posts.get(position);
+        holder.boundPost = null;
+        holder.content.reset();
+        holder.more.setVisibility(View.GONE);
+        holder.more.setOnClickListener(null);
+        holder.collapseTop.setVisibility(View.GONE);
+        holder.collapseTop.setTranslationY(0);
+        holder.collapseTop.setOnClickListener(null);
+        holder.repostBlock.setOnClickListener(null);
+        holder.videoBlock.setOnClickListener(null);
+        holder.showComments.setOnClickListener(null);
+        holder.boundPost = post;
+        holder.collapseTop.setVisibility(post.expanded ? View.VISIBLE : View.GONE);
+        holder.more.setText(post.expanded ? R.string.feed_collapse : R.string.feed_show_full);
+        holder.content.bindForFeed(post.expanded, overflowing -> {
+            if (holder.boundPost == post) holder.more.setVisibility(overflowing ? View.VISIBLE : View.GONE);
+        });
+        View.OnClickListener toggleContent = view -> {
+            if (holder.boundPost != post) return;
+            if (view == holder.collapseTop && !post.expanded) return;
+            post.expanded = !post.expanded;
+            holder.content.setExpanded(post.expanded);
+            holder.more.setText(post.expanded ? R.string.feed_collapse : R.string.feed_show_full);
+            holder.collapseTop.setVisibility(post.expanded ? View.VISIBLE : View.GONE);
+            updateStickyCollapse(holder);
+            if (!post.expanded) anchorCollapsedPost(holder);
+        };
+        holder.more.setOnClickListener(toggleContent);
+        holder.collapseTop.setOnClickListener(toggleContent);
+        updateStickyCollapse(holder);
         int linkColor = ContextCompat.getColor(holder.text.getContext(), R.color.post_name);
 
         holder.name.setText(post.sourceName);
         holder.time.setText(com.vktea.util.RuDate.format(post.date));
 
-        boolean cut = post.text.length() > 300;
-        holder.text.setText(VkTextUtils.parse(cut && !post.expanded ? post.text : post.text,
+        holder.text.setText(VkTextUtils.parse(post.text,
                 linkColor, url -> openUrl(holder.text, url)));
         holder.text.setMovementMethod(LinkMovementMethod.getInstance());
-        holder.text.setMaxLines(cut && !post.expanded ? 7 : Integer.MAX_VALUE);
+        holder.text.setMaxLines(Integer.MAX_VALUE);
         holder.text.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
-        holder.more.setVisibility(cut && !post.expanded ? View.VISIBLE : View.GONE);
-        holder.more.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
 
-        holder.photoContainer.removeAllViews();
-        if (post.photoUrls != null && !post.photoUrls.isEmpty()) {
-            holder.photoContainer.setVisibility(View.VISIBLE);
-            buildPhotoGrid(holder.photoContainer, post.photoUrls);
-        } else {
-            holder.photoContainer.setVisibility(View.GONE);
-        }
+        PostPhotosRenderer.render(holder.photoContainer, post.photoUrls, post.photoDetails);
 
         bindRepost(holder, post, linkColor);
         bindVideo(holder, post);
@@ -114,7 +198,8 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             }
         });
         holder.comments.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
-        holder.reposts.setOnClickListener(v -> repost(post, v));
+        holder.reposts.setEnabled(PostSharing.attachment(post).hasIdentity());
+        holder.reposts.setOnClickListener(v -> PostSharing.open(v.getContext(), post));
         holder.itemView.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
         holder.options.setOnClickListener(v -> showPostMenu(v, post, holder.getAdapterPosition()));
         if (post.comments > 0) {
@@ -130,6 +215,17 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
                 listener.onAuthorClick(post.sourceId);
             }
         });
+    }
+
+    private void anchorCollapsedPost(PostViewHolder holder) {
+        if (!(holder.itemView.getParent() instanceof RecyclerView)) return;
+        RecyclerView list = (RecyclerView) holder.itemView.getParent();
+        int position = holder.getAbsoluteAdapterPosition();
+        if (position == RecyclerView.NO_POSITION || holder.itemView.getTop() >= list.getPaddingTop()) return;
+        if (list.getLayoutManager() instanceof LinearLayoutManager) {
+            list.stopScroll();
+            ((LinearLayoutManager) list.getLayoutManager()).scrollToPositionWithOffset(position, 0);
+        }
     }
 
     private void animateLike(View anchor) {
@@ -220,6 +316,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
     }
 
     private void bindRepost(PostViewHolder holder, Post post, int linkColor) {
+        PostPhotosRenderer.render(holder.repostPhotos, post.repostPhotos, post.repostPhotoDetails);
         if (!post.isRepost()) {
             holder.repostBlock.setVisibility(View.GONE);
             return;
@@ -234,10 +331,6 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
             Glide.with(holder.repostAvatar).load(post.repostAuthorPhoto)
                     .apply(RequestOptions.circleCropTransform())
                     .into(holder.repostAvatar);
-        }
-        holder.repostPhotos.removeAllViews();
-        if (!post.repostPhotos.isEmpty()) {
-            buildPhotoGrid(holder.repostPhotos, post.repostPhotos);
         }
         holder.repostBlock.setOnClickListener(v -> {
             Intent intent = new Intent(v.getContext(), AuthWebViewActivity.class);
@@ -290,26 +383,6 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
                 });
     }
 
-    private void repost(Post post, View itemView) {
-        if (post.likeType == Post.TYPE_PHOTO) {
-            Toast.makeText(itemView.getContext(), R.string.repost_photo_unsupported, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        VKApi.get(itemView.getContext(), "wall.repost",
-                "object=wall" + post.likeOwnerId + "_" + post.likeItemId,
-                new VKApi.Callback() {
-                    @Override
-                    public void success(JSONObject response) {
-                        Toast.makeText(itemView.getContext(), R.string.repost_done, Toast.LENGTH_SHORT).show();
-                    }
-
-                    @Override
-                    public void error(Exception e) {
-                        Toast.makeText(itemView.getContext(), R.string.repost_failed, Toast.LENGTH_SHORT).show();
-                    }
-                });
-    }
-
     public static String formatCount(int count) {
         if (count < 1000) {
             return String.valueOf(count);
@@ -321,92 +394,37 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         return String.format(Locale.US, "%.1fM", count / 1000000f);
     }
 
-    private void buildPhotoGrid(LinearLayout container, List<String> urls) {
-        int n = urls.size();
-        int gap = 1;
-        android.content.Context ctx = container.getContext();
-        if (n == 1) {
-            container.addView(makePhoto(ctx, urls.get(0), 0, urls));
-            return;
-        }
-        int index = 0;
-        boolean firstRow = true;
-        while (index < n) {
-            int remaining = n - index;
-            int perRow;
-            if (firstRow && n > 3) {
-                perRow = 1;
-            } else if (remaining >= 3) {
-                perRow = 3;
-            } else {
-                perRow = remaining;
-            }
-            if (perRow == 1) {
-                container.addView(makePhoto(ctx, urls.get(index), index, urls));
-                index++;
-            } else {
-                container.addView(makeRow(ctx, urls.subList(index, index + perRow), index, urls, gap));
-                index += perRow;
-            }
-            firstRow = false;
-        }
-    }
-
-    private LinearLayout makeRow(android.content.Context ctx, List<String> urls, int offset, List<String> all, int gap) {
-        LinearLayout row = new LinearLayout(ctx);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        for (int i = 0; i < urls.size(); i++) {
-            row.addView(makeCell(ctx, urls.get(i), offset + i, all, gap));
-        }
-        return row;
-    }
-
-    private ImageView makePhoto(android.content.Context ctx, String url, int index, List<String> all) {
-        ImageView iv = new ImageView(ctx);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(1, 1, 1, 1);
-        iv.setLayoutParams(lp);
-        iv.setAdjustViewBounds(true);
-        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int target = ctx.getResources().getDisplayMetrics().widthPixels;
-        Glide.with(iv).load(url).override(target, com.bumptech.glide.request.target.Target.SIZE_ORIGINAL).into(iv);
-        iv.setOnClickListener(v -> openViewer(ctx, all, index));
-        return iv;
-    }
-
-    private ImageView makeCell(android.content.Context ctx, String url, int index, List<String> all, int gap) {
-        ImageView iv = new ImageView(ctx);
-        int h = (int) (160 * ctx.getResources().getDisplayMetrics().density);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, h, 1f);
-        lp.setMargins(gap, gap, gap, gap);
-        iv.setLayoutParams(lp);
-        iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        int target = (int) (200 * ctx.getResources().getDisplayMetrics().density);
-        Glide.with(iv).load(url).override(target, target).into(iv);
-        iv.setOnClickListener(v -> openViewer(ctx, all, index));
-        return iv;
-    }
-
-    private void openViewer(android.content.Context ctx, List<String> urls, int index) {
-        ctx.startActivity(new Intent(ctx, PhotoViewerActivity.class)
-                .putStringArrayListExtra("photos", new ArrayList<>(urls))
-                .putExtra("index", index));
-    }
-
     @Override
     public int getItemCount() {
         return posts.size();
     }
 
+    @Override
+    public void onViewRecycled(@NonNull PostViewHolder holder) {
+        holder.boundPost = null;
+        holder.content.reset();
+        holder.more.setVisibility(View.GONE);
+        holder.collapseTop.setVisibility(View.GONE);
+        holder.collapseTop.setTranslationY(0);
+        for (View view : new View[]{holder.more, holder.collapseTop, holder.text, holder.itemView, holder.likes, holder.comments,
+                holder.reposts, holder.header, holder.options, holder.showComments, holder.repostBlock, holder.videoBlock})
+            view.setOnClickListener(null);
+        PostPhotosRenderer.render(holder.photoContainer, null);
+        PostPhotosRenderer.render(holder.repostPhotos, null);
+        super.onViewRecycled(holder);
+    }
+
     static class PostViewHolder extends RecyclerView.ViewHolder {
 
         final ImageView avatar;
+        final FeedPostContent content;
+        Post boundPost;
         final TextView name;
         final TextView time;
         final TextView text;
         final LinearLayout photoContainer;
         final TextView more;
+        final TextView collapseTop;
         final TextView likes;
         final TextView comments;
         final TextView reposts;
@@ -427,11 +445,15 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         PostViewHolder(@NonNull View itemView) {
             super(itemView);
             avatar = itemView.findViewById(R.id.post_avatar);
+            content = itemView.findViewById(R.id.post_content);
             name = itemView.findViewById(R.id.post_name);
             time = itemView.findViewById(R.id.post_time);
             text = itemView.findViewById(R.id.post_text);
             photoContainer = itemView.findViewById(R.id.post_photos);
             more = itemView.findViewById(R.id.post_more);
+            collapseTop = itemView.findViewById(R.id.post_collapse_top);
+            itemView.addOnLayoutChangeListener((view, left, top, right, bottom,
+                    oldLeft, oldTop, oldRight, oldBottom) -> updateStickyCollapse(this));
             likes = itemView.findViewById(R.id.post_likes);
             comments = itemView.findViewById(R.id.post_comments);
             reposts = itemView.findViewById(R.id.post_reposts);

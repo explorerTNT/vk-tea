@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="photo_share_title">Поделиться</string>
+    <string name="photo_share_search">Найти друга или беседу</string>
+    <string name="photo_share_own_wall">На своей странице</string>
+    <string name="photo_share_copy">Скопировать ссылку</string>
+    <string name="photo_share_copied">Ссылка скопирована</string>
+    <string name="photo_share_loading">Загрузка получателей…</string>
+    <string name="photo_share_empty">Получатели не найдены</string>
+    <string name="photo_share_recent_limit">Недавние диалоги. Другого получателя можно найти поиском.</string>
+    <string name="photo_share_search_results">Результаты поиска</string>
+    <string name="photo_share_retry">Повторить</string>
+    <string name="photo_share_send">Отправить</string>
+    <string name="photo_share_send_title">Отправить фотографию</string>
+    <string name="photo_share_recipient">Получатель: %1$s</string>
+    <string name="photo_share_draft">Добавить сообщение (необязательно)</string>
+    <string name="photo_share_cancel">Назад</string>
+    <string name="photo_share_sent">Фотография отправлена</string>
+    <string name="photo_share_confirm_retry">Повторить отправку</string>
+    <string name="photo_share_unknown_result">Не удалось подтвердить отправку. Можно повторить попытку.</string>
+    <string name="photo_share_error">Не удалось выполнить действие. Попробуйте позже.</string>
+    <string name="photo_share_error_auth">Сессия недоступна. Войдите в аккаунт снова.</string>
+    <string name="photo_share_error_access">VK не разрешил это действие для выбранного получателя</string>
+    <string name="photo_share_error_rate">VK ограничил запросы. Попробуйте позже.</string>
+    <item name="photo_share_search_input" type="id" />
+    <item name="photo_share_recipients" type="id" />
+    <item name="photo_share_status" type="id" />
+    <item name="photo_share_refresh" type="id" />
+    <item name="photo_share_wall_action" type="id" />
+    <item name="photo_share_copy_action" type="id" />
+    <item name="photo_share_draft_input" type="id" />
+    <item name="photo_share_viewport" type="id" />
+    <item name="photo_share_composer_viewport" type="id" />
+</resources>

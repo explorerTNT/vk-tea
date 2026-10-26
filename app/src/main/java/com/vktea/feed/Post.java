@@ -14,6 +14,7 @@ public class Post {
     public final String text;
     public final long date;
     public final List<String> photoUrls;
+    public final List<ViewerPhoto> photoDetails = new ArrayList<>();
     public int likes;
     public final int comments;
     public final int reposts;
@@ -23,12 +24,23 @@ public class Post {
     public final long likeOwnerId;
     public final long likeItemId;
     public boolean expanded;
+    public String accessKey = "";
+    public boolean canRepost = true;
+
+    public void readShareMetadata(org.json.JSONObject source) {
+        Object key = source.opt("access_key");
+        accessKey = key instanceof String ? (String) key : "";
+        Object allowed = source.opt("can_repost");
+        canRepost = !(allowed instanceof Boolean) || (Boolean) allowed;
+        if (allowed instanceof Number) canRepost = ((Number) allowed).intValue() != 0;
+    }
 
     public String repostAuthorName = "";
     public String repostAuthorPhoto = "";
     public long repostDate;
     public String repostText = "";
     public List<String> repostPhotos = new ArrayList<>();
+    public final List<ViewerPhoto> repostPhotoDetails = new ArrayList<>();
     public long repostOwnerId;
     public long repostPostId;
 
@@ -62,6 +74,8 @@ public class Post {
         public String audioUrl = "";
         public int duration;
         public List<String> photos = new ArrayList<>();
+        public final List<ViewerPhoto> photoDetails = new ArrayList<>();
+        public ViewerPhoto imagePhoto;
 
         public long pollId;
         public long pollOwnerId;

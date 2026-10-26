@@ -18,97 +18,116 @@ import com.vktea.api.VKApi;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-public class DialogsFragment extends Fragment {
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
+public class DialogsFragment extends Fragment {
     private DialogsAdapter adapter;
     private SwipeRefreshLayout refresh;
+    private int generation;
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle state) {
         return inflater.inflate(R.layout.fragment_dialogs, container, false);
     }
 
     @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
+    public void onViewCreated(@NonNull View view, @Nullable Bundle state) {
+        super.onViewCreated(view, state);
         refresh = view.findViewById(R.id.dialogs_refresh);
         RecyclerView list = view.findViewById(R.id.dialogs_list);
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new DialogsAdapter();
         list.setAdapter(adapter);
-
         refresh.setOnRefreshListener(this::load);
-        refresh.setRefreshing(true);
         load();
     }
 
-    private void load() {
-        VKApi.get(requireContext(), "messages.getDialogs", "count=40&preview_length=64",
-                new VKApi.Callback() {
-                    @Override
-                    public void success(JSONObject response) {
-                        try {
-                            JSONArray items = response.getJSONObject("response").getJSONArray("items");
-                            adapter.clear();
-                            for (int i = 0; i < items.length(); i++) {
-                                JSONObject message = items.getJSONObject(i).getJSONObject("message");
-                                long peerId = message.optLong("user_id", 0) != 0
-                                        ? message.optLong("user_id")
-                                        : 2000000000L + message.optLong("chat_id");
-                                adapter.add(new Dialog(
-                                        peerId,
-                                        message.optString("title", ""),
-                                        message.optString("photo_100", ""),
-                                        message.optString("text", message.optString("body", "")),
-                                        message.optLong("date", 0),
-                                        message.optInt("out", 0) == 0 && message.optInt("read_state", 1) == 0));
-                            }
-                            loadAvatars();
-                        } catch (Exception ignored) {
-                        }
-                        refresh.setRefreshing(false);
-                    }
-
-                    @Override
-                    public void error(Exception e) {
-                        refresh.setRefreshing(false);
-                    }
-                });
+    protected void load() {
+        if (adapter == null || refresh == null) return;
+        final int request = ++generation;
+        final DialogsAdapter target = adapter;
+        refresh.setRefreshing(true);
+        requestDialogs(new VKApi.Callback() {
+            @Override public void success(JSONObject response) {
+                if (!current(request, target)) return;
+                JSONObject data = response == null ? null : response.optJSONObject("response");
+                if (data != null && data.optJSONArray("items") != null) {
+                    List<Dialog> dialogs = DialogsParser.parse(response);
+                    target.clear();
+                    for (Dialog dialog : dialogs) target.add(dialog);
+                    loadAvatars(request, target);
+                }
+                refresh.setRefreshing(false);
+            }
+            @Override public void error(Exception e) {
+                if (current(request, target)) refresh.setRefreshing(false);
+            }
+        });
     }
 
-    private void loadAvatars() {
-        StringBuilder ids = new StringBuilder();
-        for (Dialog d : adapter.items()) {
-            if (d.peerId > 0 && d.peerId < 2000000000L) {
-                if (ids.length() > 0) {
-                    ids.append(',');
-                }
-                ids.append(d.peerId);
+    /** Transport boundaries also allow isolated UI checks without opening account conversations. */
+    protected void requestDialogs(VKApi.Callback callback) {
+        VKApi.get(requireContext(), "messages.getDialogs", "count=40&preview_length=64", callback);
+    }
+
+    protected void requestUsers(String ids, VKApi.Callback callback) {
+        VKApi.get(requireContext(), "users.get", "user_ids=" + ids
+                + "&fields=photo_200,photo_100,photo_50", callback);
+    }
+
+    protected void requestGroups(String ids, VKApi.Callback callback) {
+        VKApi.get(requireContext(), "groups.getById", "group_ids=" + ids, callback);
+    }
+
+    private void loadAvatars(int request, DialogsAdapter target) {
+        Set<String> users = new LinkedHashSet<>();
+        Set<String> groups = new LinkedHashSet<>();
+        for (Dialog dialog : target.items()) {
+            if (dialog.peerId > 0 && dialog.peerId < 2_000_000_000L) {
+                users.add(String.valueOf(dialog.peerId));
+            } else if (dialog.peerId < 0 && dialog.peerId != Long.MIN_VALUE) {
+                groups.add(String.valueOf(-dialog.peerId));
             }
         }
-        if (ids.length() == 0) {
-            return;
-        }
-        VKApi.get(requireContext(), "users.get", "user_ids=" + ids + "&fields=photo_100",
-                new VKApi.Callback() {
-                    @Override
-                    public void success(JSONObject response) {
-                        try {
-                            JSONArray arr = response.getJSONArray("response");
-                            for (int i = 0; i < arr.length(); i++) {
-                                JSONObject u = arr.getJSONObject(i);
-                                adapter.applyUser(u.getLong("id"),
-                                        u.optString("first_name") + " " + u.optString("last_name"),
-                                        u.optString("photo_100", ""));
-                            }
-                        } catch (Exception ignored) {
-                        }
-                    }
+        if (!users.isEmpty()) requestUsers(android.text.TextUtils.join(",", users), peersCallback(request, target, false));
+        if (!groups.isEmpty()) requestGroups(android.text.TextUtils.join(",", groups), peersCallback(request, target, true));
+    }
 
-                    @Override
-                    public void error(Exception e) {
-                    }
-                });
+    private VKApi.Callback peersCallback(int request, DialogsAdapter target, boolean groups) {
+        return new VKApi.Callback() {
+            @Override public void success(JSONObject response) {
+                if (!current(request, target) || response == null) return;
+                JSONArray peers = response.optJSONArray("response");
+                if (peers == null) {
+                    JSONObject data = response.optJSONObject("response");
+                    if (data != null) peers = data.optJSONArray(groups ? "groups" : "users");
+                }
+                if (peers == null) return;
+                for (int index = 0; index < peers.length(); index++) {
+                    JSONObject peer = peers.optJSONObject(index);
+                    if (peer == null) continue;
+                    long id = peer.optLong("id", 0);
+                    if (id <= 0) continue;
+                    String name = groups ? peer.optString("name", "")
+                            : (peer.optString("first_name", "") + " " + peer.optString("last_name", "")).trim();
+                    target.applyUser(groups ? -id : id, name, MessageAvatars.photoUrl(peer));
+                }
+            }
+            @Override public void error(Exception e) { }
+        };
+    }
+
+    private boolean current(int request, DialogsAdapter target) {
+        return request == generation && target == adapter && isAdded() && getView() != null;
+    }
+
+    @Override public void onDestroyView() {
+        ++generation;
+        adapter = null;
+        refresh = null;
+        super.onDestroyView();
     }
 }

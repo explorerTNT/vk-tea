@@ -1,0 +1,26 @@
+<resources>
+    <string name="friends_all">Все</string>
+    <string name="friends_online">Онлайн</string>
+    <string name="friends_all_count">Все (%1$d)</string>
+    <string name="friends_online_count">Онлайн (%1$d)</string>
+    <string name="friends_search">Поиск друзей</string>
+    <string name="friends_clear_search">Очистить поиск</string>
+    <string name="friends_refresh">Обновить</string>
+    <string name="friends_retry">Повторить</string>
+    <string name="friends_loading">Загружаем друзей…</string>
+    <string name="friends_empty">Ваш список друзей пока пуст</string>
+    <string name="friends_no_online">Сейчас никто из друзей не в сети</string>
+    <string name="friends_not_found">Друзья не найдены</string>
+    <string name="friends_load_failed">Не удалось загрузить друзей</string>
+    <string name="friends_error_network">Не удалось загрузить список. Проверьте подключение к интернету.</string>
+    <string name="friends_error_auth">Сессия ВКонтакте недоступна. Проверьте авторизацию.</string>
+    <string name="friends_error_access">ВКонтакте не разрешил доступ к списку друзей.</string>
+    <string name="friends_error_rate">ВКонтакте ограничил запросы. Повторите позже.</string>
+    <string name="friends_error_generic">Не удалось обновить список друзей. Попробуйте ещё раз.</string>
+    <string name="friends_online_status">В сети</string>
+    <string name="friends_online_mobile">В сети с телефона</string>
+    <string name="friends_offline_status">Не в сети</string>
+    <string name="friends_last_seen">Последний визит: %1$s</string>
+    <string name="friends_write">Написать: %1$s</string>
+    <string name="friends_message">Написать сообщение</string>
+</resources>

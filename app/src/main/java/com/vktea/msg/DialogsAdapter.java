@@ -11,16 +11,20 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.request.RequestOptions;
 import com.vktea.R;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class DialogsAdapter extends RecyclerView.Adapter<DialogsAdapter.DialogViewHolder> {
 
     private final List<Dialog> dialogs = new ArrayList<>();
+    private final MessageAvatars.Images images;
+
+    public DialogsAdapter() { this(null); }
+
+    DialogsAdapter(MessageAvatars.Images images) { this.images = images; }
 
     public List<Dialog> items() {
         return dialogs;
@@ -40,10 +44,14 @@ public class DialogsAdapter extends RecyclerView.Adapter<DialogsAdapter.DialogVi
     public void applyUser(long id, String name, String photo) {
         for (int i = 0; i < dialogs.size(); i++) {
             Dialog d = dialogs.get(i);
-            if (d.peerId == id && (d.title == null || d.title.isEmpty())) {
-                d.title = name;
-                d.photo = photo;
-                notifyItemChanged(i);
+            if (d.peerId == id) {
+                String nextTitle = name != null && !name.trim().isEmpty() ? name.trim() : d.title;
+                String nextPhoto = photo == null ? "" : photo.trim();
+                if (!Objects.equals(d.title, nextTitle) || !Objects.equals(d.photo, nextPhoto)) {
+                    d.title = nextTitle;
+                    d.photo = nextPhoto;
+                    notifyItemChanged(i);
+                }
             }
         }
     }
@@ -63,21 +71,27 @@ public class DialogsAdapter extends RecyclerView.Adapter<DialogsAdapter.DialogVi
         holder.time.setText(DateUtils.getRelativeTimeSpanString(dialog.date * 1000L,
                 System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS));
         holder.unread.setVisibility(dialog.unread ? View.VISIBLE : View.GONE);
-        if (dialog.photo != null && !dialog.photo.isEmpty()) {
-            Glide.with(holder.avatar).load(dialog.photo)
-                    .apply(RequestOptions.circleCropTransform().override(120, 120))
-                    .into(holder.avatar);
-        }
+        boolean group = dialog.peerId < 0 || dialog.peerId >= 2000000000L;
+        if (images == null) MessageAvatars.bind(holder.avatar, dialog.photo, group);
+        else MessageAvatars.bind(holder.avatar, dialog.photo, group, images);
         holder.itemView.setOnClickListener(v ->
                 holder.itemView.getContext().startActivity(
                         new Intent(holder.itemView.getContext(), ChatActivity.class)
                                 .putExtra(ChatActivity.EXTRA_PEER_ID, dialog.peerId)
-                                .putExtra(ChatActivity.EXTRA_TITLE, dialog.title)));
+                                .putExtra(ChatActivity.EXTRA_TITLE, dialog.title)
+                                .putExtra(ChatActivity.EXTRA_PHOTO, dialog.photo)));
     }
 
     @Override
     public int getItemCount() {
         return dialogs.size();
+    }
+
+    @Override public void onViewRecycled(@NonNull DialogViewHolder holder) {
+        if (images == null) MessageAvatars.clear(holder.avatar);
+        else MessageAvatars.clear(holder.avatar, images);
+        holder.itemView.setOnClickListener(null);
+        super.onViewRecycled(holder);
     }
 
     static class DialogViewHolder extends RecyclerView.ViewHolder {

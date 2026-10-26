@@ -16,12 +16,14 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.vktea.R;
 import com.vktea.api.VKApi;
 import com.vktea.msg.ChatActivity;
+import com.vktea.msg.MessageAvatars;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -41,6 +43,11 @@ public class ProfileFragment extends Fragment {
     private long userId;
     private boolean isFriend;
     private int friendStatus = -1;
+    private SwipeRefreshLayout refresh;
+    private RecyclerView recycler;
+    private ProfileAdapter adapter;
+    private boolean profileLoading, wallLoading;
+    private int requestVersion;
 
     public static ProfileFragment newInstance(long userId) {
         Bundle args = new Bundle();
@@ -48,6 +55,10 @@ public class ProfileFragment extends Fragment {
         ProfileFragment fragment = new ProfileFragment();
         fragment.setArguments(args);
         return fragment;
+    }
+
+    public int navigationTitleRes() {
+        return requireArguments().getLong(ARG_USER_ID) < 0 ? R.string.groups_profile_title : R.string.profile_title;
     }
 
     @Nullable
@@ -60,38 +71,65 @@ public class ProfileFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        RecyclerView recycler = view.findViewById(R.id.profile_wall);
+        refresh = view.findViewById(R.id.profile_refresh);
+        refresh.setColorSchemeResources(R.color.vk_blue);
+        recycler = view.findViewById(R.id.profile_wall);
         recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
-        ProfileAdapter adapter = new ProfileAdapter();
+        adapter = new ProfileAdapter();
         recycler.setAdapter(adapter);
-        loadProfile(adapter);
-        loadWall(adapter);
+        refresh.setOnRefreshListener(this::refreshContent);
+        refreshContent();
     }
 
-    private void loadProfile(ProfileAdapter adapter) {
-        VKApi.get(requireContext(), "users.get", "user_ids=" + userId
-                        + "&fields=photo_200,photo_max_orig,status,last_seen,counters,friend_status,online,bdate,city,cover",
-                new VKApi.Callback() {
+    void refreshContent() {
+        if (adapter == null || refresh == null || profileLoading || wallLoading) return;
+        int version = ++requestVersion;
+        profileLoading = wallLoading = true;
+        refresh.setRefreshing(true);
+        loadProfile(adapter, version);
+        loadWall(adapter, version);
+    }
+
+    private boolean current(ProfileAdapter target, int version) {
+        return refresh != null && target == adapter && version == requestVersion;
+    }
+
+    private void updateRefreshing() {
+        if (refresh != null) refresh.setRefreshing(profileLoading || wallLoading);
+    }
+
+    private void loadProfile(ProfileAdapter adapter, int version) {
+        requestProfile(new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
+                        if (!current(adapter, version)) return;
                         try {
-                            JSONObject u = response.getJSONArray("response").getJSONObject(0);
+                            JSONArray rows = response.optJSONArray("response");
+                            if (rows == null && userId < 0) rows = response.getJSONObject("response").getJSONArray("groups");
+                            JSONObject u = rows.getJSONObject(0);
+                            if (userId < 0 && u.optLong("id", 0) != -userId) throw new IllegalArgumentException("Unexpected community");
                             adapter.setProfile(u);
                         } catch (Exception ignored) {
+                        } finally {
+                            profileLoading = false;
+                            updateRefreshing();
                         }
                     }
 
                     @Override
                     public void error(Exception e) {
+                        if (!current(adapter, version)) return;
+                        profileLoading = false;
+                        updateRefreshing();
                     }
                 });
     }
 
-    private void loadWall(ProfileAdapter adapter) {
-        VKApi.get(requireContext(), "wall.get", "owner_id=" + userId + "&count=20&extended=1",
-                new VKApi.Callback() {
+    private void loadWall(ProfileAdapter adapter, int version) {
+        requestWall(new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
+                        if (!current(adapter, version)) return;
                         try {
                             JSONObject data = response.getJSONObject("response");
                             Map<Long, String[]> sources = new HashMap<>();
@@ -119,14 +157,17 @@ public class ProfileFragment extends Fragment {
                                 long sid = item.optLong("from_id", userId);
                                 String[] src = sources.containsKey(sid) ? sources.get(sid) : new String[]{"", ""};
                                 java.util.List<String> photoUrls = new ArrayList<>();
+                                java.util.List<ViewerPhoto> photoDetails = new ArrayList<>();
                                 JSONArray attachments = item.optJSONArray("attachments");
                                 if (attachments != null) {
                                     for (int a = 0; a < attachments.length() && photoUrls.size() < 10; a++) {
                                         JSONObject att = attachments.getJSONObject(a);
                                         if ("photo".equals(att.optString("type"))) {
-                                            String purl = pickFromSizes(att.getJSONObject("photo"));
-                                            if (purl != null) {
+                                            ViewerPhoto photo = ViewerPhoto.parse(att.getJSONObject("photo"));
+                                            String purl = photo.url;
+                                            if (!purl.isEmpty()) {
                                                 photoUrls.add(purl);
+                                                photoDetails.add(photo);
                                             }
                                         }
                                     }
@@ -135,51 +176,70 @@ public class ProfileFragment extends Fragment {
                                 JSONObject comments = item.optJSONObject("comments");
                                 JSONObject reposts = item.optJSONObject("reposts");
                                 JSONObject views = item.optJSONObject("views");
-                                posts.add(new Post(sid, src[0], src[1],
+                                Post post = new Post(sid, src[0], src[1],
                                         item.optString("text", ""), item.optLong("date", 0), photoUrls,
                                         likes != null ? likes.optInt("count", 0) : 0,
                                         comments != null ? comments.optInt("count", 0) : 0,
                                         reposts != null ? reposts.optInt("count", 0) : 0,
                                         views != null ? views.optInt("count", 0) : 0,
                                         likes != null && likes.optInt("user_likes", 0) == 1,
-                                        Post.TYPE_POST, sid, item.optLong("id", 0)));
+                                        Post.TYPE_POST, item.optLong("owner_id", userId), item.optLong("id", 0));
+                                post.photoDetails.addAll(photoDetails);
+                                post.readShareMetadata(item);
+                                posts.add(post);
                             }
                             adapter.setWall(posts);
                         } catch (Exception ignored) {
+                            showRefreshError();
+                        } finally {
+                            wallLoading = false;
+                            updateRefreshing();
                         }
                     }
 
                     @Override
                     public void error(Exception e) {
+                        if (!current(adapter, version)) return;
+                        wallLoading = false;
+                        updateRefreshing();
+                        showRefreshError();
                     }
                 });
     }
 
+    private void showRefreshError() {
+        if (getContext() != null) Toast.makeText(getContext(), R.string.profile_refresh_error, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override public void onDestroyView() {
+        requestVersion++;
+        profileLoading = wallLoading = false;
+        if (refresh != null) refresh.setOnRefreshListener(null);
+        if (recycler != null) recycler.setAdapter(null);
+        refresh = null;
+        recycler = null;
+        adapter = null;
+        super.onDestroyView();
+    }
+
+    protected void requestProfile(VKApi.Callback callback) {
+        if (userId < 0) {
+            VKApi.get(requireContext(), "groups.getById", "group_id=" + (-userId)
+                    + "&fields=members_count,activity,description,cover", callback);
+            return;
+        }
+        VKApi.get(requireContext(), "users.get", "user_ids=" + userId
+                + "&fields=photo_200,photo_max_orig,status,last_seen,counters,friend_status,online,bdate,city,cover",
+                callback);
+    }
+
+    protected void requestWall(VKApi.Callback callback) {
+        VKApi.get(requireContext(), "wall.get", "owner_id=" + userId
+                + "&count=20&extended=1&photo_sizes=1", callback);
+    }
+
     private String pickFromSizes(JSONObject photo) {
-        JSONArray sizes = photo.optJSONArray("sizes");
-        if (sizes == null || sizes.length() == 0) {
-            return photo.optString("photo_604", null);
-        }
-        String best = null;
-        int bestRank = -1;
-        String[] order = {"w", "z", "y", "r", "q", "p", "x", "m", "s"};
-        for (int i = 0; i < sizes.length(); i++) {
-            JSONObject s = sizes.optJSONObject(i);
-            if (s == null) {
-                continue;
-            }
-            String type = s.optString("type", "");
-            for (int t = 0; t < order.length; t++) {
-                if (order[t].equals(type) && t > bestRank) {
-                    bestRank = t;
-                    best = s.optString("url", null);
-                }
-            }
-        }
-        if (best != null) {
-            best = best.replaceAll("&cs=\\d+x\\d+", "");
-        }
-        return best;
+        return PostPhoto.bestUrl(photo);
     }
 
     class ProfileAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -191,8 +251,9 @@ public class ProfileFragment extends Fragment {
         private final List<Post> wall = new ArrayList<>();
 
         void setProfile(JSONObject p) {
+            boolean added = profile == null;
             profile = p;
-            notifyItemChanged(0);
+            if (added) notifyItemInserted(0); else notifyItemChanged(0);
         }
 
         void setWall(List<Post> posts) {
@@ -221,31 +282,10 @@ public class ProfileFragment extends Fragment {
                 h.name.setText(post.sourceName);
                 h.time.setText(com.vktea.util.RuDate.format(post.date));
                 h.text.setText(post.text);
-                h.photoContainer.removeAllViews();
-                if (!post.photoUrls.isEmpty()) {
-                    h.photoContainer.setVisibility(View.VISIBLE);
-                    int cell = h.photoContainer.getContext().getResources().getDisplayMetrics().widthPixels / 3;
-                    for (int r = 0; r < (post.photoUrls.size() + 2) / 3; r++) {
-                        LinearLayout row = new LinearLayout(h.photoContainer.getContext());
-                        row.setOrientation(LinearLayout.HORIZONTAL);
-                        for (int c = 0; c < 3; c++) {
-                            int idx = r * 3 + c;
-                            if (idx >= post.photoUrls.size()) {
-                                break;
-                            }
-                            ImageView iv = new ImageView(h.photoContainer.getContext());
-                            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, cell, 1f);
-                            iv.setLayoutParams(lp);
-                            iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                            Glide.with(iv).load(post.photoUrls.get(idx))
-                                    .override(cell, cell).into(iv);
-                            row.addView(iv);
-                        }
-                        h.photoContainer.addView(row);
-                    }
-                } else {
-                    h.photoContainer.setVisibility(View.GONE);
-                }
+                PostPhotosRenderer.render(h.photoContainer, post.photoUrls, post.photoDetails);
+                h.reposts.setText(post.reposts > 0 ? FeedAdapter.formatCount(post.reposts) : "");
+                h.reposts.setEnabled(PostSharing.attachment(post).hasIdentity());
+                h.reposts.setOnClickListener(v -> PostSharing.open(v.getContext(), post));
             }
         }
 
@@ -253,6 +293,13 @@ public class ProfileFragment extends Fragment {
             if (profile == null) {
                 return;
             }
+            if (userId < 0) {
+                bindGroupHead(h);
+                return;
+            }
+            h.buttons.setVisibility(View.VISIBLE);
+            h.messageBtn.setVisibility(View.VISIBLE);
+            h.friendBtn.setVisibility(View.VISIBLE);
             h.name.setText(profile.optString("first_name") + " " + profile.optString("last_name"));
             String avatarUrl = profile.optString("photo_max_orig",
                     profile.optString("photo_200", ""));
@@ -288,7 +335,7 @@ public class ProfileFragment extends Fragment {
                 Glide.with(h.cover).load(coverUrl).centerCrop().into(h.cover);
             }
             Button friendBtn = h.friendBtn;
-            if (userId == Long.parseLong(com.vktea.auth.Session.getUserId(requireContext()))) {
+            if (String.valueOf(userId).equals(com.vktea.auth.Session.getUserId(requireContext()))) {
                 friendBtn.setVisibility(View.GONE);
             } else if (isFriend) {
                 friendBtn.setText(R.string.is_friend);
@@ -339,6 +386,33 @@ public class ProfileFragment extends Fragment {
             }
         }
 
+        private void bindGroupHead(HeadHolder h) {
+            h.name.setText(profile.optString("name", getString(R.string.groups_profile_title)));
+            MessageAvatars.bind(h.avatar, MessageAvatars.photoUrl(profile), true);
+            h.lastSeen.setText(profile.optString("activity", ""));
+            h.status.setText(profile.optString("description", ""));
+            h.status.setMaxLines(4);
+            h.status.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            h.buttons.setVisibility(View.GONE);
+            h.friendBtn.setOnClickListener(null);
+            h.messageBtn.setOnClickListener(null);
+            Glide.with(h.cover).clear(h.cover);
+            h.cover.setImageResource(R.drawable.bg_profile_cover);
+            JSONObject cover = profile.optJSONObject("cover");
+            if (cover != null && cover.optInt("enabled", 0) == 1) {
+                JSONArray images = cover.optJSONArray("images");
+                if (images != null && images.length() > 0) {
+                    JSONObject image = images.optJSONObject(images.length() - 1);
+                    String url = image == null ? "" : image.optString("url", "");
+                    if (!url.isEmpty()) Glide.with(h.cover).load(url).centerCrop().into(h.cover);
+                }
+            }
+            h.counters.removeAllViews();
+            long members = profile.optLong("members_count", -1);
+            if (members >= 0) addCounter(h.counters, R.drawable.ic_menu_followers,
+                    getString(R.string.groups_members_count, Long.toString(members)));
+        }
+
         private void addCounter(LinearLayout parent, int icon, String text) {
             LinearLayout row = new LinearLayout(parent.getContext());
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -368,6 +442,14 @@ public class ProfileFragment extends Fragment {
         }
 
         @Override
+        public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+            if (holder instanceof PostHolder) {
+                PostPhotosRenderer.render(((PostHolder) holder).photoContainer, null);
+            }
+            super.onViewRecycled(holder);
+        }
+
+        @Override
         public int getItemViewType(int position) {
             return profile != null && position == 0 ? TYPE_HEAD : TYPE_POST;
         }
@@ -376,6 +458,8 @@ public class ProfileFragment extends Fragment {
     static class HeadHolder extends RecyclerView.ViewHolder {
         final TextView name;
         final TextView lastSeen;
+        final TextView status;
+        final View buttons;
         final Button messageBtn;
         final Button friendBtn;
         final LinearLayout counters;
@@ -386,6 +470,8 @@ public class ProfileFragment extends Fragment {
             super(itemView);
             name = itemView.findViewById(R.id.profile_name);
             lastSeen = itemView.findViewById(R.id.profile_last_seen);
+            status = itemView.findViewById(R.id.profile_status);
+            buttons = itemView.findViewById(R.id.profile_buttons_wrap);
             messageBtn = itemView.findViewById(R.id.profile_btn_message);
             friendBtn = itemView.findViewById(R.id.profile_btn_friend);
             counters = itemView.findViewById(R.id.profile_counters);
@@ -399,6 +485,7 @@ public class ProfileFragment extends Fragment {
         final TextView time;
         final TextView text;
         final LinearLayout photoContainer;
+        final TextView reposts;
 
         PostHolder(@NonNull View itemView) {
             super(itemView);
@@ -406,6 +493,7 @@ public class ProfileFragment extends Fragment {
             time = itemView.findViewById(R.id.post_time);
             text = itemView.findViewById(R.id.post_text);
             photoContainer = itemView.findViewById(R.id.post_photos);
+            reposts = itemView.findViewById(R.id.post_reposts);
         }
     }
 }

@@ -51,6 +51,7 @@
 
         <activity
             android:name=".msg.ChatActivity"
+            android:windowSoftInputMode="adjustResize"
             android:exported="false" />
 
         <activity
@@ -59,7 +60,26 @@
 
         <activity
             android:name=".feed.PhotoViewerActivity"
+            android:theme="@style/Theme.VKTea.PhotoViewer"
             android:exported="false" />
+
+        <activity
+            android:name=".feed.PhotoDiscussionActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="false" />
+
+        <activity android:name=".share.ShareActivity"
+            android:theme="@style/Theme.VKTea.ShareOverlay"
+            android:windowSoftInputMode="adjustResize" android:exported="false" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.photo-files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/photo_export_paths" />
+        </provider>
 
         <activity
             android:name=".feed.VideoPlayerActivity"

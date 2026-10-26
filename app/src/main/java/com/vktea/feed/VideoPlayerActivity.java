@@ -66,7 +66,10 @@ public class VideoPlayerActivity extends AppCompatActivity {
             play(direct);
             return;
         }
-        VKApi.get(this, "video.get", "videos=" + ownerId + "_" + videoId, new VKApi.Callback() {
+        String accessKey = getIntent().getStringExtra("access_key");
+        String videoRef = ownerId + "_" + videoId
+                + (accessKey == null || accessKey.isEmpty() ? "" : "_" + accessKey);
+        VKApi.get(this, "video.get", "videos=" + Uri.encode(videoRef), new VKApi.Callback() {
             @Override
             public void success(JSONObject response) {
                 String url = null;

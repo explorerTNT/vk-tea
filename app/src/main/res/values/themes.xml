@@ -1,4 +1,13 @@
 <resources>
+    <style name="Theme.VKTea.PhotoViewer" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:colorBackground">#000000</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="colorPrimary">#FFFFFF</item>
+        <item name="colorOnPrimary">#000000</item>
+    </style>
     <style name="Theme.VKTea.AudioPlayer" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorPrimary">@color/audio_accent</item>
         <item name="colorSurface">@color/audio_surface</item>

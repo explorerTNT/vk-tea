@@ -73,8 +73,13 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             androidx.fragment.app.Fragment current = getSupportFragmentManager().findFragmentById(R.id.content);
             if (currentId == R.id.menu_audios && current instanceof com.vktea.ui.AudioFragment) {
                 ((com.vktea.ui.AudioFragment) current).showAudioSearch();
+            } else if (current instanceof com.vktea.friends.FriendsFragment) {
+                ((com.vktea.friends.FriendsFragment) current).showFriendsSearch();
+            } else if (current instanceof com.vktea.groups.GroupsFragment) {
+                ((com.vktea.groups.GroupsFragment) current).showGroupsSearch();
             } else Toast.makeText(this, R.string.section_search, Toast.LENGTH_SHORT).show();
         });
+        getSupportFragmentManager().addOnBackStackChangedListener(this::updateContentTitle);
 
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this, drawer, null, 0, 0) {
             @Override
@@ -173,6 +178,18 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             }
         }
         toolbarTitle.setTextSize(currentId == R.id.menu_audios ? 20 : 23);
+        updateContentTitle();
+    }
+
+    private void updateContentTitle() {
+        androidx.fragment.app.Fragment current = getSupportFragmentManager().findFragmentById(R.id.content);
+        int title;
+        if (current instanceof com.vktea.feed.ProfileFragment) title = ((com.vktea.feed.ProfileFragment) current).navigationTitleRes();
+        else if (current instanceof com.vktea.friends.FriendsFragment) title = R.string.section_friends;
+        else if (current instanceof com.vktea.groups.GroupsFragment) title = R.string.section_groups;
+        else return;
+        toolbarTitle.setText(title);
+        toolbarTitle.setTextSize(23);
     }
 
     @Override protected void onStart() {
@@ -205,6 +222,14 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         androidx.fragment.app.Fragment current = getSupportFragmentManager().findFragmentById(R.id.content);
         if (currentId == R.id.menu_audios && current instanceof com.vktea.ui.AudioFragment) {
             ((com.vktea.ui.AudioFragment) current).showAudioMenu(anchor);
+            return;
+        }
+        if (current instanceof com.vktea.friends.FriendsFragment) {
+            ((com.vktea.friends.FriendsFragment) current).showFriendsMenu(anchor);
+            return;
+        }
+        if (current instanceof com.vktea.groups.GroupsFragment) {
+            ((com.vktea.groups.GroupsFragment) current).showGroupsMenu(anchor);
             return;
         }
         PopupMenu popup = new PopupMenu(this, anchor);
@@ -288,6 +313,10 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.msg.DialogsFragment();
                 } else if (menuId == R.id.menu_audios) {
                     fragment = new com.vktea.ui.AudioFragment();
+                } else if (menuId == R.id.menu_friends) {
+                    fragment = new com.vktea.friends.FriendsFragment();
+                } else if (menuId == R.id.menu_groups) {
+                    fragment = new com.vktea.groups.GroupsFragment();
                 } else {
                     fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
                 }

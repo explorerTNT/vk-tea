@@ -1,0 +1,9 @@
+<resources>
+    <string name="chat_loading">Загрузка сообщений</string>
+    <string name="chat_empty">Здесь пока нет сообщений</string>
+    <string name="chat_load_failed">Не удалось загрузить сообщения</string>
+    <string name="chat_unavailable">Диалог недоступен</string>
+    <string name="chat_retry">Повторить</string>
+    <string name="chat_message_hint">Ваше сообщение</string>
+    <string name="chat_send">Отправить сообщение</string>
+</resources>
