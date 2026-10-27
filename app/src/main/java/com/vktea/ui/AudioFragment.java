@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.InputFilter;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -30,6 +31,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.vktea.R;
 import com.vktea.auth.AuthWebViewActivity;
+import com.vktea.auth.Session;
 import com.vktea.audio.AudioPlayback;
 import com.vktea.audio.AudioSources;
 import com.vktea.audio.AudioOfflineCache;
@@ -56,6 +58,8 @@ public class AudioFragment extends Fragment {
     private static final int MENU_PLAYLISTS = 3;
     private static final int MENU_OFFLINE = 4;
     private static final int MENU_PLAYLIST_WEB = 5;
+    private static final int MENU_PLAYLIST_RENAME = 6;
+    private static final int MENU_PLAYLIST_DELETE = 7;
 
     private String searchQuery = "";
     private boolean connectionFailed;
@@ -80,6 +84,7 @@ public class AudioFragment extends Fragment {
     private View loading;
     private View loadMore;
     private AlertDialog searchDialog;
+    private AlertDialog playlistDialog;
 
     private final Player.Listener playerListener = new Player.Listener() {
         @Override public void onEvents(@NonNull Player player, @NonNull Player.Events events) {
@@ -168,6 +173,23 @@ public class AudioFragment extends Fragment {
             libraryState = state;
             render();
         });
+        catalog.getPlaylistMutationEvent().observe(getViewLifecycleOwner(), event -> {
+            if (event == null || !event.consume()) return;
+            if (event.error == null) {
+                android.widget.Toast.makeText(requireContext(), R.string.audio_change_success,
+                        android.widget.Toast.LENGTH_SHORT).show();
+            } else if (event.error.kind == VkAudioError.Kind.NETWORK || event.error.kind == VkAudioError.Kind.HTTP
+                    || event.error.kind == VkAudioError.Kind.MALFORMED_RESPONSE) {
+                android.widget.Toast.makeText(requireContext(), R.string.audio_playlist_change_unconfirmed,
+                        android.widget.Toast.LENGTH_LONG).show();
+            } else if (event.error.kind == VkAudioError.Kind.AUTH_REQUIRED) {
+                android.widget.Toast.makeText(requireContext(), R.string.audio_playlist_auth_unconfirmed,
+                        android.widget.Toast.LENGTH_LONG).show();
+            } else {
+                android.widget.Toast.makeText(requireContext(), errorMessage(event.error),
+                        android.widget.Toast.LENGTH_LONG).show();
+            }
+        });
         catalog.ensureLoaded();
         render();
     }
@@ -182,6 +204,10 @@ public class AudioFragment extends Fragment {
         VkAudioPlaylist selectedPlaylist = !offlineMode ? catalog.getPlaylist() : null;
         if (selectedPlaylist != null) {
             menu.getMenu().add(0, MENU_PLAYLIST_WEB, 3, R.string.audio_playlist_open_vk);
+            if (canRenamePlaylist(selectedPlaylist))
+                menu.getMenu().add(0, MENU_PLAYLIST_RENAME, 4, R.string.audio_playlist_rename).setEnabled(!actionPending && !catalog.isPlaylistMutationPending());
+            if (canDeletePlaylist(selectedPlaylist))
+                menu.getMenu().add(0, MENU_PLAYLIST_DELETE, 5, R.string.audio_playlist_delete).setEnabled(!actionPending && !catalog.isPlaylistMutationPending());
         }
         menu.getMenu().add(0, MENU_REFRESH, 1, R.string.audio_list_refresh)
                 .setEnabled(libraryState == null || !libraryState.loading);
@@ -200,6 +226,10 @@ public class AudioFragment extends Fragment {
             } else if (item.getItemId() == MENU_PLAYLIST_WEB && selectedPlaylist != null) {
                 startActivity(new Intent(requireContext(), AuthWebViewActivity.class)
                         .setData(Uri.parse(selectedPlaylist.webUrl())));
+            } else if (item.getItemId() == MENU_PLAYLIST_RENAME && selectedPlaylist != null) {
+                renamePlaylist(selectedPlaylist);
+            } else if (item.getItemId() == MENU_PLAYLIST_DELETE && selectedPlaylist != null) {
+                confirmDeletePlaylist(selectedPlaylist);
             } else if (item.getItemId() == MENU_REFRESH) {
                 actionMessage = 0;
                 if (offlineMode) render(); else catalog.refresh();
@@ -360,6 +390,8 @@ public class AudioFragment extends Fragment {
     public void onDestroyView() {
         if (searchDialog != null) searchDialog.dismiss();
         searchDialog = null;
+        if (playlistDialog != null) playlistDialog.dismiss();
+        playlistDialog = null;
         queueAdapter = null;
         list = null;
         refresh = null;
@@ -482,6 +514,57 @@ public class AudioFragment extends Fragment {
                 }).setNegativeButton(android.R.string.cancel, null).show();
     }
 
+    private boolean isCurrentOwnPlaylist(VkAudioPlaylist selected) {
+        VkAudioPlaylist current = catalog.getPlaylist();
+        return isAdded() && getView() != null && !offlineMode && selected != null && current == selected
+                && Long.toString(selected.ownerId).equals(Session.getUserId(requireContext()));
+    }
+
+    private boolean canRenamePlaylist(VkAudioPlaylist selected) {
+        return isCurrentOwnPlaylist(selected) && !Boolean.FALSE.equals(selected.canEdit);
+    }
+
+    private boolean canDeletePlaylist(VkAudioPlaylist selected) {
+        return isCurrentOwnPlaylist(selected) && !Boolean.FALSE.equals(selected.canDelete);
+    }
+
+    private void renamePlaylist(VkAudioPlaylist selected) {
+        if (actionPending || catalog.isPlaylistMutationPending() || !canRenamePlaylist(selected)) return;
+        EditText input = new EditText(audioTheme());
+        input.setSingleLine(true);
+        input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(255)});
+        input.setText(selected.title);
+        input.setSelection(input.length());
+        AlertDialog dialog = new AlertDialog.Builder(audioTheme()).setTitle(R.string.audio_playlist_rename)
+                .setView(input).setPositiveButton(R.string.audio_playlist_save, null)
+                .setNegativeButton(android.R.string.cancel, null).create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String title = input.getText().toString().trim();
+            if (title.isEmpty()) {
+                input.setError(getString(R.string.audio_playlist_title_required));
+                return;
+            }
+            if (actionPending || catalog.isPlaylistMutationPending() || !canRenamePlaylist(selected)) return;
+            if (!title.equals(selected.title)) {
+                catalog.renamePlaylist(selected, title);
+            }
+            dialog.dismiss();
+        }));
+        playlistDialog = dialog;
+        dialog.show();
+    }
+
+    private void confirmDeletePlaylist(VkAudioPlaylist selected) {
+        if (actionPending || catalog.isPlaylistMutationPending() || !canDeletePlaylist(selected)) return;
+        playlistDialog = new AlertDialog.Builder(audioTheme())
+                .setTitle(R.string.audio_playlist_delete)
+                .setMessage(getString(R.string.audio_playlist_delete_confirm, selected.title))
+                .setPositiveButton(R.string.audio_playlist_delete, (dialog, which) -> {
+                    if (actionPending || catalog.isPlaylistMutationPending() || !canDeletePlaylist(selected)) return;
+                    catalog.deletePlaylist(selected);
+                }).setNegativeButton(android.R.string.cancel, null).show();
+    }
+
     private void mutateLibrary(VkAudioTrack track, boolean add) {
         if (actionPending) return;
         actionPending = true;
@@ -519,6 +602,7 @@ public class AudioFragment extends Fragment {
             case RATE_LIMITED: return R.string.audio_list_error_limit;
             case NETWORK: return R.string.audio_list_error_network;
             case MALFORMED_RESPONSE: return R.string.audio_list_error_response;
+            case PLAYLIST_VISIBILITY_UNKNOWN: return R.string.audio_playlist_visibility_unknown;
             default: return R.string.audio_list_error_generic;
         }
     }

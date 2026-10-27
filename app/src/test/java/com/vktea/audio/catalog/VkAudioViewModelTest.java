@@ -3,6 +3,8 @@ package com.vktea.audio.catalog;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -163,11 +165,130 @@ public class VkAudioViewModelTest {
         assertTrue(model.getCurrentState().items.isEmpty());
     }
 
+    @Test
+    public void playlistMutationsChangeRetainedStateOnlyAfterConfirmedSuccess() {
+        VkAudioPlaylist selected = new VkAudioPlaylist(41, 7, "Before", "key", "Description", true, true);
+        model.showPlaylist(selected);
+        repository.last().success(new VkAudioPage(1, Collections.singletonList(track(1)), 1));
+        List<Boolean> outcomes = new ArrayList<>();
+        model.getPlaylistMutationEvent().observeForever(event -> {
+            if (event != null && event.consume()) outcomes.add(event.error == null);
+        });
+
+        model.renamePlaylist(selected, "After");
+        assertEquals("Before", model.getPlaylist().title);
+        assertTrue(outcomes.isEmpty());
+        repository.mutation.onError(new VkAudioError(VkAudioError.Kind.ACCESS_DENIED));
+        assertEquals("Before", model.getPlaylist().title);
+        model.renamePlaylist(selected, " After ");
+        assertSame(model, provider().get(VkAudioViewModel.class));
+        repository.mutation.onSuccess(true);
+        assertEquals("After", model.getPlaylist().title);
+        assertEquals(1, model.getCurrentState().items.size());
+        assertEquals("key", model.getPlaylist().accessKey);
+        assertEquals("Description", model.getPlaylist().description);
+        assertEquals(Boolean.TRUE, model.getPlaylist().canEdit);
+        assertEquals(Boolean.TRUE, model.getPlaylist().canDelete);
+
+        model.deletePlaylist(model.getPlaylist());
+        repository.mutation.onSuccess(false);
+        assertEquals(7, model.getPlaylist().id);
+        model.deletePlaylist(model.getPlaylist());
+        repository.mutation.onSuccess(true);
+        assertEquals(null, model.getPlaylist());
+        assertTrue(model.getCurrentState().loading);
+        assertEquals(Arrays.asList(false, true, false, true), outcomes);
+    }
+
+    @Test
+    public void playlistRenameAcceptsAtMost255Characters() {
+        VkAudioPlaylist selected = new VkAudioPlaylist(41, 7, "Before", "");
+        List<Boolean> outcomes = new ArrayList<>();
+        model.getPlaylistMutationEvent().observeForever(event -> {
+            if (event != null && event.consume()) outcomes.add(event.error == null);
+        });
+        char[] title = new char[256];
+        Arrays.fill(title, 'x');
+        model.renamePlaylist(selected, new String(title));
+        assertEquals(Collections.singletonList(false), outcomes);
+        assertNull(repository.mutation);
+        model.renamePlaylist(selected, new String(title, 0, 255));
+        assertNotNull(repository.mutation);
+        repository.mutation.onSuccess(true);
+        assertEquals(Arrays.asList(false, true), outcomes);
+    }
+
+    @Test
+    public void latePlaylistMutationDoesNotOverrideDifferentSourceAndDuplicateIsRejected() {
+        VkAudioPlaylist first = new VkAudioPlaylist(41, 7, "First", "");
+        VkAudioPlaylist other = new VkAudioPlaylist(41, 8, "Other", "");
+        model.showPlaylist(first);
+        List<Boolean> outcomes = new ArrayList<>();
+        model.getPlaylistMutationEvent().observeForever(event -> {
+            if (event != null && event.consume()) outcomes.add(event.error == null);
+        });
+        model.deletePlaylist(first);
+        model.renamePlaylist(first, "New");
+        assertEquals(Collections.singletonList(false), outcomes);
+        model.showPlaylist(other);
+        repository.mutation.onSuccess(true);
+        assertEquals(8, model.getPlaylist().id);
+        assertEquals(Arrays.asList(false, true), outcomes);
+    }
+
+    @Test
+    public void mutationResultWaitsForRecreatedObserverAndIsConsumedOnlyOnce() {
+        VkAudioPlaylist selected = new VkAudioPlaylist(41, 7, "Old", "");
+        model.showPlaylist(selected);
+        model.renamePlaylist(selected, "New");
+        // Simulate completion while no screen is active.
+        repository.mutation.onError(new VkAudioError(VkAudioError.Kind.NETWORK));
+        VkAudioViewModel recreated = provider().get(VkAudioViewModel.class);
+        List<VkAudioError.Kind> shown = new ArrayList<>();
+        recreated.getPlaylistMutationEvent().observeForever(event -> {
+            if (event != null && event.consume()) shown.add(event.error.kind);
+        });
+        assertEquals(Collections.singletonList(VkAudioError.Kind.NETWORK), shown);
+        recreated.getPlaylistMutationEvent().observeForever(event -> {
+            if (event != null && event.consume()) shown.add(event.error.kind);
+        });
+        assertEquals(Collections.singletonList(VkAudioError.Kind.NETWORK), shown);
+    }
+
+    @Test
+    public void confirmedMutationUpdatesReopenedSamePlaylistWithoutLosingFreshMetadata() {
+        VkAudioPlaylist original = new VkAudioPlaylist(41, 7, "Old", "key", "Old description", true, true, false);
+        VkAudioPlaylist reopened = new VkAudioPlaylist(41, 7, "Old", "fresh", "Fresh description", true, true, true);
+        model.showPlaylist(original);
+        model.renamePlaylist(original, "New");
+        model.showPlaylist(reopened);
+        repository.mutation.onSuccess(true);
+        assertEquals("New", model.getPlaylist().title);
+        assertEquals("Fresh description", model.getPlaylist().description);
+        assertEquals("fresh", model.getPlaylist().accessKey);
+        assertEquals(Boolean.TRUE, model.getPlaylist().noDiscover);
+        VkAudioPlaylist current = model.getPlaylist();
+        model.deletePlaylist(current);
+        model.showPlaylist(new VkAudioPlaylist(41, 7, "New", ""));
+        repository.mutation.onSuccess(true);
+        assertNull(model.getPlaylist());
+    }
+
     private static final class FakeRepository implements VkAudioRepository {
         final List<FakeRequest> pending = new ArrayList<>();
         boolean closed;
         String query;
         VkAudioPlaylist playlist;
+        Callback<Boolean> mutation;
+
+        @Override public Request renamePlaylist(VkAudioPlaylist playlist, String title, Callback<Boolean> callback) {
+            mutation = callback;
+            return new FakeRequest(0, null);
+        }
+        @Override public Request deletePlaylist(VkAudioPlaylist playlist, Callback<Boolean> callback) {
+            mutation = callback;
+            return new FakeRequest(0, null);
+        }
 
         @Override public Request search(String query, int offset, int count, Callback<VkAudioPage> callback) {
             this.query = query;

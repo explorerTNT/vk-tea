@@ -11,6 +11,8 @@ public final class VkAudioPlaylist {
     /** Null means VK did not supply a boolean permission. */
     public final Boolean canEdit;
     public final Boolean canDelete;
+    /** Null means the list response did not supply the visibility setting. */
+    public final Boolean noDiscover;
 
     public VkAudioPlaylist(long ownerId, long id, String title, String accessKey) {
         this(ownerId, id, title, accessKey, null, null, null);
@@ -18,6 +20,11 @@ public final class VkAudioPlaylist {
 
     public VkAudioPlaylist(long ownerId, long id, String title, String accessKey,
                            String description, Boolean canEdit, Boolean canDelete) {
+        this(ownerId, id, title, accessKey, description, canEdit, canDelete, null);
+    }
+
+    public VkAudioPlaylist(long ownerId, long id, String title, String accessKey,
+                           String description, Boolean canEdit, Boolean canDelete, Boolean noDiscover) {
         if (ownerId == 0 || id <= 0) throw new IllegalArgumentException("Invalid playlist");
         this.ownerId = ownerId;
         this.id = id;
@@ -26,6 +33,7 @@ public final class VkAudioPlaylist {
         this.description = description;
         this.canEdit = canEdit;
         this.canDelete = canDelete;
+        this.noDiscover = noDiscover;
     }
 
     /** VK's playlist attachment route; access keys have already been restricted to safe characters. */

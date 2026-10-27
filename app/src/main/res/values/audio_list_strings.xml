@@ -25,6 +25,14 @@
     <string name="audio_list_unavailable">Эта аудиозапись недоступна для воспроизведения.</string>
     <string name="audio_playlists">Плейлисты</string>
     <string name="audio_playlist_open_vk">Открыть плейлист в VK</string>
+    <string name="audio_playlist_visibility_unknown">VK не вернул настройку видимости. Переименование отменено, чтобы сохранить её.</string>
+    <string name="audio_playlist_auth_unconfirmed">Сессия изменилась или требуется вход. Проверьте результат в исходном аккаунте VK.</string>
+    <string name="audio_playlist_change_unconfirmed">Не удалось подтвердить изменение. Обновите список плейлистов и проверьте результат.</string>
+    <string name="audio_playlist_rename">Переименовать плейлист</string>
+    <string name="audio_playlist_delete">Удалить плейлист</string>
+    <string name="audio_playlist_delete_confirm">Удалить плейлист «%1$s» из VK?</string>
+    <string name="audio_playlist_save">Сохранить</string>
+    <string name="audio_playlist_title_required">Введите название плейлиста.</string>
     <string name="audio_offline_library">Офлайн</string>
     <string name="audio_offline_empty">Нет сохранённых аудиозаписей.</string>
     <string name="audio_search_network">Искать в VK</string>

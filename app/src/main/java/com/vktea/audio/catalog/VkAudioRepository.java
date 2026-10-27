@@ -30,6 +30,8 @@ public interface VkAudioRepository extends AutoCloseable {
     default Request getPlaylists(int offset, int count, Callback<List<VkAudioPlaylist>> callback) { throw new UnsupportedOperationException(); }
     default Request getPlaylistAudio(VkAudioPlaylist playlist, int offset, int count, Callback<VkAudioPage> callback) { throw new UnsupportedOperationException(); }
     default Request createPlaylist(String title, Callback<Boolean> callback) { throw new UnsupportedOperationException(); }
+    default Request renamePlaylist(VkAudioPlaylist playlist, String title, Callback<Boolean> callback) { throw new UnsupportedOperationException(); }
+    default Request deletePlaylist(VkAudioPlaylist playlist, Callback<Boolean> callback) { throw new UnsupportedOperationException(); }
     default Request changeLibrary(VkAudioTrack track, boolean add, Callback<Boolean> callback) { throw new UnsupportedOperationException(); }
     default Request changePlaylist(VkAudioPlaylist playlist, VkAudioTrack track, boolean add, Callback<Boolean> callback) { throw new UnsupportedOperationException(); }
 

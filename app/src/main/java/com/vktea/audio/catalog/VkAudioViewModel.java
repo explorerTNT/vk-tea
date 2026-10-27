@@ -41,6 +41,19 @@ public final class VkAudioViewModel extends ViewModel {
         }
     }
 
+    /** One-time result retained until an active screen handles it. */
+    public static final class PlaylistMutationEvent {
+        public final VkAudioError error;
+        private boolean consumed;
+
+        private PlaylistMutationEvent(VkAudioError error) { this.error = error; }
+        public boolean consume() {
+            if (consumed) return false;
+            consumed = true;
+            return true;
+        }
+    }
+
     public static final class Factory implements ViewModelProvider.Factory {
         private final Context application;
 
@@ -61,12 +74,14 @@ public final class VkAudioViewModel extends ViewModel {
     private final VkAudioRepository repository;
     private final MutableLiveData<State> state = new MutableLiveData<>(
             new State(Collections.emptyList(), 0, 0, false, false, true, false, null));
+    private final MutableLiveData<PlaylistMutationEvent> playlistMutationEvent = new MutableLiveData<>();
     private VkAudioRepository.Request request;
     private boolean cleared;
     private long generation;
     private boolean failedRefresh;
     private String query = "";
     private VkAudioPlaylist playlist;
+    private boolean playlistMutationPending;
 
     public void showLibrary() { switchSource("", null); }
     public void search(String value) { switchSource(value == null ? "" : value.trim(), null); }
@@ -93,6 +108,72 @@ public final class VkAudioViewModel extends ViewModel {
     public void createPlaylist(String title, VkAudioRepository.Callback<Boolean> callback) {
         repository.createPlaylist(title, callback);
     }
+    public boolean isPlaylistMutationPending() { return playlistMutationPending; }
+    public LiveData<PlaylistMutationEvent> getPlaylistMutationEvent() { return playlistMutationEvent; }
+
+    public void renamePlaylist(VkAudioPlaylist selected, String title) {
+        requireMain();
+        if (selected == null || title == null || title.trim().isEmpty() || title.length() > 255) {
+            publishPlaylistMutation(new VkAudioError(VkAudioError.Kind.INVALID_REQUEST));
+            return;
+        }
+        if (!beginPlaylistMutation()) return;
+        repository.renamePlaylist(selected, title, playlistMutationCallback(selected, title, false));
+    }
+    public void deletePlaylist(VkAudioPlaylist selected) {
+        requireMain();
+        if (selected == null) {
+            publishPlaylistMutation(new VkAudioError(VkAudioError.Kind.INVALID_REQUEST));
+            return;
+        }
+        if (!beginPlaylistMutation()) return;
+        repository.deletePlaylist(selected, playlistMutationCallback(selected, null, true));
+    }
+
+    private boolean beginPlaylistMutation() {
+        requireMain();
+        if (cleared) return false;
+        if (playlistMutationPending) {
+            publishPlaylistMutation(new VkAudioError(VkAudioError.Kind.INVALID_REQUEST));
+            return false;
+        }
+        playlistMutationPending = true;
+        return true;
+    }
+
+    private void publishPlaylistMutation(VkAudioError error) {
+        if (!cleared) playlistMutationEvent.setValue(new PlaylistMutationEvent(error));
+    }
+
+    private VkAudioRepository.Callback<Boolean> playlistMutationCallback(VkAudioPlaylist selected, String title,
+            boolean delete) {
+        return new VkAudioRepository.Callback<Boolean>() {
+            @Override public void onSuccess(Boolean result) {
+                if (cleared) return;
+                playlistMutationPending = false;
+                if (!Boolean.TRUE.equals(result)) {
+                    publishPlaylistMutation(new VkAudioError(VkAudioError.Kind.MALFORMED_RESPONSE));
+                    return;
+                }
+                if (playlist != null && playlist.ownerId == selected.ownerId && playlist.id == selected.id) {
+                    if (delete) showLibrary();
+                    else {
+                        VkAudioPlaylist current = playlist;
+                        playlist = new VkAudioPlaylist(current.ownerId, current.id, title.trim(), current.accessKey,
+                                current.description, current.canEdit, current.canDelete, current.noDiscover);
+                        state.setValue(getCurrentState());
+                    }
+                }
+                publishPlaylistMutation(null);
+            }
+            @Override public void onError(VkAudioError error) {
+                if (cleared) return;
+                playlistMutationPending = false;
+                publishPlaylistMutation(error);
+            }
+        };
+    }
+
     public void changeLibrary(VkAudioTrack track, boolean add, VkAudioRepository.Callback<Boolean> callback) {
         repository.changeLibrary(track, add, callback);
     }

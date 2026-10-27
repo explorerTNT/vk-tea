@@ -335,7 +335,7 @@ public class DefaultVkAudioRepositoryTest {
                 + "\"permissions\":{\"edit\":false,\"delete\":true}},"
                 + "{\"id\":3,\"owner_id\":41},"
                 + "{\"id\":4,\"owner_id\":41,\"description\":null,"
-                + "\"permissions\":{\"edit\":null,\"delete\":1}},"
+                + "\"permissions\":{\"edit\":0,\"delete\":1}},"
                 + "{\"id\":5,\"owner_id\":41,\"description\":7,\"permissions\":\"invalid\"}]}}"));
         Result<List<VkAudioPlaylist>> result = new Result<>();
         repository.getPlaylists(0, 100, result);
@@ -348,11 +348,168 @@ public class DefaultVkAudioRepositoryTest {
         assertEquals("", result.value.get(1).description);
         assertEquals(Boolean.FALSE, result.value.get(1).canEdit);
         assertEquals(Boolean.TRUE, result.value.get(1).canDelete);
-        for (int i = 2; i < result.value.size(); i++) {
-            assertNull(result.value.get(i).description);
-            assertNull(result.value.get(i).canEdit);
-            assertNull(result.value.get(i).canDelete);
-        }
+        assertNull(result.value.get(2).description);
+        assertNull(result.value.get(2).canEdit);
+        assertNull(result.value.get(2).canDelete);
+        assertNull(result.value.get(3).description);
+        assertEquals(Boolean.FALSE, result.value.get(3).canEdit);
+        assertEquals(Boolean.TRUE, result.value.get(3).canDelete);
+        assertNull(result.value.get(4).description);
+        assertNull(result.value.get(4).canEdit);
+        assertNull(result.value.get(4).canDelete);
+    }
+
+    @Test
+    public void deletePlaylistSendsOnlyConfirmedIdentityAndRejectsFailure() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":1}"));
+        VkAudioPlaylist own = new VkAudioPlaylist(41, 7, "Synthetic", "synthetic-key", "Description", true, true);
+        Result<Boolean> result = new Result<>();
+        repository.deletePlaylist(own, result);
+        await(result);
+        assertEquals(Boolean.TRUE, result.value);
+        assertEquals("POST", captured.get().method());
+        assertEquals("/method/audio.deletePlaylist", captured.get().url().encodedPath());
+        assertEquals("5.290", captured.get().url().queryParameter("v"));
+        assertEquals("41", captured.get().url().queryParameter("owner_id"));
+        assertEquals("7", captured.get().url().queryParameter("playlist_id"));
+        assertNull(captured.get().url().queryParameter("access_key"));
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void deletePlaylistRejectsForeignDeniedAndUnsuccessfulResponses() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":0}"));
+        Result<Boolean> foreign = new Result<>();
+        repository.deletePlaylist(new VkAudioPlaylist(42, 7, "", ""), foreign);
+        await(foreign);
+        assertEquals(VkAudioError.Kind.INVALID_REQUEST, foreign.error.kind);
+        Result<Boolean> denied = new Result<>();
+        repository.deletePlaylist(new VkAudioPlaylist(41, 7, "", "", null, null, false), denied);
+        await(denied);
+        assertEquals(VkAudioError.Kind.ACCESS_DENIED, denied.error.kind);
+        assertEquals(0, calls.get());
+        Result<Boolean> failed = new Result<>();
+        repository.deletePlaylist(new VkAudioPlaylist(41, 7, "", ""), failed);
+        await(failed);
+        assertEquals(VkAudioError.Kind.MALFORMED_RESPONSE, failed.error.kind);
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void renamePlaylistUsesFreshVisibilityAndDoesNotOverwriteOtherFields() throws Exception {
+        AtomicReference<okhttp3.Request> details = new AtomicReference<>();
+        create(chain -> {
+            if (chain.request().url().encodedPath().endsWith("audio.getPlaylistById")) {
+                details.set(chain.request());
+                return response(chain, 200, "{\"response\":{\"id\":7,\"owner_id\":41,\"no_discover\":true,\"description\":\"Keep\",\"permissions\":{\"edit\":true}}}");
+            }
+            return response(chain, 200, "{\"response\":1}");
+        });
+        Result<Boolean> result = new Result<>();
+        repository.renamePlaylist(new VkAudioPlaylist(41, 7, "Before", "key", "Keep", true, true, false), "  After  ", result);
+        await(result);
+        assertEquals(Boolean.TRUE, result.value);
+        assertEquals("/method/audio.getPlaylistById", details.get().url().encodedPath());
+        assertEquals("5.290", details.get().url().queryParameter("v"));
+        assertEquals("1", details.get().url().queryParameter("extended"));
+        assertEquals("key", details.get().url().queryParameter("access_key"));
+        okhttp3.Request edit = captured.get();
+        assertEquals("POST", edit.method());
+        assertEquals("/method/audio.editPlaylist", edit.url().encodedPath());
+        assertEquals("5.290", edit.url().queryParameter("v"));
+        assertEquals("41", edit.url().queryParameter("owner_id"));
+        assertEquals("7", edit.url().queryParameter("playlist_id"));
+        assertEquals("After", edit.url().queryParameter("title"));
+        assertEquals("1", edit.url().queryParameter("no_discover"));
+        assertNull(edit.url().queryParameter("description"));
+        assertNull(edit.url().queryParameter("access_key"));
+        assertEquals(2, calls.get());
+    }
+
+    @Test
+    public void renamePlaylistRejectsMissingVisibilityWithoutSendingEdit() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":{\"id\":7,\"owner_id\":41}}"));
+        Result<Boolean> result = new Result<>();
+        repository.renamePlaylist(new VkAudioPlaylist(41, 7, "Before", ""), "After", result);
+        await(result);
+        assertEquals(VkAudioError.Kind.PLAYLIST_VISIBILITY_UNKNOWN, result.error.kind);
+        assertEquals("/method/audio.getPlaylistById", captured.get().url().encodedPath());
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void renamePlaylistRejectsForeignDeniedOrWrongDetailsWithoutMutation() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":{\"id\":8,\"owner_id\":41,\"no_discover\":true}}"));
+        Result<Boolean> foreign = new Result<>();
+        repository.renamePlaylist(new VkAudioPlaylist(42, 7, "", ""), "New", foreign);
+        await(foreign);
+        assertEquals(VkAudioError.Kind.INVALID_REQUEST, foreign.error.kind);
+        Result<Boolean> denied = new Result<>();
+        repository.renamePlaylist(new VkAudioPlaylist(41, 7, "", "", null, false, null), "New", denied);
+        await(denied);
+        assertEquals(VkAudioError.Kind.ACCESS_DENIED, denied.error.kind);
+        assertEquals(0, calls.get());
+        Result<Boolean> invalid = new Result<>();
+        repository.renamePlaylist(new VkAudioPlaylist(41, 7, "", ""), "New", invalid);
+        await(invalid);
+        assertEquals(VkAudioError.Kind.MALFORMED_RESPONSE, invalid.error.kind);
+        assertEquals(1, calls.get());
+        assertEquals("/method/audio.getPlaylistById", captured.get().url().encodedPath());
+    }
+
+    @Test
+    public void renamePlaylistHonorsFreshServerDenialAndNeverIssuesEdit() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":{\"id\":7,\"owner_id\":41,\"permissions\":{\"edit\":0}}}"));
+        Result<Boolean> result = new Result<>();
+        repository.renamePlaylist(new VkAudioPlaylist(41, 7, "", ""), "New", result);
+        await(result);
+        assertEquals(VkAudioError.Kind.ACCESS_DENIED, result.error.kind);
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void renamePlaylistDoesNotRetryOrReportSuccessWhenVkRejectsEdit() throws Exception {
+        create(chain -> response(chain, 200, chain.request().url().encodedPath().endsWith("audio.getPlaylistById")
+                ? "{\"response\":{\"id\":7,\"owner_id\":41,\"no_discover\":false}}"
+                : "{\"error\":{\"error_code\":6}}"));
+        Result<Boolean> result = new Result<>();
+        repository.renamePlaylist(new VkAudioPlaylist(41, 7, "", ""), "New", result);
+        await(result);
+        assertEquals(VkAudioError.Kind.RATE_LIMITED, result.error.kind);
+        assertEquals(2, calls.get());
+    }
+
+    @Test
+    public void renamePlaylistDoesNotMutateIfSessionChangesBeforeDetailsDelivery() throws Exception {
+        CountDownLatch intercepted = new CountDownLatch(1);
+        create(chain -> {
+            intercepted.countDown();
+            return response(chain, 200, "{\"response\":{\"id\":7,\"owner_id\":41}} ");
+        });
+        Result<Boolean> result = new Result<>();
+        repository.renamePlaylist(new VkAudioPlaylist(41, 7, "", ""), "New", result);
+        assertTrue(intercepted.await(4, TimeUnit.SECONDS));
+        credentials.set(new DefaultVkAudioRepository.Credentials("other-token", "", "42"));
+        await(result);
+        assertEquals(VkAudioError.Kind.AUTH_REQUIRED, result.error.kind);
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void cancelRenameBeforeDetailDeliveryPreventsMutation() throws Exception {
+        CountDownLatch intercepted = new CountDownLatch(1);
+        create(chain -> {
+            intercepted.countDown();
+            return response(chain, 200, "{\"response\":{\"id\":7,\"owner_id\":41}} ");
+        });
+        Result<Boolean> result = new Result<>();
+        VkAudioRepository.Request request = repository.renamePlaylist(new VkAudioPlaylist(41, 7, "", ""), "New", result);
+        assertTrue(intercepted.await(4, TimeUnit.SECONDS));
+        request.cancel();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertTrue(request.isCanceled());
+        assertEquals(0, result.callbacks);
+        assertEquals(1, calls.get());
     }
 
     @Test
