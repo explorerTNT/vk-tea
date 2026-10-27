@@ -49,8 +49,11 @@ public final class DialogsParser {
                     ? conversation.optInt("unread_count", 0) > 0 : row.has("unread")
                     ? row.optInt("unread", 0) > 0
                     : !flag(message, "out", false) && !flag(message, "read_state", true);
+            int unreadCount = conversation != null && conversation.has("unread_count")
+                    ? Math.max(0, conversation.optInt("unread_count", 0)) : row.has("unread")
+                    ? Math.max(0, row.optInt("unread", 0)) : -1;
             dialogs.add(new Dialog(peerId, title, photo, first(text(message, "text"), text(message, "body")),
-                    Math.max(0, message.optLong("date", 0)), unread));
+                    Math.max(0, message.optLong("date", 0)), unread, unreadCount));
         }
         return dialogs;
     }

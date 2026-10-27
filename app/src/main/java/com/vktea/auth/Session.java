@@ -20,6 +20,7 @@ public class Session {
                 .putString(KEY_USER_ID, userId)
                 .putString(KEY_SECRET, secret != null ? secret : "")
                 .apply();
+        com.vktea.msg.MessageLongPoll.sessionChanged();
     }
 
     public static boolean isAuthorized(Context context) {
@@ -40,6 +41,7 @@ public class Session {
 
     public static void clear(Context context) {
         prefs(context).edit().clear().apply();
+        com.vktea.msg.MessageLongPoll.sessionChanged();
         com.vktea.audio.AudioPlayback.stop(context);
     }
 

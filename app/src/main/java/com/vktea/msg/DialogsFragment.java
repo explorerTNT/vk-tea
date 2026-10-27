@@ -26,6 +26,23 @@ public class DialogsFragment extends Fragment {
     private DialogsAdapter adapter;
     private SwipeRefreshLayout refresh;
     private int generation;
+    private boolean startedOnce;
+    private final MessageLongPoll.Listener liveUpdates = this::load;
+
+    @Override public void onStart() {
+        super.onStart();
+        subscribeLiveUpdates();
+        if (startedOnce) load();
+        startedOnce = true;
+    }
+
+    @Override public void onStop() {
+        unsubscribeLiveUpdates();
+        super.onStop();
+    }
+
+    protected void subscribeLiveUpdates() { MessageLongPoll.get(requireContext()).addListener(liveUpdates); }
+    protected void unsubscribeLiveUpdates() { MessageLongPoll.get(requireContext()).removeListener(liveUpdates); }
 
     @Nullable
     @Override

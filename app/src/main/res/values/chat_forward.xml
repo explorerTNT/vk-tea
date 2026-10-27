@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_forward_action">Переслать</string>
+    <string name="chat_forward_choose">Кому переслать</string>
+    <string name="chat_forward_no_recipients">Нет доступных диалогов</string>
+    <string name="chat_forward_load_failed">Не удалось загрузить диалоги</string>
+    <string name="chat_forward_sent">Сообщение переслано</string>
+    <string name="chat_forward_send_failed">Не удалось подтвердить отправку. Проверьте диалог получателя перед повтором.</string>
+</resources>

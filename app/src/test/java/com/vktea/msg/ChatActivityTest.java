@@ -129,6 +129,21 @@ public class ChatActivityTest {
         assertNull(input.getBackground());
     }
 
+    @Test public void longPressServerMessageOffersForwardActionWithoutSending() throws Exception {
+        open(42);
+        deliver("{\"response\":{\"items\":[{\"id\":15,\"from_id\":42,\"text\":\"Synthetic\"}]}}");
+        RecyclerView list = activity.findViewById(R.id.chat_list);
+        ChatMessagesAdapter adapter = (ChatMessagesAdapter) list.getAdapter();
+        ChatMessagesAdapter.Holder holder = adapter.onCreateViewHolder(list, adapter.getItemViewType(0));
+        adapter.onBindViewHolder(holder, 0);
+        assertTrue(holder.bubble.performLongClick());
+        androidx.appcompat.app.AlertDialog dialog = (androidx.appcompat.app.AlertDialog)
+                org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        assertNotNull(dialog);
+        assertEquals(activity.getString(R.string.chat_forward_action), dialog.getListView().getItemAtPosition(0));
+        assertEquals(0, activity.sendCalls);
+    }
+
     @Test public void invalidPeerNeverLoadsMarksReadOrSends() {
         open(0);
         assertEquals(0, activity.requests);
@@ -188,6 +203,62 @@ public class ChatActivityTest {
         assertEquals(1, list.getAdapter().getItemCount());
     }
 
+    @Test public void uncertainSendRemainsVisibleWithoutAutomaticRetry() throws Exception {
+        open(42);
+        deliver("{\"response\":{\"items\":[]}}");
+        activity.useRealSend = true;
+        ((EditText) activity.findViewById(R.id.chat_input)).setText("Synthetic message");
+        activity.findViewById(R.id.chat_send).performClick();
+        assertTrue(localStatus().contains("Отправка…"));
+        activity.sending.error(new Exception("Synthetic transport failure"));
+        assertTrue(localStatus().contains("Отправка не подтверждена"));
+        assertEquals(1, activity.requestSendCalls);
+        activity.onLiveMessagesChanged();
+        deliver("{\"response\":{\"items\":[]}}");
+        assertTrue(localStatus().contains("Отправка не подтверждена"));
+        assertEquals(1, activity.requestSendCalls);
+    }
+
+    @Test public void missingServerIdIsUnconfirmedAndAcceptedIdIsNotMarkedRead() throws Exception {
+        open(42);
+        deliver("{\"response\":{\"items\":[]}}");
+        activity.useRealSend = true;
+        ((EditText) activity.findViewById(R.id.chat_input)).setText("Synthetic message");
+        activity.findViewById(R.id.chat_send).performClick();
+        activity.sending.success(new JSONObject("{\"response\":0}"));
+        assertTrue(localStatus().contains("Отправка не подтверждена"));
+        ((EditText) activity.findViewById(R.id.chat_input)).setText("Another synthetic message");
+        activity.findViewById(R.id.chat_send).performClick();
+        activity.sending.success(new JSONObject("{\"response\":17}"));
+        RecyclerView list = activity.findViewById(R.id.chat_list);
+        ChatMessagesAdapter adapter = (ChatMessagesAdapter) list.getAdapter();
+        ChatMessagesAdapter.Holder holder = adapter.onCreateViewHolder(list, adapter.getItemViewType(1));
+        adapter.onBindViewHolder(holder, 1);
+        assertFalse(holder.time.getText().toString().contains("✓"));
+        assertFalse(holder.time.getText().toString().contains("Отправка"));
+        assertEquals(2, activity.requestSendCalls);
+    }
+
+    private String localStatus() {
+        RecyclerView list = activity.findViewById(R.id.chat_list);
+        ChatMessagesAdapter adapter = (ChatMessagesAdapter) list.getAdapter();
+        ChatMessagesAdapter.Holder holder = adapter.onCreateViewHolder(list, adapter.getItemViewType(0));
+        adapter.onBindViewHolder(holder, 0);
+        return holder.time.getText().toString();
+    }
+
+    @Test public void liveEventDuringHistoryLoadTriggersOneFollowUpAndMarksNewIncomingRead() throws Exception {
+        open(42);
+        activity.onLiveMessagesChanged();
+        activity.onLiveMessagesChanged();
+        assertEquals(1, activity.requests);
+        deliver("{\"response\":{\"items\":[{\"id\":1,\"from_id\":42,\"text\":\"first\"}]}}");
+        assertEquals(2, activity.requests);
+        deliver("{\"response\":{\"items\":[{\"id\":2,\"from_id\":42,\"text\":\"new\"},{\"id\":1,\"from_id\":42,\"text\":\"first\"}]}}");
+        assertEquals(2, ((RecyclerView) activity.findViewById(R.id.chat_list)).getAdapter().getItemCount());
+        assertEquals(2, activity.readCalls);
+    }
+
     @Test @Config(sdk = 35)
     public void imeInsetReplacesNavigationInsetAndPreservesSideAndStatusInsets() {
         open(42);
@@ -203,12 +274,15 @@ public class ChatActivityTest {
     }
 
     public static class OfflineChat extends ChatActivity {
+        @Override protected void subscribeLiveUpdates() { }
+        @Override protected void unsubscribeLiveUpdates() { }
         VKApi.Callback pending;
         VKApi.Callback sending;
         boolean useRealSend;
         int requests;
         int readCalls;
         int sendCalls;
+        int requestSendCalls;
         String sent;
         @Override protected void requestHistory(VKApi.Callback callback) { requests++; pending = callback; }
         @Override protected void markRead() { readCalls++; }
@@ -216,6 +290,6 @@ public class ChatActivityTest {
             if (useRealSend) super.sendMessage(text);
             else { sendCalls++; sent = text; }
         }
-        @Override protected void requestSend(String text, VKApi.Callback callback) { sending = callback; }
+        @Override protected void requestSend(String text, VKApi.Callback callback) { requestSendCalls++; sending = callback; }
     }
 }

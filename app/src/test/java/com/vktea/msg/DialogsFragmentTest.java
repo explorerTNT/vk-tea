@@ -123,6 +123,8 @@ public class DialogsFragmentTest {
     }
 
     public static class OfflineDialogs extends DialogsFragment {
+        @Override protected void subscribeLiveUpdates() { }
+        @Override protected void unsubscribeLiveUpdates() { }
         final List<VKApi.Callback> dialogs = new ArrayList<>();
         final List<VKApi.Callback> users = new ArrayList<>();
         final List<VKApi.Callback> groups = new ArrayList<>();

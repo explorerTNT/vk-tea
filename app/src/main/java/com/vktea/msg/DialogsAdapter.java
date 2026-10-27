@@ -71,6 +71,8 @@ public class DialogsAdapter extends RecyclerView.Adapter<DialogsAdapter.DialogVi
         holder.time.setText(DateUtils.getRelativeTimeSpanString(dialog.date * 1000L,
                 System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS));
         holder.unread.setVisibility(dialog.unread ? View.VISIBLE : View.GONE);
+        holder.unread.setText(dialog.unreadCount > 0
+                ? (dialog.unreadCount > 999 ? "999+" : String.valueOf(dialog.unreadCount)) : "");
         boolean group = dialog.peerId < 0 || dialog.peerId >= 2000000000L;
         if (images == null) MessageAvatars.bind(holder.avatar, dialog.photo, group);
         else MessageAvatars.bind(holder.avatar, dialog.photo, group, images);
@@ -100,7 +102,7 @@ public class DialogsAdapter extends RecyclerView.Adapter<DialogsAdapter.DialogVi
         final TextView name;
         final TextView excerpt;
         final TextView time;
-        final View unread;
+        final TextView unread;
 
         DialogViewHolder(@NonNull View itemView) {
             super(itemView);

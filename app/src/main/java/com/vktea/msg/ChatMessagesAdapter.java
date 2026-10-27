@@ -28,7 +28,10 @@ import java.util.Locale;
 
 /** Recycled display rows only; API requests and opening viewers belong to the activity. */
 public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessagesAdapter.Holder> {
-    public interface Callback { void onAttachmentClicked(ChatAttachment attachment); }
+    public interface Callback {
+        void onAttachmentClicked(ChatAttachment attachment);
+        default void onMessageLongClicked(ChatMessage message) { }
+    }
     interface ImageSize { void onSize(int width, int height); }
     interface Images {
         void load(ImageView target, String url, boolean circle, @Nullable ImageSize size);
@@ -77,6 +80,10 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         clearImages(holder.itemView);
         holder.attachments.removeAllViews();
         ChatMessage message = messages.get(position);
+        holder.bubble.setOnLongClickListener(message.id > 0 && callback != null ? v -> {
+            callback.onMessageLongClicked(message);
+            return true;
+        } : null);
         int group = groupAt(position);
         holder.bubble.setBackgroundResource((message.out ? OUT_BACKGROUNDS : IN_BACKGROUNDS)[group]);
         holder.bubble.setPaddingRelative(dp(holder.bubble, message.out ? 12 : 22), dp(holder.bubble, 7),
@@ -90,8 +97,22 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         holder.text.setText(message.body.isEmpty() && message.attachments.isEmpty()
                 ? holder.text.getContext().getString(R.string.chat_message_empty) : message.body);
         holder.text.setVisibility(holder.text.length() == 0 ? View.GONE : View.VISIBLE);
-        holder.time.setText(new SimpleDateFormat("HH:mm", Locale.getDefault())
-                .format(new Date(message.date * 1000L)));
+        String time = new SimpleDateFormat("HH:mm", Locale.getDefault())
+                .format(new Date(message.date * 1000L));
+        if (message.out && message.sendStatus != ChatMessage.SendStatus.NONE) {
+            int label = message.sendStatus == ChatMessage.SendStatus.SENDING
+                    ? R.string.chat_status_sending : R.string.chat_status_unconfirmed;
+            String status = holder.time.getContext().getString(label);
+            holder.time.setText(time + " · " + status);
+            holder.time.setContentDescription(time + ", " + status);
+        } else if (message.out && message.readState >= 0) {
+            holder.time.setText(time + (message.readState == 1 ? "  ✓✓" : "  ✓"));
+            holder.time.setContentDescription(time + ", " + holder.time.getContext().getString(
+                    message.readState == 1 ? R.string.chat_status_read : R.string.chat_status_sent));
+        } else {
+            holder.time.setText(time);
+            holder.time.setContentDescription(time);
+        }
 
         if (holder.avatar != null) {
             boolean endOfGroup = group == SINGLE || group == BOTTOM;
@@ -136,7 +157,9 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
             subtitle.setText(detail);
             subtitle.setVisibility(detail.isEmpty() ? View.GONE : View.VISIBLE);
         }
-        boolean canOpen = hasPreview || (attachment.id != 0
+        boolean canOpen = ChatAttachmentActions.canOpen(attachment)
+                || ("audio_message".equals(attachment.type) && !attachment.url.isEmpty())
+                || hasPreview || (attachment.id != 0
                 && (attachment.type.equals("video") || attachment.type.equals("clip")));
         if (callback != null && canOpen) {
             child.setOnClickListener(v -> callback.onAttachmentClicked(attachment));

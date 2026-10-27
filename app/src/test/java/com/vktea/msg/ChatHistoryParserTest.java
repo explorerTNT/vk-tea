@@ -21,6 +21,38 @@ import java.util.List;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 public class ChatHistoryParserTest {
+    @Test public void readStateIsOnlyKnownWhenSuppliedForOutgoingMessages() throws Exception {
+        List<ChatMessage> rows = ChatHistoryParser.parse(history(
+                message(5, 5, 91).put("out", 1).put("read_state", 1),
+                message(4, 4, 91).put("out", 1).put("read_state", 0),
+                message(3, 3, 91).put("out", 1),
+                message(2, 2, 91).put("out", 1).put("read_state", 9),
+                message(1, 1, 91).put("read_state", 1)), 91);
+        assertEquals(-1, rows.get(0).readState);
+        assertEquals(-1, rows.get(1).readState);
+        assertEquals(-1, rows.get(2).readState);
+        assertEquals(0, rows.get(3).readState);
+        assertEquals(1, rows.get(4).readState);
+    }
+    @Test
+    public void unavailableMediaCannotBeOpenedAndLegacyVoiceKeepsItsPlaybackUrl() throws Exception {
+        JSONObject restricted = object("id", 9, "owner_id", 91, "content_restricted", 1,
+                "access_key", "synthetic", "photo_320", "https://example.invalid/preview",
+                "url", "https://example.invalid/video");
+        JSONObject voice = object("title", "audio_message.ogg", "preview", object("audio_msg",
+                object("duration", 17, "link_mp3", "https://example.invalid/voice.mp3")));
+        List<ChatAttachment> parts = only(message(1, 100, 91).put("attachments", array(
+                attachment("video", restricted), attachment("doc", voice)))).attachments;
+        assertTrue(parts.get(0).title.contains("недоступно"));
+        assertEquals("", parts.get(0).previewUrl);
+        assertEquals("", parts.get(0).url);
+        assertEquals(0, parts.get(0).id);
+        assertEquals("audio_message", parts.get(1).type);
+        assertEquals("Голосовое сообщение", parts.get(1).title);
+        assertEquals("https://example.invalid/voice.mp3", parts.get(1).url);
+        assertEquals(17, parts.get(1).duration);
+    }
+
     @Test
     public void chronologicalHistoryResolvesProfilesGroupsAndLegacyOutgoingAuthor() throws Exception {
         JSONObject newest = message(3, 300, 91).put("text", "Synthetic newest");

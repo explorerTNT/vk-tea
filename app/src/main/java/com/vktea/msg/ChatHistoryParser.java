@@ -54,7 +54,8 @@ public final class ChatHistoryParser {
                         || flag(row, "deleted", false) ? "Сообщение удалено" : "Сообщение недоступно";
             }
             messages.add(new ChatMessage(row.optLong("id", row.optLong("mid", 0)), out, from,
-                    person.name, person.avatar, body, Math.max(0, row.optLong("date", 0)), attachments));
+                    person.name, person.avatar, body, Math.max(0, row.optLong("date", 0)), attachments,
+                    out && row.has("read_state") ? row.optInt("read_state", -1) : -1));
         }
         Collections.reverse(messages);
         // Stable sort preserves the reversed API order for messages with the same second.
@@ -145,9 +146,11 @@ public final class ChatHistoryParser {
                     if (image == null) image = legacy(preview.optJSONObject("graffiti"), new String[]{"src", "url"});
                     JSONObject voice = preview.optJSONObject("audio_msg");
                     if (voice != null) {
+                        type = "audio_message";
                         duration = positiveInt(voice, "duration");
-                        title = nonempty(title, "Голосовое сообщение");
+                        title = "Голосовое сообщение";
                         url = first(string(voice, "link_mp3", ""), string(voice, "link_ogg", ""), url);
+                        image = null;
                     }
                 }
                 title = nonempty(title, "Документ");
@@ -215,12 +218,16 @@ public final class ChatHistoryParser {
         if (restricted) {
             title = nonempty(title, label(type)) + " · недоступно";
             url = "";
+            image = null;
+            id = 0;
+            owner = 0;
+            key = "";
         }
         int width = image != null && image.width > 0 && image.height > 0 ? image.width : positiveInt(value, "width");
         int height = image != null && image.width > 0 && image.height > 0 ? image.height : positiveInt(value, "height");
         if (width == 0 || height == 0) { width = 0; height = 0; }
         return new ChatAttachment(type, title, subtitle, image == null ? "" : image.url,
-                url, width, height, duration, id, owner, key, viewerPhoto(type, value));
+                url, width, height, duration, id, owner, key, restricted ? null : viewerPhoto(type, value));
     }
 
     private static ViewerPhoto viewerPhoto(String type, JSONObject value) {

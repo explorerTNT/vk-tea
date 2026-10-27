@@ -119,6 +119,26 @@
         android:gravity="bottom"
         android:orientation="horizontal">
 
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/chat_attach"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/chat_attach_file"
+            android:padding="12dp"
+            android:src="@drawable/ic_chat_attach"
+            app:tint="@color/vk_blue" />
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/chat_voice"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/chat_voice_record"
+            android:padding="12dp"
+            android:src="@drawable/ic_chat_mic"
+            app:tint="@color/vk_blue" />
+
         <EditText
             android:id="@+id/chat_input"
             android:layout_width="0dp"

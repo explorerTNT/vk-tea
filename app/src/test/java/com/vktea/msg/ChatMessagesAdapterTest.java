@@ -38,6 +38,27 @@ public class ChatMessagesAdapterTest {
     private final List<ChatAttachment> clicked = new ArrayList<>();
     private final ChatMessagesAdapter adapter = new ChatMessagesAdapter(clicked::add, images);
 
+    @Test public void readIndicatorAppearsOnlyForKnownOutgoingStateAndRecyclingClearsIt() {
+        ChatMessage unread = new ChatMessage(1, true, 0, "", "", "Text", 100,
+                Collections.emptyList(), 0);
+        ChatMessage read = new ChatMessage(2, true, 0, "", "", "Text", 100,
+                Collections.emptyList(), 1);
+        ChatMessage unknown = new ChatMessage(3, true, 0, "", "", "Text", 100,
+                Collections.emptyList());
+        adapter.replaceAll(Collections.singletonList(unread));
+        ChatMessagesAdapter.Holder holder = bind(0, 320, 1f);
+        assertTrue(holder.time.getText().toString().endsWith("✓"));
+        assertTrue(holder.time.getContentDescription().toString().contains("не прочитано"));
+        adapter.replaceAll(Collections.singletonList(read));
+        adapter.onBindViewHolder(holder, 0);
+        assertTrue(holder.time.getText().toString().endsWith("✓✓"));
+        assertTrue(holder.time.getContentDescription().toString().contains("Прочитано"));
+        adapter.replaceAll(Collections.singletonList(unknown));
+        adapter.onBindViewHolder(holder, 0);
+        assertFalse(holder.time.getText().toString().contains("✓"));
+        assertFalse(holder.time.getContentDescription().toString().contains("прочитано"));
+    }
+
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     public void outgoingLongUnbrokenTextFitsNarrowLargeFontAndLandscape() {
         String body = "Synthetic text https://example.invalid/" + repeat("UnbrokenSegment", 35)

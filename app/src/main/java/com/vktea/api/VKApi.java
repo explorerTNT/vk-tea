@@ -66,11 +66,13 @@ public class VKApi {
                 if (root.has("response")) {
                     MAIN.post(() -> callback.success(root));
                 } else {
-                    android.util.Log.e("VKTea", "api error " + method + ": " + root);
+                    // API errors may contain request parameters including credentials.
+                    android.util.Log.e("VKTea", "api error " + method);
                     MAIN.post(() -> callback.error(new Exception(root.optString("error_description", "api error"))));
                 }
             } catch (Exception e) {
-                android.util.Log.e("VKTea", "api fail " + method, e);
+                // Transport exception text can include the complete authenticated URL.
+                android.util.Log.e("VKTea", "api fail " + method);
                 MAIN.post(() -> callback.error(e));
             }
         }).start();
