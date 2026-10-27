@@ -340,3 +340,6 @@ java -jar apktool.jar d -f -s -o vk-tea-reference\apktool-res <apk>
 | Мёртвые api-роуты (ads, старые методы) | WebView `m.vk.com` |
 | `player.ads.*` | выкидываем |
 | GMS-зависимости старые | актуальные или отказ |
+# Ответы и уведомления
+
+В Coffee `fragments/feedback/NotificationsFragment` загружает страницы через `api/notifications/NotificationsGet`: запрос передаёт `count`, `start_from`, фильтры и поля профиля, а ответ содержит `next_from`. В VK Tea реализован собственный разбор `notifications.get`, включая одиночный и сгруппированный feedback. Экран запрашивает доступную историю с `start_time=1` и не вызывает `notifications.markAsViewed`. Поддерживаемые объекты открываются по ссылке VK; неизвестные типы сохраняются в списке без предполагаемого перехода. Фильтры и фоновая доставка пока отсутствуют. Доступ метода и глубина истории на реальном аккаунте не проверены.

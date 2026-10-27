@@ -187,6 +187,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         if (current instanceof com.vktea.feed.ProfileFragment) title = ((com.vktea.feed.ProfileFragment) current).navigationTitleRes();
         else if (current instanceof com.vktea.friends.FriendsFragment) title = R.string.section_friends;
         else if (current instanceof com.vktea.groups.GroupsFragment) title = R.string.section_groups;
+        else if (current instanceof com.vktea.notifications.NotificationsFragment) title = R.string.section_feedback;
         else return;
         toolbarTitle.setText(title);
         toolbarTitle.setTextSize(23);
@@ -220,6 +221,10 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
     private void showSectionDropdown(View anchor) {
         androidx.fragment.app.Fragment current = getSupportFragmentManager().findFragmentById(R.id.content);
+        if (current instanceof com.vktea.notifications.NotificationsFragment) {
+            ((com.vktea.notifications.NotificationsFragment) current).showNotificationsMenu(anchor);
+            return;
+        }
         if (currentId == R.id.menu_audios && current instanceof com.vktea.ui.AudioFragment) {
             ((com.vktea.ui.AudioFragment) current).showAudioMenu(anchor);
             return;
@@ -317,6 +322,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.friends.FriendsFragment();
                 } else if (menuId == R.id.menu_groups) {
                     fragment = new com.vktea.groups.GroupsFragment();
+                } else if (menuId == R.id.menu_feedback) {
+                    fragment = new com.vktea.notifications.NotificationsFragment();
                 } else {
                     fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
                 }
