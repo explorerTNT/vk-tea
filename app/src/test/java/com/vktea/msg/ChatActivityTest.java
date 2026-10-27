@@ -259,6 +259,17 @@ public class ChatActivityTest {
         assertEquals(2, activity.readCalls);
     }
 
+    @Test public void successfulAttachmentDuringHistoryLoadSchedulesRefresh() throws Exception {
+        open(42);
+        activity.fileSent.run();
+        activity.voiceSent.run();
+        assertEquals(1, activity.requests);
+        deliver("{\"response\":{\"items\":[]}}");
+        assertEquals(2, activity.requests);
+        deliver("{\"response\":{\"items\":[{\"id\":9,\"text\":\"sent fixture\"}]}}");
+        assertEquals(1, ((RecyclerView) activity.findViewById(R.id.chat_list)).getAdapter().getItemCount());
+    }
+
     @Test @Config(sdk = 35)
     public void imeInsetReplacesNavigationInsetAndPreservesSideAndStatusInsets() {
         open(42);
@@ -276,6 +287,14 @@ public class ChatActivityTest {
     public static class OfflineChat extends ChatActivity {
         @Override protected void subscribeLiveUpdates() { }
         @Override protected void unsubscribeLiveUpdates() { }
+        Runnable fileSent;
+        Runnable voiceSent;
+        @Override protected VoiceMessageRecorder createVoiceRecorder(long peer, Runnable sent) {
+            voiceSent = sent; return super.createVoiceRecorder(peer, sent);
+        }
+        @Override protected ChatFileSender createFileSender(long peer, Runnable sent) {
+            fileSent = sent; return super.createFileSender(peer, sent);
+        }
         VKApi.Callback pending;
         VKApi.Callback sending;
         boolean useRealSend;

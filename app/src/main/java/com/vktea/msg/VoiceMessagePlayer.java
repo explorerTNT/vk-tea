@@ -18,10 +18,12 @@ import androidx.media3.ui.PlayerView;
 @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
 public final class VoiceMessagePlayer {
     private final AppCompatActivity activity;
+    private final androidx.media3.datasource.DataSource.Factory source;
     @Nullable private AlertDialog dialog;
     @Nullable private ExoPlayer player;
 
-    public VoiceMessagePlayer(AppCompatActivity activity) { this.activity = activity; }
+    public VoiceMessagePlayer(AppCompatActivity activity) { this(activity, null); }
+    VoiceMessagePlayer(AppCompatActivity activity, androidx.media3.datasource.DataSource.Factory source) { this.activity = activity; this.source = source; }
 
     public void open(String url) {
         Uri uri = Uri.parse(url == null ? "" : url);
@@ -30,7 +32,9 @@ public final class VoiceMessagePlayer {
             return;
         }
         close();
-        ExoPlayer current = new ExoPlayer.Builder(activity).build();
+        ExoPlayer.Builder builder = new ExoPlayer.Builder(activity);
+        if (source != null) builder.setMediaSourceFactory(new androidx.media3.exoplayer.source.DefaultMediaSourceFactory(source));
+        ExoPlayer current = builder.build();
         player = current;
         current.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA)
                 .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true);

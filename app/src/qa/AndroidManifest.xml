@@ -1,0 +1,14 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <application android:allowBackup="false" android:label="VK Tea Synthetic QA" tools:replace="android:allowBackup,android:label">
+        <activity android:name="com.vktea.MainActivity" tools:node="remove" />
+        <activity android:name="com.vktea.auth.AuthWebViewActivity" tools:node="remove" />
+        <activity android:name="com.vktea.msg.SyntheticDialogsActivity" android:exported="true" />
+        <activity android:name="com.vktea.msg.SyntheticChatActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

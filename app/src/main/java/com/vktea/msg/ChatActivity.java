@@ -110,7 +110,7 @@ public class ChatActivity extends AppCompatActivity {
         LinearLayoutManager layout = new LinearLayoutManager(this);
         layout.setStackFromEnd(true);
         list.setLayoutManager(layout);
-        voicePlayer = new VoiceMessagePlayer(this);
+        voicePlayer = createVoicePlayer();
         adapter = new ChatMessagesAdapter(new ChatMessagesAdapter.Callback() {
             @Override public void onAttachmentClicked(ChatAttachment attachment) { openAttachment(attachment); }
             @Override public void onMessageLongClicked(ChatMessage message) { showMessageActions(message); }
@@ -124,8 +124,8 @@ public class ChatActivity extends AppCompatActivity {
 
         View send = findViewById(R.id.chat_send);
         EditText input = findViewById(R.id.chat_input);
-        voiceRecorder = new VoiceMessageRecorder(this, peerId, () -> loadHistory(true));
-        fileSender = new ChatFileSender(this, peerId, () -> loadHistory(true));
+        voiceRecorder = createVoiceRecorder(peerId, this::onLiveMessagesChanged);
+        fileSender = createFileSender(peerId, this::onLiveMessagesChanged);
         View attach = findViewById(R.id.chat_attach);
         attach.setEnabled(peerId != 0);
         attach.setOnClickListener(v -> fileSender.choose());
@@ -158,6 +158,12 @@ public class ChatActivity extends AppCompatActivity {
         }
         ViewCompat.requestApplyInsets(root);
     }
+
+    // Factories let the isolated QA build use synthetic transports without altering user sessions.
+    protected VoiceMessagePlayer createVoicePlayer() { return new VoiceMessagePlayer(this); }
+    protected VoiceMessageRecorder createVoiceRecorder(long peer, Runnable sent) { return new VoiceMessageRecorder(this, peer, sent); }
+    protected ChatFileSender createFileSender(long peer, Runnable sent) { return new ChatFileSender(this, peer, sent); }
+    MessageForwarder createMessageForwarder() { return new MessageForwarder(this); }
 
     /** Separate transport boundary lets offline UI tests use synthetic history only. */
     protected void requestHistory(VKApi.Callback callback) {
@@ -333,7 +339,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     protected void requestSend(String text, VKApi.Callback callback) {
-        MessageForwarder send = new MessageForwarder(this);
+        MessageForwarder send = createMessageForwarder();
         textSends.add(send);
         send.sendText(peerId, text, new MessageForwarder.Callback() {
             @Override public void complete(JSONObject response) {
@@ -397,7 +403,7 @@ public class ChatActivity extends AppCompatActivity {
         if (forwardBusy) return;
         forwardBusy = true;
         if (forwarder != null) forwarder.close();
-        MessageForwarder operation = new MessageForwarder(this);
+        MessageForwarder operation = createMessageForwarder();
         forwarder = operation;
         operation.recipients(new MessageForwarder.Callback() {
             @Override public void complete(JSONObject response) {

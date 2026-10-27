@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 
 import com.vktea.api.VKApi;
@@ -50,9 +52,13 @@ public final class VoiceMessageRecorder {
     private final AppCompatActivity activity;
     private final long peerId;
     private final Runnable sent;
+    private final PreviewFactory previewFactory;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ActivityResultLauncher<String> permission;
-    private final OkHttpClient client = new OkHttpClient.Builder().retryOnConnectionFailure(false)
+    private final OkHttpClient client;
+
+    private static OkHttpClient defaultClient() {
+        return new OkHttpClient.Builder().retryOnConnectionFailure(false)
             .followRedirects(false).followSslRedirects(false)
             .addNetworkInterceptor(chain -> {
                 Response response = chain.proceed(chain.request());
@@ -60,10 +66,12 @@ public final class VoiceMessageRecorder {
             })
             .connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
             .callTimeout(90, TimeUnit.SECONDS).build();
+    }
     private MediaRecorder recorder;
-    private ExoPlayer preview;
+    private Preview preview;
     private AlertDialog dialog;
     private File file;
+    private Runnable recordingTimeout;
     private volatile Call upload;
     private long started;
     private volatile int generation;
@@ -72,9 +80,19 @@ public final class VoiceMessageRecorder {
 
     /** Construct in onCreate, before the activity reaches STARTED. */
     public VoiceMessageRecorder(AppCompatActivity activity, long peerId, Runnable sent) {
+        this(activity, peerId, sent, defaultClient());
+    }
+
+    VoiceMessageRecorder(AppCompatActivity activity, long peerId, Runnable sent, OkHttpClient client) {
+        this(activity, peerId, sent, client, () -> new ExoPreview(activity));
+    }
+
+    VoiceMessageRecorder(AppCompatActivity activity, long peerId, Runnable sent, OkHttpClient client, PreviewFactory previewFactory) {
+        this.client = client;
         this.activity = activity;
         this.peerId = peerId;
         this.sent = sent;
+        this.previewFactory = previewFactory;
         permission = activity.registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
             if (granted && !activity.isFinishing() && !activity.isDestroyed()) begin();
             else if (!granted) toast("Для записи нужно разрешение на микрофон");
@@ -103,13 +121,13 @@ public final class VoiceMessageRecorder {
             created.setAudioSamplingRate(48000);
             created.setAudioEncodingBitRate(32000);
             created.setOutputFile(file.getAbsolutePath());
-            created.setMaxDuration(120_000);
-            created.setOnInfoListener((ignored, what, extra) -> {
-                if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) main.post(this::finishRecording);
-            });
             created.prepare();
             created.start();
             started = SystemClock.elapsedRealtime();
+            // Stop ourselves: setMaxDuration stops asynchronously, so calling stop() in
+            // its info callback can race with the platform's own stop and discard audio.
+            recordingTimeout = () -> { if (recorder == created) finishRecording(); };
+            main.postDelayed(recordingTimeout, 120_000);
             dialog = new AlertDialog.Builder(activity).setTitle("Запись голосового сообщения")
                     .setMessage("Запись идёт. Максимум — 2 минуты.")
                     .setPositiveButton("Остановить", (ignored, which) -> finishRecording())
@@ -125,6 +143,7 @@ public final class VoiceMessageRecorder {
     private void finishRecording() {
         MediaRecorder current = recorder;
         if (current == null) return;
+        clearRecordingTimeout();
         recorder = null;
         boolean valid = SystemClock.elapsedRealtime() - started >= 500;
         try { current.stop(); } catch (RuntimeException failure) { valid = false; }
@@ -147,12 +166,19 @@ public final class VoiceMessageRecorder {
         review.setOnShowListener(ignored -> review.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view -> {
             if (preview != null) { stopPreview(); return; }
             if (file == null) return;
-            preview = new ExoPlayer.Builder(activity).build();
-            preview.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true);
-            preview.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)));
-            preview.prepare();
-            preview.play();
+            Preview candidate = null;
+            try {
+                candidate = previewFactory.create();
+                preview = candidate;
+                review.getButton(AlertDialog.BUTTON_NEUTRAL).setText("Остановить");
+                Preview playing = candidate;
+                candidate.start(file, () -> finishPreview(playing, false), () -> finishPreview(playing, true));
+            } catch (RuntimeException failure) {
+                if (candidate == null || preview == candidate) {
+                    stopPreview();
+                    toast("Не удалось воспроизвести запись");
+                }
+            }
         }));
         review.setOnDismissListener(ignored -> stopPreview());
         dialog.show();
@@ -317,6 +343,7 @@ public final class VoiceMessageRecorder {
     }
 
     private void cancelRecording() {
+        clearRecordingTimeout();
         stopPreview();
         MediaRecorder current = recorder;
         recorder = null;
@@ -344,7 +371,51 @@ public final class VoiceMessageRecorder {
 
     private synchronized void clearCall(Call call) { if (upload == call) upload = null; }
 
-    private void stopPreview() { if (preview != null) { preview.release(); preview = null; } }
+    interface PreviewFactory { Preview create(); }
+    interface Preview {
+        void start(File file, Runnable completed, Runnable failed);
+        void release();
+    }
+
+    private static final class ExoPreview implements Preview {
+        private final ExoPlayer player;
+        ExoPreview(AppCompatActivity activity) {
+            player = new ExoPlayer.Builder(activity).build();
+            player.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true);
+        }
+        @Override public void start(File file, Runnable completed, Runnable failed) {
+            player.addListener(new Player.Listener() {
+                @Override public void onPlaybackStateChanged(int state) {
+                    if (state == Player.STATE_ENDED) completed.run();
+                }
+                @Override public void onPlayerError(PlaybackException error) { failed.run(); }
+            });
+            player.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)));
+            player.prepare();
+            player.play();
+        }
+        @Override public void release() { player.release(); }
+    }
+
+    private void finishPreview(Preview current, boolean failed) {
+        if (preview != current) return;
+        stopPreview();
+        if (failed) toast("Не удалось воспроизвести запись");
+    }
+
+    private void stopPreview() {
+        Preview old = preview;
+        preview = null;
+        if (old != null) old.release();
+        if (dialog != null && dialog.isShowing() && dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null)
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setText("Прослушать");
+    }
+
+    private void clearRecordingTimeout() {
+        if (recordingTimeout != null) main.removeCallbacks(recordingTimeout);
+        recordingTimeout = null;
+    }
 
     private void deleteFile() { File old = file; file = null; if (old != null) old.delete(); }
     private void toast(String value) { Toast.makeText(activity, value, Toast.LENGTH_SHORT).show(); }

@@ -27,7 +27,14 @@ public class DialogsFragment extends Fragment {
     private SwipeRefreshLayout refresh;
     private int generation;
     private boolean startedOnce;
-    private final MessageLongPoll.Listener liveUpdates = this::load;
+    private boolean loading;
+    private boolean livePending;
+    private final MessageLongPoll.Listener liveUpdates = this::onLiveMessagesChanged;
+
+    protected void onLiveMessagesChanged() {
+        if (loading) livePending = true;
+        else load();
+    }
 
     @Override public void onStart() {
         super.onStart();
@@ -38,6 +45,7 @@ public class DialogsFragment extends Fragment {
 
     @Override public void onStop() {
         unsubscribeLiveUpdates();
+        livePending = false;
         super.onStop();
     }
 
@@ -65,6 +73,7 @@ public class DialogsFragment extends Fragment {
     protected void load() {
         if (adapter == null || refresh == null) return;
         final int request = ++generation;
+        loading = true;
         final DialogsAdapter target = adapter;
         refresh.setRefreshing(true);
         requestDialogs(new VKApi.Callback() {
@@ -77,12 +86,21 @@ public class DialogsFragment extends Fragment {
                     for (Dialog dialog : dialogs) target.add(dialog);
                     loadAvatars(request, target);
                 }
-                refresh.setRefreshing(false);
+                finishLoad();
             }
             @Override public void error(Exception e) {
-                if (current(request, target)) refresh.setRefreshing(false);
+                if (current(request, target)) finishLoad();
             }
         });
+    }
+
+    private void finishLoad() {
+        loading = false;
+        refresh.setRefreshing(false);
+        if (livePending) {
+            livePending = false;
+            load();
+        }
     }
 
     /** Transport boundaries also allow isolated UI checks without opening account conversations. */
@@ -143,6 +161,8 @@ public class DialogsFragment extends Fragment {
 
     @Override public void onDestroyView() {
         ++generation;
+        loading = false;
+        livePending = false;
         adapter = null;
         refresh = null;
         super.onDestroyView();

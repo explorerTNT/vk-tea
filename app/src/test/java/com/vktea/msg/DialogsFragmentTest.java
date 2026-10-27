@@ -101,6 +101,17 @@ public class DialogsFragmentTest {
         assertEquals(1, fragment.users.size());
     }
 
+    @Test public void liveBurstDuringSlowLoadIsCoalescedAndThenRefreshed() throws Exception {
+        fragment.onLiveMessagesChanged();
+        fragment.onLiveMessagesChanged();
+        assertEquals(1, fragment.dialogs.size());
+        fragment.dialogs.get(0).success(history());
+        assertEquals(2, fragment.dialogs.size());
+        fragment.dialogs.get(1).success(history());
+        assertEquals(3, adapter.getItemCount());
+        assertFalse(((SwipeRefreshLayout) fragment.requireView().findViewById(R.id.dialogs_refresh)).isRefreshing());
+    }
+
     private static JSONObject history() throws Exception {
         return json("{\"response\":{\"items\":["
                 + "{\"message\":{\"user_id\":42,\"title\":\"Already known name\"}},"

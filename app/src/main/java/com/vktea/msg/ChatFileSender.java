@@ -51,13 +51,17 @@ public final class ChatFileSender {
     private final long peerId;
     private final Runnable sent;
     private final Handler main = new Handler(Looper.getMainLooper());
-    private final OkHttpClient client = new OkHttpClient.Builder().retryOnConnectionFailure(false)
+    private final OkHttpClient client;
+
+    private static OkHttpClient defaultClient() {
+        return new OkHttpClient.Builder().retryOnConnectionFailure(false)
             .followRedirects(false).followSslRedirects(false)
             .addNetworkInterceptor(chain -> {
                 Response response = chain.proceed(chain.request());
                 return response.code() == 503 ? response.newBuilder().header("Retry-After", "2147483647").build() : response;
             }).connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS).callTimeout(120, TimeUnit.SECONDS).build();
+    }
     private final ActivityResultLauncher<Intent> picker;
     private volatile int generation;
     private volatile Call call;
@@ -65,6 +69,11 @@ public final class ChatFileSender {
     private String token, secret, user;
 
     public ChatFileSender(AppCompatActivity activity, long peerId, Runnable sent) {
+        this(activity, peerId, sent, defaultClient());
+    }
+
+    ChatFileSender(AppCompatActivity activity, long peerId, Runnable sent, OkHttpClient client) {
+        this.client = client;
         this.activity = activity;
         this.peerId = peerId;
         this.sent = sent;

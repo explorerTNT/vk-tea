@@ -33,13 +33,38 @@ public final class MessageLongPoll {
     private final Set<Listener> listeners = new LinkedHashSet<>();
     private final OkHttpClient client = new OkHttpClient.Builder().readTimeout(35, TimeUnit.SECONDS)
             .retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build();
-    private Call call;
+    interface Transport {
+        void acquire(VKApi.Callback callback);
+        Cancel poll(String server, String key, String ts, PollCallback callback);
+    }
+    interface Cancel { void cancel(); }
+    interface PollCallback { void success(JSONObject response); void failure(); }
+
+    private final Transport transport;
+    private final boolean synthetic;
+    private Cancel call;
     private int generation;
     private int failures;
+    private int protocolFailures;
     private String server, key, ts;
     private boolean pendingNotification;
+    private int notificationGeneration;
 
-    private MessageLongPoll(Context context) { this.context = context.getApplicationContext(); }
+    private MessageLongPoll(Context context) {
+        this.context = context.getApplicationContext();
+        this.transport = new NetworkTransport();
+        this.synthetic = false;
+    }
+    // The isolated test instance never reads or changes a user's session.
+    static MessageLongPoll forTesting(Context context, Transport transport) {
+        return new MessageLongPoll(context, transport);
+    }
+    private MessageLongPoll(Context context, Transport transport) {
+        this.context = context.getApplicationContext();
+        this.transport = transport;
+        this.synthetic = true;
+    }
+    private boolean authorized() { return synthetic || Session.isAuthorized(context); }
     public static synchronized MessageLongPoll get(Context context) {
         if (instance == null) instance = new MessageLongPoll(context);
         return instance;
@@ -56,11 +81,16 @@ public final class MessageLongPoll {
         call = null;
         server = key = ts = null;
         failures = 0;
-        if (!listeners.isEmpty() && Session.isAuthorized(context)) acquire(generation, false);
+        protocolFailures = 0;
+        if (!listeners.isEmpty() && authorized()) acquire(generation, false);
     }
     public void addListener(Listener listener) {
         if (!listeners.add(listener)) return;
-        if (listeners.size() == 1 && Session.isAuthorized(context)) { failures = 0; acquire(++generation, false); }
+        if (listeners.size() == 1 && authorized()) {
+            failures = 0;
+            protocolFailures = 0;
+            acquire(++generation, false);
+        }
     }
     public void removeListener(Listener listener) {
         listeners.remove(listener);
@@ -74,7 +104,7 @@ public final class MessageLongPoll {
     private boolean active(int current) { return generation == current && !listeners.isEmpty(); }
     private void acquire(int current, boolean preserveTs) {
         if (!active(current)) return;
-        VKApi.get(context, "messages.getLongPollServer", "lp_version=3&use_ssl=1", new VKApi.Callback() {
+        transport.acquire(new VKApi.Callback() {
             @Override public void success(JSONObject root) {
                 if (!active(current)) return;
                 JSONObject data = root == null ? null : root.optJSONObject("response");
@@ -105,40 +135,67 @@ public final class MessageLongPoll {
     }
     private void poll(int current) {
         if (!active(current)) return;
-        HttpUrl base = HttpUrl.parse(server);
-        if (base == null) { retry(current, false); return; }
-        HttpUrl url = base.newBuilder().addQueryParameter("act", "a_check")
-                .addQueryParameter("key", key).addQueryParameter("ts", ts)
-                .addQueryParameter("wait", "25").addQueryParameter("mode", "2")
-                .addQueryParameter("version", "3").build();
-        call = client.newCall(new Request.Builder().url(url).header("User-Agent", VKApi.USER_AGENT).build());
-        call.enqueue(new Callback() {
-            @Override public void onFailure(Call request, IOException ignored) { main.post(() -> retry(current, true)); }
-            @Override public void onResponse(Call request, Response response) {
-                try (Response result = response) {
-                    if (!result.isSuccessful() || result.body() == null) { main.post(() -> retry(current, true)); return; }
-                    JSONObject data = new JSONObject(result.body().string());
-                    main.post(() -> handle(current, data));
-                } catch (Exception ignored) { main.post(() -> retry(current, true)); }
-            }
+        call = transport.poll(server, key, ts, new PollCallback() {
+            @Override public void success(JSONObject data) { main.post(() -> handle(current, data)); }
+            @Override public void failure() { main.post(() -> retry(current, true)); }
         });
     }
+
+    private final class NetworkTransport implements Transport {
+        @Override public void acquire(VKApi.Callback callback) {
+            VKApi.get(context, "messages.getLongPollServer", "lp_version=3&use_ssl=1", callback);
+        }
+        @Override public Cancel poll(String server, String key, String ts, PollCallback callback) {
+            HttpUrl base = HttpUrl.parse(server);
+            if (base == null) { callback.failure(); return () -> { }; }
+            HttpUrl url = base.newBuilder().addQueryParameter("act", "a_check")
+                    .addQueryParameter("key", key).addQueryParameter("ts", ts)
+                    .addQueryParameter("wait", "25").addQueryParameter("mode", "10")
+                    .addQueryParameter("version", "3").build();
+            Call request = client.newCall(new Request.Builder().url(url).header("User-Agent", VKApi.USER_AGENT).build());
+            request.enqueue(new Callback() {
+                @Override public void onFailure(Call ignored, IOException error) { callback.failure(); }
+                @Override public void onResponse(Call ignored, Response response) {
+                    try (Response result = response) {
+                        if (!result.isSuccessful() || result.body() == null) { callback.failure(); return; }
+                        callback.success(new JSONObject(result.body().string()));
+                    } catch (Exception error) { callback.failure(); }
+                }
+            });
+            return request::cancel;
+        }
+    }
+
     private void handle(int current, JSONObject data) {
         if (!active(current)) return;
         int failed = data.optInt("failed", 0);
         if (failed == 1) {
             String next = data.optString("ts", "");
             if (next.isEmpty()) { retry(current, false); return; }
-            ts = next; notifyChanged(); poll(current); return;
+            ts = next;
+            notifyChanged();
+            afterProtocolFailure(current, () -> poll(current));
+            return;
         }
-        if (failed == 2) { acquire(current, true); return; }
-        if (failed != 0) { acquire(current, false); return; }
+        if (failed == 2) { afterProtocolFailure(current, () -> acquire(current, true)); return; }
+        if (failed != 0) { afterProtocolFailure(current, () -> acquire(current, false)); return; }
         String next = data.optString("ts", "");
         JSONArray updates = data.optJSONArray("updates");
         if (next.isEmpty() || updates == null) { retry(current, false); return; }
-        ts = next; failures = 0;
+        ts = next; failures = 0; protocolFailures = 0;
         if (hasRelevantUpdates(updates)) notifyChanged();
         poll(current);
+    }
+    private void afterProtocolFailure(int current, Runnable recovery) {
+        protocolFailures = Math.min(6, protocolFailures + 1);
+        if (protocolFailures == 1) {
+            recovery.run();
+            return;
+        }
+        long delay = Math.min(60_000L, 2_000L << (protocolFailures - 2));
+        main.postDelayed(() -> {
+            if (active(current)) recovery.run();
+        }, delay);
     }
     static boolean hasRelevantUpdates(JSONArray updates) {
         for (int i = 0; i < updates.length(); i++) {
@@ -151,11 +208,18 @@ public final class MessageLongPoll {
         return false;
     }
     private void notifyChanged() {
-        if (pendingNotification) return;
+        int current = generation;
+        if (pendingNotification && notificationGeneration == current) return;
         pendingNotification = true;
+        notificationGeneration = current;
         main.postDelayed(() -> {
+            if (notificationGeneration != current) return;
             pendingNotification = false;
-            for (Listener listener : new ArrayList<>(listeners)) listener.onMessagesChanged();
+            if (!active(current)) return;
+            for (Listener listener : new ArrayList<>(listeners)) {
+                if (!active(current)) break;
+                if (listeners.contains(listener)) listener.onMessagesChanged();
+            }
         }, 500);
     }
     private void retry(int current, boolean sameServer) {
