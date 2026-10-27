@@ -104,6 +104,10 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                     ((com.vktea.MainActivity) callback).onMenuHeaderClick();
                 }
             });
+            View accounts = h.itemView.findViewById(R.id.menu_header_search);
+            accounts.setContentDescription(accounts.getContext().getString(R.string.accounts_title));
+            accounts.setOnClickListener(v -> accounts.getContext().startActivity(
+                    new android.content.Intent(accounts.getContext(), com.vktea.auth.AccountActivity.class)));
             return h;
         }
         return new ItemViewHolder(inflater.inflate(R.layout.item_menu_entry, parent, false));

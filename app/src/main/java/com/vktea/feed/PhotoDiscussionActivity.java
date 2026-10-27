@@ -53,7 +53,9 @@ public class PhotoDiscussionActivity extends AppCompatActivity {
     }
 
     @Override protected void onCreate(Bundle state) {
-        super.onCreate(state);
+        boolean pendingReveal = com.vktea.auth.Session.hasPendingReveal(this);
+        super.onCreate(pendingReveal ? null : state);
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         ViewerPhoto photo = getIntent().getParcelableExtra(EXTRA_PHOTO);
         if (photo == null) { finish(); return; }
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
@@ -132,7 +134,7 @@ public class PhotoDiscussionActivity extends AppCompatActivity {
         like.setText(photo.likes > 0 ? FeedAdapter.formatCount(photo.likes) : getString(R.string.photo_viewer_like));
         like.setContentDescription(getString(R.string.photo_viewer_action_count,
                 getString(photo.liked ? R.string.photo_viewer_unlike : R.string.photo_viewer_like), photo.likes));
-        int color = photo.liked ? 0xff5685a6 : 0xff6d7885;
+        int color = getColor(photo.liked ? R.color.audio_accent : R.color.post_time);
         like.setTextColor(color);
         TextViewCompat.setCompoundDrawableTintList(like, ColorStateList.valueOf(color));
         like.setEnabled(canAct && (photo.canLike || photo.liked));
@@ -160,7 +162,7 @@ public class PhotoDiscussionActivity extends AppCompatActivity {
                 String heading = comment.date > 0 ? getString(R.string.photo_discussion_comment_author,
                         comment.author, RuDate.format(comment.date)) : comment.author;
                 row.setText(getString(R.string.photo_discussion_comment, heading, comment.text));
-                row.setTextSize(15); row.setTextColor(0xff2e3033); row.setTextIsSelectable(true);
+                row.setTextSize(15); row.setTextColor(getColor(R.color.almost_black)); row.setTextIsSelectable(true);
                 int padding = Math.round(12 * getResources().getDisplayMetrics().density);
                 row.setPadding(0, padding, 0, padding); rows.addView(row);
             }

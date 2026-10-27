@@ -83,4 +83,48 @@ public class SessionTest {
         }
         assertTrue("Signing out must request playback stop within this app", stopRequested);
     }
+
+    @Test public void migratesLegacySessionAndSwitchesWithoutLosingSecret() {
+        context.getSharedPreferences("session", Context.MODE_PRIVATE).edit()
+                .putString("access_token", "old").putString("secret", "old-secret")
+                .putString("user_id", "42").commit();
+        Session.save(context, "new", "73", "new-secret");
+        assertEquals(2, Session.savedAccounts(context).size());
+        assertTrue(Session.switchTo(context, "42"));
+        assertEquals("old", Session.getToken(context));
+        assertEquals("old-secret", Session.getSecret(context));
+        assertTrue(Session.switchTo(context, "73"));
+        assertEquals("new", Session.getToken(context));
+        assertEquals("new-secret", Session.getSecret(context));
+    }
+
+    @Test public void cancelledPendingLoginCannotTransferItsMarkerToAnotherAccount() {
+        Session.save(context, "synthetic-first-token", "42", "");
+        Session.saveForLogin(context, "synthetic-second-token", "73", "");
+        assertTrue(Session.hasPendingReveal(context));
+        assertFalse(Session.switchTo(context, "42"));
+        assertEquals("73", Session.getUserId(context));
+
+        Session.clear(context);
+        assertFalse(Session.hasPendingReveal(context));
+        assertFalse(context.getSharedPreferences("session", Context.MODE_PRIVATE)
+                .contains("pending_token_reveal"));
+        assertTrue(Session.switchTo(context, "42"));
+        assertEquals("42", Session.getUserId(context));
+        assertFalse(Session.hasPendingReveal(context));
+    }
+
+    @Test public void signOutAndRemovalOnlyRemoveSelectedAccount() {
+        Session.save(context, "old", "42", "old-secret");
+        Session.save(context, "new", "73", "new-secret");
+        Session.removeAccount(context, "42");
+        assertFalse(Session.switchTo(context, "42"));
+        assertEquals("new", Session.getToken(context));
+        Session.save(context, "old", "42", "old-secret");
+        Session.clear(context);
+        assertFalse(Session.isAuthorized(context));
+        assertTrue(Session.hasSavedAccounts(context));
+        assertTrue(Session.switchTo(context, "73"));
+        assertEquals("new", Session.getToken(context));
+    }
 }

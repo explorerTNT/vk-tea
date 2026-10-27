@@ -8,7 +8,7 @@
         <item name="colorPrimary">#FFFFFF</item>
         <item name="colorOnPrimary">#000000</item>
     </style>
-    <style name="Theme.VKTea.AudioPlayer" parent="Theme.Material3.Light.NoActionBar">
+    <style name="Theme.VKTea.AudioPlayer" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/audio_accent</item>
         <item name="colorSurface">@color/audio_surface</item>
         <item name="android:colorBackground">@color/audio_surface</item>
@@ -27,8 +27,8 @@
     </style>
     <style name="Theme.VKTea" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/vk_blue</item>
-        <item name="colorPrimaryDark">@color/vk_blue</item>
-        <item name="android:statusBarColor">@color/vk_blue</item>
+        <item name="colorPrimaryDark">@color/brand_bar</item>
+        <item name="android:statusBarColor">@color/brand_bar</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
@@ -39,7 +39,7 @@
 
     <style name="Widget.VKTea.Toolbar" parent="Widget.Material3.Toolbar">
         <item name="titleTextAppearance">@style/TextAppearance.VKTea.Toolbar.Title</item>
-        <item name="android:background">@color/vk_blue</item>
+        <item name="android:background">@color/brand_bar</item>
         <item name="titleTextColor">@android:color/white</item>
     </style>
 
@@ -72,7 +72,7 @@
     </style>
 
     <style name="ButtonAction.Gray">
-        <item name="android:textColor">#FF4774A8</item>
+        <item name="android:textColor">@color/button_gray_text</item>
         <item name="android:background">@drawable/white_button</item>
         <item name="android:minWidth">85dp</item>
     </style>

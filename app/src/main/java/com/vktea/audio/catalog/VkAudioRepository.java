@@ -20,6 +20,11 @@ public interface VkAudioRepository extends AutoCloseable {
         return new DefaultVkAudioRepository(context.getApplicationContext());
     }
 
+    /** Bind playback requests to the account generation that owns the service. */
+    static VkAudioRepository create(Context context, long generation) {
+        return new DefaultVkAudioRepository(context.getApplicationContext(), generation);
+    }
+
     Request getMyAudio(int offset, int count, Callback<VkAudioPage> callback);
 
     /** audios are validated owner_id_id[_access_key] identities, never media URLs. */

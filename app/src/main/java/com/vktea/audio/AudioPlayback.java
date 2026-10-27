@@ -20,6 +20,7 @@ public final class AudioPlayback {
 
     public static final String ACTION_OPEN_AUDIO = "com.vktea.action.OPEN_AUDIO";
     static final String ACTION_STOP = "com.vktea.audio.action.STOP";
+    static final String EXTRA_STOP_GENERATION = "com.vktea.audio.extra.STOP_GENERATION";
 
     private AudioPlayback() {}
 
@@ -57,7 +58,13 @@ public final class AudioPlayback {
      * service. The receiver is not exported, so other apps cannot send this action.
      */
     public static void stop(Context context) {
+        stop(context, Session.generation());
+    }
+
+    /** Targets only the service owning this session generation. */
+    public static void stop(Context context, long generation) {
         Context application = context.getApplicationContext();
-        application.sendBroadcast(new Intent(ACTION_STOP).setPackage(application.getPackageName()));
+        application.sendBroadcast(new Intent(ACTION_STOP).setPackage(application.getPackageName())
+                .putExtra(EXTRA_STOP_GENERATION, generation));
     }
 }

@@ -106,6 +106,24 @@ public class VkFriendsRepositoryTest {
         assertEquals(1, calls.get()); assertEquals(0, result.callbacks);
     }
 
+    @Test public void returningToSameCredentialsDoesNotDeliverAnEarlierSession() throws Exception {
+        session.set(new VkFriendsRepository.Snapshot("synthetic-token", "synthetic-secret", "41", 1));
+        CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
+        create(chain -> {
+            entered.countDown();
+            try { if (!release.await(3, TimeUnit.SECONDS)) throw new IOException("Synthetic timeout"); }
+            catch (InterruptedException ignored) { throw new IOException("Synthetic interruption"); }
+            return response(chain, 200, "{\"response\":{\"count\":1,\"items\":[{\"id\":7}]}}");
+        });
+        Result result = new Result(); repository.load(result); shadowOf(Looper.getMainLooper()).idle();
+        assertTrue(entered.await(3, TimeUnit.SECONDS));
+        session.set(new VkFriendsRepository.Snapshot("other", "", "42", 2));
+        session.set(new VkFriendsRepository.Snapshot("synthetic-token", "synthetic-secret", "41", 3));
+        release.countDown(); await(() -> result.callbacks == 1);
+        assertNull(result.rows); assertEquals(FriendsError.Kind.AUTH, result.error.kind);
+        assertEquals(1, calls.get());
+    }
+
     @Test public void changedSessionCannotDeliverAnOldAccountsFriendRows() throws Exception {
         CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
         create(chain -> {

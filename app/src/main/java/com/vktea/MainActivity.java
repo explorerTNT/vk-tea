@@ -46,9 +46,12 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        boolean pendingReveal = com.vktea.auth.Session.hasPendingReveal(this);
+        super.onCreate(pendingReveal ? null : savedInstanceState);
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         if (!Session.isAuthorized(this)) {
-            startActivity(new Intent(this, AuthActivity.class));
+            startActivity(new Intent(this, Session.hasSavedAccounts(this)
+                    ? com.vktea.auth.AccountActivity.class : AuthActivity.class));
             finish();
             return;
         }
@@ -194,6 +197,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
     @Override protected void onStart() {
         super.onStart();
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         if (miniPlayer != null) miniPlayer.start();
     }
 

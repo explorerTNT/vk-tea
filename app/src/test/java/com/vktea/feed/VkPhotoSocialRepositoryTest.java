@@ -158,6 +158,15 @@ public class VkPhotoSocialRepositoryTest {
         for (int pass = 0; pass < 10; pass++) { shadowOf(Looper.getMainLooper()).idle(); Thread.sleep(2); }
         assertEquals(0, canceled.callbacks);
     }
+    @Test public void oldScreenCannotMutateAfterSwitchAwayAndBack() throws Exception {
+        session.set(new VkPhotoSocialRepository.Snapshot("synthetic-token", "synthetic-secret", "41", 1));
+        create(chain -> response(chain, 200, "{\"response\":1}"));
+        session.set(new VkPhotoSocialRepository.Snapshot("other", "", "42", 2));
+        session.set(new VkPhotoSocialRepository.Snapshot("synthetic-token", "synthetic-secret", "41", 3));
+        Result<Integer> stale = new Result<>(); repository.like(photo(), true, stale); await(stale);
+        assertEquals(PhotoSocialError.Kind.AUTH, stale.error.kind);
+        assertNull(stale.value); assertEquals(0, calls.get());
+    }
     @Test public void invalidIdentityAndMissingSessionNeverReachTransport() throws Exception {
         create(chain -> response(chain, 200, "{}"));
         Result<ViewerPhoto> invalid = new Result<>(); repository.load(ViewerPhoto.fromUrl("synthetic"), invalid); await(invalid);

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="vk_blue">#FF91B9DF</color>
+    <color name="brand_bar">#FF242728</color>
+    <color name="surface">#FF171819</color>
+    <color name="surface_secondary">#FF272C31</color>
+    <color name="page_background">#FF0F0F0F</color>
+    <color name="chat_background">#FF0F0F0F</color>
+    <color name="surface_divider">#FF353B41</color>
+    <color name="almost_black">#FFE4E8EC</color>
+    <color name="section_header">#FFABB2BA</color>
+    <color name="counter_text">#FFA8C7E4</color>
+    <color name="menu_bg">#FF171819</color>
+    <color name="menu_icon_normal">#FFA4ADB8</color>
+    <color name="menu_selected_bg">#FF30383F</color>
+    <color name="menu_header_bg">#FF18212A</color>
+    <color name="avatar_placeholder">#FF3C4A55</color>
+    <color name="toolbar_bg">#FF171819</color>
+    <color name="post_name">#FF91B9DF</color>
+    <color name="post_time">#FFA5ADB5</color>
+    <color name="post_icons">#FFA5ADB5</color>
+    <color name="post_divider">#FF373D43</color>
+    <color name="msg_in_bg">#FF333A40</color>
+    <color name="audio_surface">#FF171819</color>
+    <color name="audio_text">#FFE4E8EC</color>
+    <color name="audio_secondary">#FFA5ADB5</color>
+    <color name="audio_accent">#FF91B9DF</color>
+    <color name="audio_artwork">#FF18212A</color>
+    <color name="audio_divider">#FF353B41</color>
+    <color name="chat_bubble_in">#FF242728</color>
+    <color name="chat_bubble_out">#FF33485A</color>
+    <color name="chat_bubble_text">#FFE4E8EC</color>
+    <color name="button_gray_pressed">#FF46525D</color>
+    <color name="button_gray_background">#FF333A40</color>
+    <color name="button_gray_text">#FFB6D5EF</color>
+</resources>

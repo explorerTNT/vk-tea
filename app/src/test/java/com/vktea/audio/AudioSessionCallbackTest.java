@@ -47,7 +47,7 @@ public class AudioSessionCallbackTest {
     @Before
     public void setUp() {
         context = RuntimeEnvironment.getApplication();
-        Session.save(context, "synthetic-test-session", "test-user");
+        Session.save(context, "synthetic-test-session", "42");
         player = new ExoPlayer.Builder(context).build();
         callback = new AudioSessionCallback(context, () -> true);
         session = new MediaSession.Builder(context, player).setCallback(callback).build();

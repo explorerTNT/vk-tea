@@ -30,13 +30,16 @@ public class AudioPlaybackService extends MediaSessionService {
     @Nullable private MediaSession session;
     @Nullable private SharedPreferences sessionPreferences;
     @Nullable private VkAudioRepository audioRepository;
+    private long accountGeneration;
     private boolean stopping;
     private boolean stopReceiverRegistered;
 
     private final BroadcastReceiver stopReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (AudioPlayback.ACTION_STOP.equals(intent.getAction())) {
+            if (AudioPlayback.ACTION_STOP.equals(intent.getAction())
+                    && intent.hasExtra(AudioPlayback.EXTRA_STOP_GENERATION)
+                    && intent.getLongExtra(AudioPlayback.EXTRA_STOP_GENERATION, Long.MIN_VALUE) == accountGeneration) {
                 stopPlayback();
             }
         }
@@ -44,7 +47,7 @@ public class AudioPlaybackService extends MediaSessionService {
 
     private final SharedPreferences.OnSharedPreferenceChangeListener authListener =
             (preferences, key) -> {
-                if (!Session.isAuthorized(this)) {
+                if (!sessionAvailable()) {
                     if (Looper.myLooper() == Looper.getMainLooper()) {
                         stopPlayback();
                     } else {
@@ -65,16 +68,17 @@ public class AudioPlaybackService extends MediaSessionService {
         // revocation as well as the explicit stop helper. On Android 11+ clear()
         // reports a null key; older Android versions do not notify clear() at
         // all, so Session.clear must keep calling AudioPlayback.stop.
+        accountGeneration = Session.generation();
         sessionPreferences = getSharedPreferences("session", MODE_PRIVATE);
         sessionPreferences.registerOnSharedPreferenceChangeListener(authListener);
         ContextCompat.registerReceiver(this, stopReceiver,
                 new IntentFilter(AudioPlayback.ACTION_STOP), ContextCompat.RECEIVER_NOT_EXPORTED);
         stopReceiverRegistered = true;
 
-        audioRepository = VkAudioRepository.create(this);
+        audioRepository = VkAudioRepository.create(this, accountGeneration);
         player = new ExoPlayer.Builder(this)
                 .setMediaSourceFactory(new VkAudioMediaSourceFactory(this, audioRepository,
-                        () -> !stopping && Session.isAuthorized(this)))
+                        this::sessionAvailable))
                 .setAudioAttributes(new AudioAttributes.Builder()
                         .setUsage(C.USAGE_MEDIA)
                         .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -88,15 +92,14 @@ public class AudioPlaybackService extends MediaSessionService {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         session = new MediaSession.Builder(this, player)
                 .setSessionActivity(sessionActivity)
-                .setCallback(new AudioSessionCallback(this, () -> !stopping))
+                .setCallback(new AudioSessionCallback(this, this::sessionAvailable))
                 .build();
     }
 
     @Nullable
     @Override
     public MediaSession onGetSession(MediaSession.ControllerInfo controllerInfo) {
-        if (stopping || !Session.isAuthorized(this)
-                || !AudioSessionCallback.allowsController(controllerInfo)) {
+        if (!sessionAvailable() || !AudioSessionCallback.allowsController(controllerInfo)) {
             return null;
         }
         return session;
@@ -115,6 +118,10 @@ public class AudioPlaybackService extends MediaSessionService {
             // Disconnect even bound external controllers when playback is idle.
             stopPlayback();
         }
+    }
+
+    private boolean sessionAvailable() {
+        return !stopping && Session.isAuthorized(this) && accountGeneration == Session.generation();
     }
 
     private void stopPlayback() {

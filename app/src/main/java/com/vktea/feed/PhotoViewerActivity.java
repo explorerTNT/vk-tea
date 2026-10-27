@@ -84,7 +84,9 @@ public class PhotoViewerActivity extends AppCompatActivity {
     };
 
     @Override protected void onCreate(Bundle state) {
-        super.onCreate(state);
+        boolean pendingReveal = com.vktea.auth.Session.hasPendingReveal(this);
+        super.onCreate(pendingReveal ? null : state);
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         setTheme(R.style.Theme_VKTea_PhotoViewer);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         ArrayList<String> input = getIntent().getStringArrayListExtra(EXTRA_PHOTOS);
@@ -340,6 +342,7 @@ public class PhotoViewerActivity extends AppCompatActivity {
 
     @Override protected void onResume() {
         super.onResume();
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         if (refreshAfterDiscussion && social != null) {
             refreshAfterDiscussion = false;
             social.refresh();

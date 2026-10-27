@@ -56,7 +56,9 @@ public class AudioExportActivity extends AppCompatActivity {
             });
 
     @Override protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        boolean pendingReveal = com.vktea.auth.Session.hasPendingReveal(this);
+        super.onCreate(pendingReveal ? null : savedInstanceState);
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         if (!Session.isAuthorized(this)) { finish(); return; }
         MediaItem item = AudioSources.find(getIntent().getStringExtra("media_id"));
         if (item == null || item.localConfiguration == null) { complete(false); return; }

@@ -37,22 +37,34 @@ final class VkPhotoShareRepository implements PhotoShareRepository {
     interface Sessions { Snapshot get(); }
     static final class Snapshot {
         final String token, secret, user;
-        Snapshot(String token, String secret, String user) { this.token = clean(token); this.secret = clean(secret); this.user = clean(user); }
-        boolean matches(Snapshot other) { return other != null && token.equals(other.token) && secret.equals(other.secret) && user.equals(other.user); }
+        final long generation;
+        Snapshot(String token, String secret, String user) { this(token, secret, user, -1); }
+        Snapshot(String token, String secret, String user, long generation) {
+            this.token = clean(token); this.secret = clean(secret); this.user = clean(user); this.generation = generation;
+        }
+        boolean matches(Snapshot other) { return other != null && generation == other.generation && token.equals(other.token) && secret.equals(other.secret) && user.equals(other.user); }
         private static String clean(String value) { return value == null ? "" : value; }
     }
     private final OkHttpClient client;
     private final HttpUrl endpoint;
     private final Sessions sessions;
+    private final boolean trackSession;
+    private final Snapshot boundSession;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Set<Operation<?>> running = ConcurrentHashMap.newKeySet();
     private volatile boolean closed;
     VkPhotoShareRepository(Context context) {
         this(new OkHttpClient(), HttpUrl.get("https://api.vk.com/"),
-                () -> new Snapshot(Session.getToken(context), Session.getSecret(context), Session.getUserId(context)));
+                () -> {
+                    Session.Snapshot snapshot = Session.snapshot(context);
+                    return new Snapshot(snapshot.token, snapshot.secret, snapshot.userId, snapshot.generation);
+                }, true);
     }
     VkPhotoShareRepository(OkHttpClient original, HttpUrl endpoint, Sessions sessions) {
-        this.endpoint = endpoint; this.sessions = sessions;
+        this(original, endpoint, sessions, false);
+    }
+    VkPhotoShareRepository(OkHttpClient original, HttpUrl endpoint, Sessions sessions, boolean trackSession) {
+        this.endpoint = endpoint; this.sessions = sessions; this.trackSession = trackSession; this.boundSession = sessions.get();
         client = original.newBuilder().protocols(Collections.singletonList(Protocol.HTTP_1_1))
                 .retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false)
                 .connectTimeout(15, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).callTimeout(30, TimeUnit.SECONDS)
@@ -214,6 +226,9 @@ final class VkPhotoShareRepository implements PhotoShareRepository {
     private <T> Request execute(String method, LinkedHashMap<String, String> args, boolean post, Callback<T> callback, Parser<T> parser) {
         Operation<T> operation = new Operation<>(callback, sessions.get()); running.add(operation);
         if (closed) { operation.cancel(); return operation; }
+        if (boundSession == null || !boundSession.matches(operation.session)) {
+            operation.deliver(null, new PhotoSocialError(PhotoSocialError.Kind.AUTH)); return operation;
+        }
         if (operation.session.token.isEmpty()) { operation.deliver(null, new PhotoSocialError(PhotoSocialError.Kind.AUTH)); return operation; }
         LinkedHashMap<String, String> params = new LinkedHashMap<>();
         params.put("v", "5.82"); params.put("lang", Locale.getDefault().getLanguage()); params.put("https", "1");
@@ -227,9 +242,13 @@ final class VkPhotoShareRepository implements PhotoShareRepository {
         okhttp3.Request.Builder request = new okhttp3.Request.Builder().url(url.build()).header("User-Agent", VKApi.USER_AGENT);
         if (post) request.post(form.build()); else request.get();
         operation.call = client.newCall(request.build());
+        if (trackSession && !VKApi.registerCall(operation.session.generation, operation.call)) {
+            operation.deliver(null, new PhotoSocialError(PhotoSocialError.Kind.AUTH)); return operation;
+        }
         if (closed || operation.canceled) { operation.cancel(); return operation; }
         operation.call.enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException ignored) { operation.deliver(null, new PhotoSocialError(PhotoSocialError.Kind.NETWORK)); }
+            @Override public void onFailure(Call call, IOException ignored) {
+                if (trackSession) VKApi.unregisterCall(call); operation.deliver(null, new PhotoSocialError(PhotoSocialError.Kind.NETWORK)); }
             @Override public void onResponse(Call call, Response response) {
                 try (Response received = response) {
                     if (!received.isSuccessful()) operation.deliver(null, new PhotoSocialError(received.code() == 429 ? PhotoSocialError.Kind.RATE_LIMITED
@@ -249,6 +268,7 @@ final class VkPhotoShareRepository implements PhotoShareRepository {
                 } catch (PhotoSocialError failure) { operation.deliver(null, failure); }
                 catch (IOException ignored) { operation.deliver(null, new PhotoSocialError(PhotoSocialError.Kind.NETWORK)); }
                 catch (Exception ignored) { operation.deliver(null, new PhotoSocialError(PhotoSocialError.Kind.UNAVAILABLE)); }
+                finally { if (trackSession) VKApi.unregisterCall(call); }
             }
         });
         return operation;
@@ -275,7 +295,7 @@ final class VkPhotoShareRepository implements PhotoShareRepository {
         final Callback<T> callback; final Snapshot session;
         volatile Call call; volatile boolean canceled;
         Operation(Callback<T> callback, Snapshot session) { this.callback = callback; this.session = session; }
-        @Override public void cancel() { canceled = true; if (call != null) call.cancel(); running.remove(this); }
+        @Override public void cancel() { canceled = true; if (call != null) { call.cancel(); if (trackSession) VKApi.unregisterCall(call); } running.remove(this); }
         void deliver(T value, PhotoSocialError failure) {
             main.post(() -> {
                 running.remove(this); if (closed || canceled) return;

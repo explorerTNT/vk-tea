@@ -255,17 +255,66 @@ public class AuthActivityTest {
         assertEquals("synthetic-password-secret", Session.getSecret(activity()));
         assertEquals("", ((EditText) activity().findViewById(R.id.auth_pass)).getText().toString());
         assertNull(model.takeResponse());
-        Dialog firstSuccess = ShadowDialog.getLatestDialog();
-        assertNotNull(firstSuccess);
-        firstSuccess.dismiss();
-
-        controller.recreate();
-        model = requests();
-
+        Intent next = shadowOf(activity()).getNextStartedActivity();
+        assertNotNull(next);
+        assertEquals(TokenRevealActivity.class.getName(), next.getComponent().getClassName());
+        assertTrue((next.getFlags() & Intent.FLAG_ACTIVITY_CLEAR_TASK) != 0);
+        assertTrue((next.getFlags() & Intent.FLAG_ACTIVITY_NEW_TASK) != 0);
+        assertNull(next.getExtras());
+        assertTrue(activity().isFinishing());
         assertEquals(1, client.totalCalls());
         assertNull(model.getResponse().getValue());
-        assertSame(firstSuccess, ShadowDialog.getLatestDialog());
         assertEquals("synthetic-password-secret", Session.getSecret(activity()));
+    }
+
+    @Test
+    public void addingAccountClearsOldTaskAndRestoresRequiredTokenDialogAfterRecreation()
+            throws Exception {
+        Context context = RuntimeEnvironment.getApplication();
+        Session.save(context, "synthetic-old-account-token", "42");
+        client.passwordResult = AuthResponse.password(200, new JSONObject()
+                .put("access_token", "synthetic-new-account-token").put("user_id", 73));
+        launch();
+        fillCredentials();
+        activity().findViewById(R.id.auth_login_btn).performClick();
+        await(() -> "73".equals(Session.getUserId(context)));
+
+        Intent transition = shadowOf(activity()).getNextStartedActivity();
+        assertNotNull(transition);
+        assertEquals(TokenRevealActivity.class.getName(), transition.getComponent().getClassName());
+        assertTrue((transition.getFlags() & Intent.FLAG_ACTIVITY_NEW_TASK) != 0);
+        assertTrue((transition.getFlags() & Intent.FLAG_ACTIVITY_CLEAR_TASK) != 0);
+        assertNull(transition.getExtras());
+        assertEquals(2, Session.savedAccounts(context).size());
+
+        ActivityController<TokenRevealActivity> reveal = Robolectric.buildActivity(TokenRevealActivity.class).setup();
+        try {
+            assertTrue(ShadowDialog.getLatestDialog().isShowing());
+            reveal.recreate();
+            AlertDialog rotated = (AlertDialog) ShadowDialog.getLatestDialog();
+            assertNotNull(rotated);
+            assertTrue(rotated.isShowing());
+            assertEquals(1, client.totalCalls());
+
+            // Rebuild with saved state like an Activity restored after process loss.
+            android.os.Bundle state = new android.os.Bundle();
+            reveal.saveInstanceState(state).pause().stop().destroy();
+            reveal = Robolectric.buildActivity(TokenRevealActivity.class)
+                    .create(state).start().resume().visible();
+            AlertDialog restored = (AlertDialog) ShadowDialog.getLatestDialog();
+            assertNotNull(restored);
+            assertTrue(restored.isShowing());
+            restored.getButton(DialogInterface.BUTTON_POSITIVE).performClick();
+            shadowOf(Looper.getMainLooper()).idle();
+            Intent home = shadowOf(reveal.get()).getNextStartedActivity();
+            assertNotNull(home);
+            assertEquals(com.vktea.MainActivity.class.getName(), home.getComponent().getClassName());
+            assertTrue((home.getFlags() & Intent.FLAG_ACTIVITY_CLEAR_TASK) != 0);
+            assertEquals("73", Session.getUserId(context));
+            assertEquals(1, client.totalCalls());
+        } finally {
+            reveal.close();
+        }
     }
 
     @Test

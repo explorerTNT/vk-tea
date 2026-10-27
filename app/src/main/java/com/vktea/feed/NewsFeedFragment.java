@@ -17,6 +17,8 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.vktea.R;
 import com.vktea.api.VKApi;
+import com.vktea.auth.Session;
+import com.vktea.ui.UserSettings;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -49,6 +51,7 @@ public class NewsFeedFragment extends Fragment {
     private TextView newPostsButton;
     private RecyclerView storiesRow;
     private final List<Story> stories = new ArrayList<>();
+    private int storyRequestGeneration;
 
     static class Story {
         final String name;
@@ -116,6 +119,7 @@ public class NewsFeedFragment extends Fragment {
                 }
                 LinearLayoutManager lm = (LinearLayoutManager) rv.getLayoutManager();
                 if (lm != null && lm.findFirstVisibleItemPosition() == 0
+                        && UserSettings.checkNewPosts(requireContext())
                         && !loading && newestDate > 0
                         && System.currentTimeMillis() - lastCheckTime > 30000) {
                     checkNewPosts();
@@ -129,6 +133,8 @@ public class NewsFeedFragment extends Fragment {
     }
 
     private void checkNewPosts() {
+        long sessionGeneration = Session.generation();
+        View requestView = getView();
         lastCheckTime = System.currentTimeMillis();
         String params = "filters=post,photo&count=10&start_time=" + newestDate
                 + (listId != 0 ? "&list_id=" + listId : "");
@@ -137,7 +143,9 @@ public class NewsFeedFragment extends Fragment {
             public void success(JSONObject response) {
                 try {
                     int n = response.getJSONObject("response").getJSONArray("items").length();
-                    if (n > 0 && isAdded()) {
+                    if (n > 0 && isAdded() && getView() == requestView
+                            && Session.generation() == sessionGeneration
+                            && UserSettings.checkNewPosts(requireContext())) {
                         newPostsButton.setText(String.format(
                                 getString(R.string.new_posts_fmt), n));
                         newPostsButton.setVisibility(View.VISIBLE);
@@ -153,9 +161,19 @@ public class NewsFeedFragment extends Fragment {
     }
 
     private void loadStories() {
+        int generation = ++storyRequestGeneration;
+        View requestView = getView();
+        long sessionGeneration = Session.generation();
+        if (!UserSettings.showStories(requireContext())) {
+            stories.clear();
+            storiesRow.setVisibility(View.GONE);
+            return;
+        }
         VKApi.get(requireContext(), "stories.get", "extended=1", new VKApi.Callback() {
             @Override
             public void success(JSONObject response) {
+                if (!isAdded() || getView() != requestView || generation != storyRequestGeneration
+                        || Session.generation() != sessionGeneration || !UserSettings.showStories(requireContext())) return;
                 try {
                     stories.clear();
                     JSONObject data = response.getJSONObject("response");
@@ -192,6 +210,11 @@ public class NewsFeedFragment extends Fragment {
             public void error(Exception e) {
             }
         });
+    }
+
+    @Override public void onDestroyView() {
+        storyRequestGeneration++;
+        super.onDestroyView();
     }
 
     class StoriesAdapter extends RecyclerView.Adapter<StoriesAdapter.Holder> {
@@ -238,6 +261,8 @@ public class NewsFeedFragment extends Fragment {
     }
 
     private void load() {
+        Session.Snapshot request = Session.snapshot(requireContext());
+        View requestView = getView();
         loading = true;
         String params = "filters=post,photo&count=" + PAGE_SIZE + "&max_photos=1&photo_sizes=1"
                 + (listId != 0 ? "&list_id=" + listId : "")
@@ -246,10 +271,11 @@ public class NewsFeedFragment extends Fragment {
                 new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
+                        if (!isAdded() || getView() != requestView || request.generation != Session.generation()) return;
                         try {
                             JSONObject data = response.getJSONObject("response");
                             if (nextFrom.isEmpty()) {
-                                saveCache(response.toString());
+                                saveCache(response.toString(), request);
                             }
                             nextFrom = data.optString("next_from", "");
                             Map<Long, Source> sources = parseSources(data);
@@ -276,6 +302,7 @@ public class NewsFeedFragment extends Fragment {
 
                     @Override
                     public void error(Exception e) {
+                        if (!isAdded() || getView() != requestView || request.generation != Session.generation()) return;
                         loading = false;
                         refresh.setRefreshing(false);
                         if (adapter.getItemCount() == 0) {
@@ -285,48 +312,58 @@ public class NewsFeedFragment extends Fragment {
                 });
     }
 
-    private void saveCache(String json) {
-        try {
-            java.io.File file = new java.io.File(requireContext().getFilesDir(), "feed_cache.json");
-            java.io.FileWriter writer = new java.io.FileWriter(file, false);
-            writer.write(json);
-            writer.close();
-        } catch (Exception ignored) {
+    private void saveCache(String json, Session.Snapshot request) {
+        synchronized (Session.class) {
+            if (request.generation != Session.generation() || !validCacheId(request.userId)) return;
+            java.io.File file = new java.io.File(requireContext().getFilesDir(), "feed_cache_" + request.userId + ".json");
+            try (java.io.FileWriter writer = new java.io.FileWriter(file, false)) {
+                writer.write(json);
+            } catch (Exception ignored) {
+            }
         }
     }
 
+    private static boolean validCacheId(String id) {
+        return id != null && id.matches("[0-9]{1,20}") && !id.matches("0+");
+    }
+
     private void loadCache() {
-        try {
-            java.io.File file = new java.io.File(requireContext().getFilesDir(), "feed_cache.json");
-            if (!file.exists()) {
-                return;
-            }
-            StringBuilder json = new StringBuilder();
-            try (java.io.FileReader reader = new java.io.FileReader(file)) {
-                char[] buffer = new char[4096];
-                int count;
-                while ((count = reader.read(buffer)) != -1) {
-                    json.append(buffer, 0, count);
+        Session.Snapshot request = Session.snapshot(requireContext());
+        if (!validCacheId(request.userId)) return;
+        synchronized (Session.class) {
+            if (request.generation != Session.generation()) return;
+            try {
+                java.io.File file = new java.io.File(requireContext().getFilesDir(), "feed_cache_" + request.userId + ".json");
+                if (!file.exists()) {
+                    return;
                 }
-            }
-            JSONObject response = new JSONObject(json.toString());
-            JSONObject data = response.getJSONObject("response");
-            Map<Long, Source> sources = parseSources(data);
-            List<Post> posts = new ArrayList<>();
-            JSONArray items = data.getJSONArray("items");
-            for (int i = 0; i < items.length(); i++) {
-                Post post = parsePost(items.getJSONObject(i), sources);
-                if (post != null) {
-                    posts.add(post);
-                    if (post.date > newestDate) {
-                        newestDate = post.date;
+                StringBuilder json = new StringBuilder();
+                try (java.io.FileReader reader = new java.io.FileReader(file)) {
+                    char[] buffer = new char[4096];
+                    int count;
+                    while ((count = reader.read(buffer)) != -1) {
+                        json.append(buffer, 0, count);
                     }
                 }
+                JSONObject response = new JSONObject(json.toString());
+                JSONObject data = response.getJSONObject("response");
+                Map<Long, Source> sources = parseSources(data);
+                List<Post> posts = new ArrayList<>();
+                JSONArray items = data.getJSONArray("items");
+                for (int i = 0; i < items.length(); i++) {
+                    Post post = parsePost(items.getJSONObject(i), sources);
+                    if (post != null) {
+                        posts.add(post);
+                        if (post.date > newestDate) {
+                            newestDate = post.date;
+                        }
+                    }
+                }
+                adapter.clear();
+                adapter.addAll(posts);
+                Toast.makeText(requireContext(), R.string.offline_mode, Toast.LENGTH_SHORT).show();
+            } catch (Exception ignored) {
             }
-            adapter.clear();
-            adapter.addAll(posts);
-            Toast.makeText(requireContext(), R.string.offline_mode, Toast.LENGTH_SHORT).show();
-        } catch (Exception ignored) {
         }
     }
 

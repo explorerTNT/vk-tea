@@ -1,0 +1,11 @@
+<resources>
+    <string name="accounts_title">Аккаунты</string>
+    <string name="accounts_add">Добавить аккаунт</string>
+    <string name="accounts_current">Текущий аккаунт · ID %1$s</string>
+    <string name="accounts_saved">ID %1$s</string>
+    <string name="accounts_remove">Удалить из приложения</string>
+    <string name="accounts_select">Переключиться</string>
+    <string name="accounts_remove_confirm">Удалить этот аккаунт из приложения?</string>
+    <string name="accounts_none">Нет сохранённых аккаунтов</string>
+    <string name="accounts_back">Назад</string>
+</resources>

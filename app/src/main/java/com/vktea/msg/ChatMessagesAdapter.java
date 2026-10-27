@@ -1,6 +1,8 @@
 package com.vktea.msg;
 
 import android.graphics.drawable.Drawable;
+import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -79,6 +81,10 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         ChatMessage message = messages.get(position);
         int group = groupAt(position);
         holder.bubble.setBackgroundResource((message.out ? OUT_BACKGROUNDS : IN_BACKGROUNDS)[group]);
+        boolean night = (holder.itemView.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        holder.bubble.setBackgroundTintList(night ? ColorStateList.valueOf(holder.itemView.getContext()
+                .getColor(message.out ? R.color.chat_bubble_out : R.color.chat_bubble_in)) : null);
         holder.bubble.setPaddingRelative(dp(holder.bubble, message.out ? 12 : 22), dp(holder.bubble, 7),
                 dp(holder.bubble, message.out ? 22 : 12), dp(holder.bubble, 6));
         holder.row.setPaddingRelative(holder.row.getPaddingStart(),

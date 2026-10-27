@@ -80,7 +80,7 @@ public class CardsRenderer {
         lp.setMargins(m, m, m, 0);
         box.setLayoutParams(lp);
         box.setPadding(m, m, m, m);
-        box.setBackgroundColor(0xFFF0F2F5);
+        box.setBackgroundColor(ctx.getColor(R.color.surface_secondary));
         return box;
     }
 
@@ -88,7 +88,7 @@ public class CardsRenderer {
         LinearLayout box = cardBg(ctx);
         TextView question = new TextView(ctx);
         question.setText(card.title);
-        question.setTextColor(0xFF2E3033);
+        question.setTextColor(ctx.getColor(R.color.almost_black));
         question.setTextSize(16);
         question.setTypeface(null, android.graphics.Typeface.BOLD);
         box.addView(question);
@@ -105,7 +105,7 @@ public class CardsRenderer {
                 TextView label = new TextView(ctx);
                 label.setText(option.text + "  " + (option.rate > 0 ? Math.round(option.rate * 100) + "%" : ""));
                 label.setTextSize(15);
-                label.setTextColor(option.id == card.pollAnswerId ? 0xFF4774A8 : 0xFF2E3033);
+                label.setTextColor(option.id == card.pollAnswerId ? ctx.getColor(R.color.post_name) : ctx.getColor(R.color.almost_black));
                 row.addView(label);
 
                 ProgressBar bar = new ProgressBar(ctx, null, android.R.attr.progressBarStyleHorizontal);
@@ -119,7 +119,7 @@ public class CardsRenderer {
                 TextView optionView = new TextView(ctx);
                 optionView.setText(option.text);
                 optionView.setTextSize(15);
-                optionView.setTextColor(0xFF2E3033);
+                optionView.setTextColor(ctx.getColor(R.color.almost_black));
                 optionView.setPadding(0, dp(ctx, 8), 0, dp(ctx, 8));
                 optionView.setBackground(ctx.getDrawable(android.R.drawable.list_selector_background));
                 optionView.setOnClickListener(v -> vote(post, card, option.id, container));
@@ -131,7 +131,7 @@ public class CardsRenderer {
         meta.setText(card.pollTotal + " " + ctx.getString(R.string.poll_voted_suffix)
                 + (card.pollAnonymous ? " · " + ctx.getString(R.string.poll_anonymous) : ""));
         meta.setTextSize(13);
-        meta.setTextColor(0xFF909499);
+        meta.setTextColor(ctx.getColor(R.color.post_time));
         LinearLayout.LayoutParams metaLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         metaLp.topMargin = dp(ctx, 8);
@@ -175,7 +175,7 @@ public class CardsRenderer {
 
         ImageView play = new ImageView(ctx);
         play.setImageResource(R.drawable.exo_controls_play);
-        play.setColorFilter(0xFF4774A8);
+        play.setColorFilter(ctx.getColor(R.color.post_name));
         LinearLayout.LayoutParams playLp = new LinearLayout.LayoutParams(dp(ctx, 40), dp(ctx, 40));
         play.setLayoutParams(playLp);
         row.addView(play);
@@ -188,14 +188,14 @@ public class CardsRenderer {
 
         TextView title = new TextView(ctx);
         title.setText(card.title);
-        title.setTextColor(0xFF4774A8);
+        title.setTextColor(ctx.getColor(R.color.post_name));
         title.setTextSize(15);
         title.setTypeface(null, android.graphics.Typeface.BOLD);
         texts.addView(title);
 
         TextView sub = new TextView(ctx);
         sub.setText(card.subtitle + (card.duration > 0 ? " · " + card.duration / 60 + ":" + String.format("%02d", card.duration % 60) : ""));
-        sub.setTextColor(0xFF909499);
+        sub.setTextColor(ctx.getColor(R.color.post_time));
         sub.setTextSize(14);
         texts.addView(sub);
         row.addView(texts);
@@ -237,7 +237,7 @@ public class CardsRenderer {
         if (!card.subtitle.isEmpty()) {
             TextView sub = new TextView(ctx);
             sub.setText(card.subtitle);
-            sub.setTextColor(0xFF909499);
+            sub.setTextColor(ctx.getColor(R.color.post_time));
             sub.setTextSize(13);
             box.addView(sub);
         }
@@ -253,7 +253,7 @@ public class CardsRenderer {
         LinearLayout row = cardBg(ctx);
         TextView t = new TextView(ctx);
         t.setText("📎 " + ctx.getString(iconTitle) + ": " + title + (sub.isEmpty() ? "" : " (" + sub + ")"));
-        t.setTextColor(0xFF2E3033);
+        t.setTextColor(ctx.getColor(R.color.almost_black));
         t.setTextSize(15);
         row.addView(t);
         if (!card.linkUrl.isEmpty()) {
@@ -281,7 +281,7 @@ public class CardsRenderer {
         LinearLayout box = cardBg(ctx);
         TextView title = new TextView(ctx);
         title.setText("🖼 " + card.title);
-        title.setTextColor(0xFF4774A8);
+        title.setTextColor(ctx.getColor(R.color.post_name));
         title.setTextSize(15);
         title.setTypeface(null, android.graphics.Typeface.BOLD);
         box.addView(title);

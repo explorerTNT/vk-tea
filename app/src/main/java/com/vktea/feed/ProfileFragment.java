@@ -419,7 +419,7 @@ public class ProfileFragment extends Fragment {
             row.setPadding((int) (16 * getResources().getDisplayMetrics().density), 0, 0, 0);
             ImageView iconView = new ImageView(parent.getContext());
             iconView.setImageResource(icon);
-            iconView.setColorFilter(0xFF6A6F75);
+            iconView.setColorFilter(parent.getContext().getColor(R.color.post_time));
             LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
                     (int) (24 * getResources().getDisplayMetrics().density),
                     (int) (24 * getResources().getDisplayMetrics().density));
@@ -429,7 +429,7 @@ public class ProfileFragment extends Fragment {
             row.addView(iconView);
             TextView label = new TextView(parent.getContext());
             label.setText(text);
-            label.setTextColor(0xFF6A6F75);
+            label.setTextColor(parent.getContext().getColor(R.color.post_time));
             label.setTextSize(14);
             label.setPadding(0, m, m, m);
             row.addView(label);

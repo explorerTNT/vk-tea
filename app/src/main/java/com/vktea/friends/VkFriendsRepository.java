@@ -39,25 +39,35 @@ final class VkFriendsRepository implements FriendsRepository {
     interface Sessions { Snapshot get(); }
     static final class Snapshot {
         final String token, secret, user;
-        Snapshot(String token, String secret, String user) {
-            this.token = token == null ? "" : token; this.secret = secret == null ? "" : secret; this.user = user == null ? "" : user;
+        final long generation;
+        Snapshot(String token, String secret, String user) { this(token, secret, user, -1); }
+        Snapshot(String token, String secret, String user, long generation) {
+            this.token = token == null ? "" : token; this.secret = secret == null ? "" : secret;
+            this.user = user == null ? "" : user; this.generation = generation;
         }
-        boolean matches(Snapshot other) { return other != null && token.equals(other.token) && secret.equals(other.secret) && user.equals(other.user); }
+        boolean matches(Snapshot other) { return other != null && generation == other.generation && token.equals(other.token) && secret.equals(other.secret) && user.equals(other.user); }
     }
     private final OkHttpClient client;
     private final HttpUrl endpoint;
     private final Sessions sessions;
+    private final boolean trackSession;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Set<Load> loads = ConcurrentHashMap.newKeySet();
     private volatile boolean closed;
 
     VkFriendsRepository(Context context) {
         this(new OkHttpClient(), HttpUrl.get("https://api.vk.com/"),
-                () -> new Snapshot(Session.getToken(context), Session.getSecret(context), Session.getUserId(context)));
+                () -> {
+                    Session.Snapshot snapshot = Session.snapshot(context);
+                    return new Snapshot(snapshot.token, snapshot.secret, snapshot.userId, snapshot.generation);
+                }, true);
     }
     /** Production fixes the destination above; the package-local transport seam keeps tests offline. */
     VkFriendsRepository(OkHttpClient original, HttpUrl endpoint, Sessions sessions) {
-        this.endpoint = endpoint; this.sessions = sessions;
+        this(original, endpoint, sessions, false);
+    }
+    private VkFriendsRepository(OkHttpClient original, HttpUrl endpoint, Sessions sessions, boolean trackSession) {
+        this.endpoint = endpoint; this.sessions = sessions; this.trackSession = trackSession;
         client = original.newBuilder().protocols(Collections.singletonList(Protocol.HTTP_1_1))
                 .retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false)
                 .connectTimeout(15, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).callTimeout(30, TimeUnit.SECONDS)
@@ -104,9 +114,12 @@ final class VkFriendsRepository implements FriendsRepository {
             for (Map.Entry<String, String> field : params.entrySet()) url.addQueryParameter(field.getKey(), field.getValue());
             if (!snapshot.secret.isEmpty()) url.addQueryParameter("sig", signature(params, snapshot.secret));
             call = client.newCall(new okhttp3.Request.Builder().url(url.build()).header("User-Agent", VKApi.USER_AGENT).get().build());
-            if (!active()) { call.cancel(); return; }
+            if (trackSession && !VKApi.registerCall(snapshot.generation, call)) {
+                finish(null, new FriendsError(FriendsError.Kind.AUTH)); return;
+            }
+            if (!active()) { call.cancel(); if (trackSession) VKApi.unregisterCall(call); return; }
             call.enqueue(new okhttp3.Callback() {
-                @Override public void onFailure(Call failed, IOException ignored) { deliver(null, new FriendsError(FriendsError.Kind.NETWORK)); }
+                @Override public void onFailure(Call failed, IOException ignored) { if (trackSession) VKApi.unregisterCall(failed); deliver(null, new FriendsError(FriendsError.Kind.NETWORK)); }
                 @Override public void onResponse(Call completed, Response response) {
                     try (Response received = response) {
                         if (!received.isSuccessful()) {
@@ -124,6 +137,7 @@ final class VkFriendsRepository implements FriendsRepository {
                         else deliver(parse(root), null);
                     } catch (IOException ignored) { deliver(null, new FriendsError(FriendsError.Kind.NETWORK)); }
                     catch (JSONException | RuntimeException ignored) { deliver(null, new FriendsError(FriendsError.Kind.MALFORMED)); }
+                    finally { if (trackSession) VKApi.unregisterCall(completed); }
                 }
             });
         }
@@ -150,7 +164,7 @@ final class VkFriendsRepository implements FriendsRepository {
         }
         @Override public void cancel() {
             canceled = true; main.removeCallbacks(next);
-            Call active = call; if (active != null) active.cancel();
+            Call active = call; if (active != null) { active.cancel(); if (trackSession) VKApi.unregisterCall(active); }
             loads.remove(this);
         }
     }

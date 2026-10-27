@@ -17,4 +17,16 @@
     <color name="post_divider">#26000000</color>
     <color name="msg_in_bg">#FFEBEDF0</color>
     <color name="ic_launcher_background">#0077FF</color>
+    <color name="brand_bar">#FF5181B8</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="surface_secondary">#FFF5F6F7</color>
+    <color name="page_background">#FFE5E7EA</color>
+    <color name="chat_background">#FFEAF0F4</color>
+    <color name="surface_divider">#FFE9EDF1</color>
+    <color name="chat_bubble_in">#FFEBEDF0</color>
+    <color name="chat_bubble_out">#FFD9E7F4</color>
+    <color name="chat_bubble_text">#FF20252B</color>
+    <color name="button_gray_pressed">#FFBBC3CC</color>
+    <color name="button_gray_background">#FFE6EBF0</color>
+    <color name="button_gray_text">#FF4774A8</color>
 </resources>

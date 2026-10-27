@@ -48,7 +48,9 @@ public class AuthWebViewActivity extends AppCompatActivity {
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        boolean pendingReveal = com.vktea.auth.Session.hasPendingReveal(this);
+        super.onCreate(pendingReveal ? null : savedInstanceState);
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         requests = new ViewModelProvider(this).get(AuthAttemptViewModel.class);
         authClient = createAuthClient();
         requests.getResponse().observe(this, response -> {
@@ -64,8 +66,8 @@ public class AuthWebViewActivity extends AppCompatActivity {
             String userId = json.optString("user_id", "0");
             if (!result.networkFailure && result.httpStatus >= 200 && result.httpStatus < 300
                     && !token.isEmpty() && json.optLong("user_id", 0) > 0) {
-                Session.save(this, token, userId, json.optString("secret", null));
-                TokenRevealDialog.show(this, token);
+                Session.saveForLogin(this, token, userId, json.optString("secret", null));
+                TokenRevealDialog.start(this);
             } else {
                 Toast.makeText(this, AuthErrors.isRateLimited(result)
                         ? R.string.auth_rate_limited : R.string.auth_rejected, Toast.LENGTH_LONG).show();

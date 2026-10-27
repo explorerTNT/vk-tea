@@ -60,7 +60,9 @@ public class ChatActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        boolean pendingReveal = com.vktea.auth.Session.hasPendingReveal(this);
+        super.onCreate(pendingReveal ? null : savedInstanceState);
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         setContentView(R.layout.activity_chat);
         View root = findViewById(R.id.chat_root);

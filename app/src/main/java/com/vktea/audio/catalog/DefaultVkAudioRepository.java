@@ -41,6 +41,7 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
     private final HttpUrl endpoint;
     private final CredentialProvider credentials;
     private final Handler main;
+    @androidx.annotation.Nullable private final Long boundGeneration;
     private final Set<Operation<?>> operations = ConcurrentHashMap.newKeySet();
     private volatile boolean closed;
 
@@ -52,28 +53,52 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
         final String token;
         final String secret;
         final String userId;
+        final long generation;
 
         Credentials(String token, String secret, String userId) {
+            this(token, secret, userId, -1);
+        }
+
+        Credentials(String token, String secret, String userId, long generation) {
             this.token = token == null ? "" : token;
             this.secret = secret == null ? "" : secret;
             this.userId = userId == null ? "" : userId;
+            this.generation = generation;
+        }
+
+        static Credentials fromSnapshot(Session.Snapshot snapshot) {
+            return new Credentials(snapshot.token, snapshot.secret, snapshot.userId, snapshot.generation);
         }
 
         boolean sameSession(Credentials other) {
             return other != null && token.equals(other.token) && secret.equals(other.secret)
-                    && userId.equals(other.userId);
+                    && userId.equals(other.userId) && generation == other.generation;
         }
     }
 
     DefaultVkAudioRepository(Context context) {
-        this(new OkHttpClient(), API,
-                () -> new Credentials(Session.getToken(context), Session.getSecret(context),
-                        Session.getUserId(context)), new Handler(Looper.getMainLooper()));
+        this(context, Session.generation());
+    }
+
+    DefaultVkAudioRepository(Context context, long generation) {
+        this(new OkHttpClient(), API, context, generation, new Handler(Looper.getMainLooper()));
+    }
+
+    /** Offline transport injection using the same session safeguards as production. */
+    DefaultVkAudioRepository(OkHttpClient client, HttpUrl endpoint, Context context,
+                             long generation, Handler main) {
+        this(client, endpoint, () -> Credentials.fromSnapshot(Session.snapshot(context)), main, generation);
     }
 
     /** Package-local injection keeps production's destination fixed while tests stay entirely offline. */
     DefaultVkAudioRepository(OkHttpClient client, HttpUrl endpoint,
                              CredentialProvider credentials, Handler main) {
+        this(client, endpoint, credentials, main, null);
+    }
+
+    DefaultVkAudioRepository(OkHttpClient client, HttpUrl endpoint,
+                             CredentialProvider credentials, Handler main,
+                             @androidx.annotation.Nullable Long boundGeneration) {
         this.client = client.newBuilder().protocols(Collections.singletonList(Protocol.HTTP_1_1))
                 .retryOnConnectionFailure(false)
                 .followRedirects(false).followSslRedirects(false)
@@ -89,6 +114,7 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
         this.endpoint = endpoint;
         this.credentials = credentials;
         this.main = main;
+        this.boundGeneration = boundGeneration;
     }
 
     @Override
@@ -149,7 +175,8 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
 
     private <T> VkAudioRepository.Request execute(String method, LinkedHashMap<String, String> params,
                     Credentials current, Callback<T> callback, Parser<T> parser) {
-        if (current.token.isEmpty()) {
+        if (current.token.isEmpty()
+                || (boundGeneration != null && current.generation != boundGeneration)) {
             return fail(callback, current, new VkAudioError(VkAudioError.Kind.AUTH_REQUIRED));
         }
         Operation<T> operation = new Operation<>(callback, current);
@@ -173,6 +200,15 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
         okhttp3.Request request = new okhttp3.Request.Builder().url(url.build())
                 .header("User-Agent", VKApi.USER_AGENT).get().build();
         operation.call = client.newCall(request);
+        if (operation.isCanceled() || closed) {
+            operation.cancel();
+            return operation;
+        }
+        if (boundGeneration != null && !VKApi.registerCall(boundGeneration, operation.call)) {
+            operation.deliver(null, new VkAudioError(VkAudioError.Kind.AUTH_REQUIRED));
+            return operation;
+        }
+        // Close/cancel may race with call registration; never leave a registered call behind.
         if (operation.isCanceled() || closed) {
             operation.cancel();
             return operation;
@@ -290,7 +326,10 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
         public void cancel() {
             canceled = true;
             Call running = call;
-            if (running != null) running.cancel();
+            if (running != null) {
+                running.cancel();
+                if (boundGeneration != null) VKApi.unregisterCall(running);
+            }
             operations.remove(this);
         }
 
@@ -300,6 +339,8 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
         }
 
         void deliver(T value, VkAudioError error) {
+            Call completed = call;
+            if (boundGeneration != null && completed != null) VKApi.unregisterCall(completed);
             main.post(() -> {
                 operations.remove(this);
                 if (canceled || closed) return;

@@ -1,5 +1,6 @@
 package com.vktea.auth;
 
+import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -16,7 +17,15 @@ import com.vktea.R;
 
 public class TokenRevealDialog {
 
-    public static void show(Context context, String token) {
+    /** Replace the previous account task before presenting the required token dialog. */
+    public static void start(Activity activity) {
+        Intent intent = new Intent(activity, TokenRevealActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        activity.startActivity(intent);
+        activity.finish();
+    }
+
+    static void show(Context context, String token) {
         LinearLayout box = new LinearLayout(context);
         box.setOrientation(LinearLayout.VERTICAL);
         float density = context.getResources().getDisplayMetrics().density;
@@ -65,13 +74,12 @@ public class TokenRevealDialog {
     }
 
     private static void goMain(Context context) {
+        Session.completeReveal(context);
         Intent intent = new Intent(context, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         context.startActivity(intent);
-        if (context instanceof AuthActivity) {
-            ((AuthActivity) context).finish();
-        } else if (context instanceof AuthWebViewActivity) {
-            ((AuthWebViewActivity) context).finish();
+        if (context instanceof Activity) {
+            ((Activity) context).finish();
         }
     }
 }

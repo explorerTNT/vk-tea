@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.VKTea.ShareOverlay" parent="Theme.MaterialComponents.Light.NoActionBar">
+    <style name="Theme.VKTea.ShareOverlay" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowIsFloating">false</item>
         <item name="android:windowBackground">@android:color/transparent</item>

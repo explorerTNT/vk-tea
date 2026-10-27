@@ -3,6 +3,8 @@ package com.vktea.feed;
 import static org.junit.Assert.*;
 import static org.robolectric.Shadows.shadowOf;
 import android.os.Looper;
+import android.content.Context;
+import com.vktea.auth.Session;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -124,6 +126,41 @@ public class VkPhotoShareRepositoryTest {
         Result<List<PhotoShareRepository.Recipient>> canceled = new Result<>(); PhotoShareRepository.Request operation = repository.recipients("", canceled); operation.cancel();
         for (int pass = 0; pass < 10; pass++) { shadowOf(Looper.getMainLooper()).idle(); Thread.sleep(2); }
         assertEquals(0, canceled.callbacks);
+    }
+    @Test public void switchingAccountCancelsRegisteredUnfinishedShareCall() throws Exception {
+        Context context = org.robolectric.RuntimeEnvironment.getApplication();
+        context.getSharedPreferences("session", Context.MODE_PRIVATE).edit().clear().commit();
+        Session.save(context, "synthetic-account-a", "41");
+        CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicBoolean canceled = new java.util.concurrent.atomic.AtomicBoolean();
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(chain -> {
+            entered.countDown();
+            try { if (!release.await(3, TimeUnit.SECONDS)) throw new IOException("Synthetic timeout"); }
+            catch (InterruptedException ignored) { throw new IOException("Synthetic interruption"); }
+            canceled.set(chain.call().isCanceled());
+            return response(chain, 200, "{\"response\":123}");
+        }).build();
+        repository = new VkPhotoShareRepository(client, HttpUrl.get("https://synthetic-api.invalid/"), () -> {
+            Session.Snapshot current = Session.snapshot(context);
+            return new VkPhotoShareRepository.Snapshot(current.token, current.secret, current.userId, current.generation);
+        }, true);
+        Result<Long> stale = new Result<>();
+        repository.send(PhotoShareViewModelTest.photo(), PhotoShareViewModelTest.recipient(7), 1, "Synthetic", stale);
+        assertTrue(entered.await(3, TimeUnit.SECONDS));
+        Session.save(context, "synthetic-account-b", "42");
+        release.countDown(); await(stale);
+        assertTrue(canceled.get()); assertNull(stale.value);
+        assertEquals(PhotoSocialError.Kind.AUTH, stale.error.kind);
+        context.getSharedPreferences("session", Context.MODE_PRIVATE).edit().clear().commit();
+    }
+    @Test public void oldScreenCannotMutateAfterSwitchAwayAndBack() throws Exception {
+        session.set(new VkPhotoShareRepository.Snapshot("synthetic-token", "synthetic-secret", "41", 1));
+        create(chain -> response(chain, 200, "{\"response\":1}"));
+        session.set(new VkPhotoShareRepository.Snapshot("other", "", "42", 2));
+        session.set(new VkPhotoShareRepository.Snapshot("synthetic-token", "synthetic-secret", "41", 3));
+        Result<Long> stale = new Result<>(); repository.send(PhotoShareViewModelTest.photo(), PhotoShareViewModelTest.recipient(7), 1, "Synthetic", stale); await(stale);
+        assertEquals(PhotoSocialError.Kind.AUTH, stale.error.kind);
+        assertNull(stale.value); assertEquals(0, calls.get());
     }
     @Test public void invalidPhotoPeerOrMissingSessionCannotContactTransport() throws Exception {
         create(chain -> response(chain, 200, "{}"));

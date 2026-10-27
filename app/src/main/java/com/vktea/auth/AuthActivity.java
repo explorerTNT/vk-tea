@@ -46,7 +46,9 @@ public class AuthActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        boolean pendingReveal = com.vktea.auth.Session.hasPendingReveal(this);
+        super.onCreate(pendingReveal ? null : savedInstanceState);
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         setContentView(R.layout.activity_auth);
         loginField = findViewById(R.id.auth_login);
         passField = findViewById(R.id.auth_pass);
@@ -141,8 +143,8 @@ public class AuthActivity extends AppCompatActivity {
             JSONObject user = users != null ? users.optJSONObject(0) : null;
             if (response.httpStatus >= 200 && response.httpStatus < 300 && user != null
                     && user.optLong("id") > 0) {
-                Session.save(this, response.suppliedToken, user.optString("id"), response.suppliedSecret);
-                TokenRevealDialog.show(this, response.suppliedToken);
+                Session.saveForLogin(this, response.suppliedToken, user.optString("id"), response.suppliedSecret);
+                TokenRevealDialog.start(this);
             } else {
                 showStatus(R.string.token_invalid);
             }
@@ -157,9 +159,9 @@ public class AuthActivity extends AppCompatActivity {
                 getSharedPreferences("auth", MODE_PRIVATE).edit()
                         .putString("trusted_hash", trustedHash).apply();
             }
-            Session.save(this, token, userId, json.optString("secret", null));
+            Session.saveForLogin(this, token, userId, json.optString("secret", null));
             passField.setText("");
-            TokenRevealDialog.show(this, token);
+            TokenRevealDialog.start(this);
         } else if (json.has("captcha_sid") && json.has("captcha_img")) {
             captchaSid = json.optString("captcha_sid");
             showCaptcha(json.optString("captcha_img"));

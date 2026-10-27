@@ -113,7 +113,9 @@ public class AudioPlayerActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        boolean pendingReveal = com.vktea.auth.Session.hasPendingReveal(this);
+        super.onCreate(pendingReveal ? null : savedInstanceState);
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         if (!Session.isAuthorized(this)) {
             finish();
             return;
@@ -255,6 +257,7 @@ public class AudioPlayerActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         if (root == null || isFinishing()) return;
         started = true;
         connectionFailed = false;

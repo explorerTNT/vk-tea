@@ -35,7 +35,9 @@ public class VideoPlayerActivity extends AppCompatActivity {
     @OptIn(markerClass = UnstableApi.class)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        boolean pendingReveal = com.vktea.auth.Session.hasPendingReveal(this);
+        super.onCreate(pendingReveal ? null : savedInstanceState);
+        if (com.vktea.auth.TokenRevealActivity.redirectIfPending(this)) return;
         setContentView(R.layout.activity_video_player);
 
         ownerId = getIntent().getLongExtra("owner_id", 0);

@@ -1,0 +1,28 @@
+<resources>
+    <string name="settings_accounts">Аккаунты</string>
+    <string name="settings_accounts_summary">Добавление и переключение аккаунтов</string>
+    <string name="settings_appearance">Оформление</string>
+    <string name="settings_theme">Тема</string>
+    <string-array name="settings_theme_options">
+        <item>Как в системе</item>
+        <item>Светлая</item>
+        <item>Тёмная</item>
+    </string-array>
+    <string name="settings_feed">Лента</string>
+    <string name="settings_stories">Истории</string>
+    <string name="settings_stories_summary">Показывать истории в ленте</string>
+    <string name="settings_new_posts">Новые записи</string>
+    <string name="settings_new_posts_summary">Проверять новые записи при просмотре ленты</string>
+    <string name="settings_storage">Хранилище</string>
+    <string name="settings_clear_feed_cache">Очистить кеш ленты</string>
+    <string name="settings_clear_feed_cache_summary">Удалить сохранённую копию ленты для просмотра без сети</string>
+    <string name="settings_cache_cleared">Кеш ленты очищен</string>
+    <string name="settings_cache_error">Не удалось очистить кеш ленты</string>
+    <string name="settings_about">О приложении</string>
+    <string name="settings_version">Версия</string>
+    <string name="settings_clear_image_cache">Очистить кеш изображений</string>
+    <string name="settings_clear_image_cache_summary">Удалить временные изображения; скачанная музыка сохранится</string>
+    <string name="settings_image_cache_clearing">Очистка изображений…</string>
+    <string name="settings_image_cache_cleared">Кеш изображений очищен</string>
+    <string name="settings_image_cache_error">Не удалось очистить кеш изображений</string>
+</resources>

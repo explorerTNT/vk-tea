@@ -41,7 +41,7 @@ public class AudioPlaybackServiceTest {
     @Before
     public void setUp() {
         context = RuntimeEnvironment.getApplication();
-        Session.save(context, "synthetic-test-session", "test-user");
+        Session.save(context, "synthetic-test-session", "42");
         shadowOf(Looper.getMainLooper()).idle();
         Application application = RuntimeEnvironment.getApplication();
         // Android grants the merged manifest's signature permission to the app;
@@ -99,6 +99,42 @@ public class AudioPlaybackServiceTest {
         assertEquals(0, player.getMediaItemCount());
         assertNull(service.onGetSession(owner()));
         assertTrue(shadowOf(service).isStoppedBySelf());
+    }
+
+    @Test
+    public void accountSwitchStopsPlaybackAndClearsQueue() {
+        Player player = service.onGetSession(owner()).getPlayer();
+        player.setMediaItem(MediaItem.fromUri("content://synthetic.audio/queued"));
+        player.play();
+        context.getSharedPreferences("session", Context.MODE_PRIVATE).edit()
+                .putString("account.73.token", "synthetic-other-account")
+                .putString("account.73.secret", "").commit();
+
+        assertTrue(Session.switchTo(context, "73"));
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertFalse(player.getPlayWhenReady());
+        assertEquals(0, player.getMediaItemCount());
+        assertNull(service.onGetSession(owner()));
+        assertTrue(shadowOf(service).isStoppedBySelf());
+    }
+
+    @Test
+    public void delayedStopForPreviousAccountDoesNotStopNewService() {
+        long previousGeneration = Session.generation();
+        Session.save(context, "synthetic-new-session", "73");
+        shadowOf(Looper.getMainLooper()).idle();
+        controller.destroy();
+        controller = Robolectric.buildService(AudioPlaybackService.class);
+        controller.create();
+        service = controller.get();
+        Player player = service.onGetSession(owner()).getPlayer();
+        player.setMediaItem(MediaItem.fromUri("content://synthetic.audio/new-queue"));
+        AudioPlayback.stop(context, previousGeneration);
+        shadowOf(Looper.getMainLooper()).idle();
+        assertNotNull(service.onGetSession(owner()));
+        assertEquals(1, player.getMediaItemCount());
+        assertFalse(shadowOf(service).isStoppedBySelf());
     }
 
     @Test

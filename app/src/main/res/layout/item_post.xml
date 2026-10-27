@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="8dp"
-    android:background="@android:color/white"
+    android:background="@color/surface"
     android:orientation="vertical">
 
     <RelativeLayout
@@ -81,7 +81,7 @@
         android:textColor="@color/vk_blue"
         android:textSize="15sp"
         android:fontFamily="sans-serif-medium"
-        android:background="@android:color/white"
+        android:background="@color/surface"
         android:foreground="?attr/selectableItemBackground"
         android:elevation="2dp"
         android:focusable="true"
