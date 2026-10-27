@@ -1,0 +1,13 @@
+<resources>
+    <string name="bookmarks_content">Материалы</string>
+    <string name="bookmarks_pages">Страницы</string>
+    <string name="bookmarks_empty">Здесь пока нет закладок</string>
+    <string name="bookmarks_loading">Загрузка закладок…</string>
+    <string name="bookmarks_error">Не удалось загрузить закладки. Проверьте соединение и доступ к VK.</string>
+    <string name="bookmarks_retry">Повторить</string>
+    <string name="bookmarks_add">Добавить в закладки</string>
+    <string name="bookmarks_added">Добавлено в закладки</string>
+    <string name="bookmarks_remove">Удалить из закладок</string>
+    <string name="bookmarks_removed">Удалено из закладок</string>
+    <string name="bookmarks_unavailable">Этот материал нельзя открыть в приложении</string>
+</resources>

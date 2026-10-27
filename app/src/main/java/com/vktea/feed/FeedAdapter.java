@@ -246,6 +246,10 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         if (post.likeType == Post.TYPE_POST) {
             pm.getMenu().add(0, acts.size(), 0, R.string.menu_copy_link);
             acts.add("link");
+            if (post.likeOwnerId != 0 && post.likeItemId > 0) {
+                pm.getMenu().add(0, acts.size(), 0, R.string.bookmarks_add);
+                acts.add("bookmark");
+            }
             if (post.isRepost()) {
                 pm.getMenu().add(0, acts.size(), 0, R.string.menu_show_original);
                 acts.add("orig");
@@ -273,6 +277,18 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         String oid = String.valueOf(post.likeOwnerId);
         String iid = String.valueOf(post.likeItemId);
         switch (act) {
+            case "bookmark":
+                String key = post.accessKey == null ? "" : post.accessKey;
+                com.vktea.bookmarks.VKBookmarksApi.get(ctx, "fave.addPost", "owner_id=" + oid + "&id=" + iid
+                        + (key.isEmpty() ? "" : "&access_key=" + Uri.encode(key)), new VKApi.Callback() {
+                    @Override public void success(JSONObject response) {
+                        Toast.makeText(ctx, response.optInt("response") == 1 ? R.string.bookmarks_added : R.string.action_failed, Toast.LENGTH_SHORT).show();
+                    }
+                    @Override public void error(Exception ignored) {
+                        Toast.makeText(ctx, R.string.action_failed, Toast.LENGTH_SHORT).show();
+                    }
+                });
+                break;
             case "link": {
                 android.content.ClipboardManager cm = (android.content.ClipboardManager)
                         ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE);

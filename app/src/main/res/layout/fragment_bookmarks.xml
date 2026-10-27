@@ -1,0 +1,20 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/menu_bg">
+    <com.google.android.material.tabs.TabLayout android:id="@+id/bookmarks_tabs" android:layout_width="match_parent" android:layout_height="48dp"
+        android:background="@color/vk_blue" app:tabMode="fixed" app:tabGravity="fill" app:tabIndicatorColor="@android:color/white"
+        app:tabSelectedTextColor="@android:color/white" app:tabTextColor="#CCFFFFFF" />
+    <LinearLayout android:id="@+id/bookmarks_notice_row" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:paddingStart="16dp" android:paddingEnd="8dp" android:orientation="horizontal" android:visibility="gone">
+        <TextView android:id="@+id/bookmarks_notice" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:textColor="@color/post_time" android:accessibilityLiveRegion="polite" />
+        <TextView android:id="@+id/bookmarks_retry" android:layout_width="wrap_content" android:layout_height="48dp" android:gravity="center"
+            android:padding="12dp" android:text="@string/bookmarks_retry" android:textColor="@color/vk_blue" android:background="?attr/selectableItemBackground" />
+    </LinearLayout>
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout android:id="@+id/bookmarks_refresh" android:layout_width="match_parent" android:layout_height="match_parent">
+            <androidx.recyclerview.widget.RecyclerView android:id="@+id/bookmarks_list" android:layout_width="match_parent" android:layout_height="match_parent" />
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+        <TextView android:id="@+id/bookmarks_empty" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center"
+            android:gravity="center" android:padding="24dp" android:textColor="@color/post_time" android:textSize="16sp" />
+    </FrameLayout>
+</LinearLayout>

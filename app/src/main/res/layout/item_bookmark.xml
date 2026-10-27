@@ -1,0 +1,12 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:minHeight="76dp" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="16dp" android:paddingEnd="4dp"
+    android:background="?attr/selectableItemBackground" android:focusable="true">
+    <ImageView android:id="@+id/bookmark_image" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginEnd="16dp"
+        android:scaleType="centerCrop" android:contentDescription="@null" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingTop="10dp" android:paddingBottom="10dp">
+        <TextView android:id="@+id/bookmark_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="3" android:ellipsize="end" android:textColor="@color/almost_black" android:textSize="16sp" />
+        <TextView android:id="@+id/bookmark_detail" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="2" android:ellipsize="end" android:textColor="@color/post_time" android:textSize="14sp" />
+    </LinearLayout>
+    <ImageButton android:id="@+id/bookmark_more" android:layout_width="48dp" android:layout_height="48dp" android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@android:drawable/ic_menu_more" android:contentDescription="@string/bookmarks_remove" />
+</LinearLayout>

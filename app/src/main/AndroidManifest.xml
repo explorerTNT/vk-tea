@@ -59,6 +59,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".search.SearchActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="false" />
+
+        <activity
             android:name=".feed.PhotoViewerActivity"
             android:theme="@style/Theme.VKTea.PhotoViewer"
             android:exported="false" />

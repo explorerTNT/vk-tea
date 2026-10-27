@@ -7,7 +7,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
@@ -43,6 +42,12 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private TextView toolbarTitle;
     private TextView toolbarBadge;
     private com.vktea.ui.AudioMiniPlayerView miniPlayer;
+    private final androidx.activity.result.ActivityResultLauncher<Intent> globalSearch =
+            registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                long id = result.getData().getLongExtra(com.vktea.search.SearchActivity.EXTRA_PROFILE_ID, 0);
+                if (id != 0) openFragment(com.vktea.feed.ProfileFragment.newInstance(id), R.string.profile_title);
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,7 +82,9 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 ((com.vktea.friends.FriendsFragment) current).showFriendsSearch();
             } else if (current instanceof com.vktea.groups.GroupsFragment) {
                 ((com.vktea.groups.GroupsFragment) current).showGroupsSearch();
-            } else Toast.makeText(this, R.string.section_search, Toast.LENGTH_SHORT).show();
+            } else {
+                globalSearch.launch(new Intent(this, com.vktea.search.SearchActivity.class));
+            }
         });
         getSupportFragmentManager().addOnBackStackChangedListener(this::updateContentTitle);
 
@@ -187,6 +194,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         if (current instanceof com.vktea.feed.ProfileFragment) title = ((com.vktea.feed.ProfileFragment) current).navigationTitleRes();
         else if (current instanceof com.vktea.friends.FriendsFragment) title = R.string.section_friends;
         else if (current instanceof com.vktea.groups.GroupsFragment) title = R.string.section_groups;
+        else if (current instanceof com.vktea.bookmarks.BookmarksFragment) title = R.string.section_fave;
         else return;
         toolbarTitle.setText(title);
         toolbarTitle.setTextSize(23);
@@ -232,6 +240,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             ((com.vktea.groups.GroupsFragment) current).showGroupsMenu(anchor);
             return;
         }
+        if (current instanceof com.vktea.bookmarks.BookmarksFragment) return;
         PopupMenu popup = new PopupMenu(this, anchor);
         popup.getMenu().add(0, 0, 0, R.string.list_newsfeed);
         popup.getMenu().add(0, -1, 1, R.string.list_recommendations);
@@ -294,6 +303,10 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     @Override
     public void onMenuClick(MenuEntry entry) {
         drawer.closeDrawer(menuView);
+        if (entry.id == R.id.menu_search) {
+            globalSearch.launch(new Intent(this, com.vktea.search.SearchActivity.class));
+            return;
+        }
         showSection(entry.id);
     }
 
@@ -317,6 +330,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.friends.FriendsFragment();
                 } else if (menuId == R.id.menu_groups) {
                     fragment = new com.vktea.groups.GroupsFragment();
+                } else if (menuId == R.id.menu_fave) {
+                    fragment = new com.vktea.bookmarks.BookmarksFragment();
                 } else {
                     fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
                 }
