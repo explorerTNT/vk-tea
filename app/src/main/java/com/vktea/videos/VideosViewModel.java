@@ -53,6 +53,7 @@ public final class VideosViewModel extends ViewModel {
     private boolean loading, loaded, cleared;
     VideosViewModel(Context context, long owner) { this(new VideoRepository(context), owner); }
     VideosViewModel(Source source, long owner) { repository = source; this.owner = owner; publish(); }
+    long ownerId() { return owner; }
     LiveData<State> state() { return state; }
     State current() { return state.getValue(); }
     void ensureLoaded() { if (!loaded && !loading && error == null && (mode != SEARCH || !query.isEmpty())) load(); }

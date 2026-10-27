@@ -17,12 +17,25 @@ public class PhotoCatalogTest {
         assertEquals(2, page.total); assertEquals(2, page.consumed); assertEquals(-6, page.albums.get(0).id);
         assertEquals("https://img/a", page.albums.get(0).cover); assertEquals("https://img/b", page.albums.get(1).cover);
     }
+    @Test public void albumDescriptionIsAvailableForEditing() throws Exception {
+        PhotoCatalog.Page page = PhotoCatalog.parse(new JSONObject("{\"response\":{\"count\":1,\"items\":[{\"id\":1,\"title\":\"A\",\"description\":\"Existing description\"}]}}"), true);
+        assertEquals("Existing description", page.albums.get(0).description);
+        PhotoCatalog.Page unknown = PhotoCatalog.parse(new JSONObject("{\"response\":{\"count\":1,\"items\":[{\"id\":1}]}}"), true);
+        assertNull(unknown.albums.get(0).description); assertFalse(unknown.albums.get(0).titleKnown);
+        assertTrue(page.albums.get(0).titleKnown);
+    }
     @Test public void photosKeepIdentityPermissionsAndAccessKey() throws Exception {
         PhotoCatalog.Page page = PhotoCatalog.parse(new JSONObject("{\"response\":{\"count\":1,\"items\":[{\"id\":42,\"owner_id\":-3,\"access_key\":\"key\","
                 + "\"sizes\":[{\"url\":\"https://img/photo\",\"type\":\"x\"}],\"likes\":{\"count\":4,\"user_likes\":1,\"can_like\":1}}]}}"), false);
         assertEquals(1, page.photos.size()); assertEquals(-3, page.photos.get(0).ownerId);
         assertEquals(42, page.photos.get(0).id); assertEquals("key", page.photos.get(0).accessKey);
         assertTrue(page.photos.get(0).liked); assertTrue(page.photos.get(0).canLike);
+    }
+    @Test public void missingPhotoDescriptionsRemainUnknown() throws Exception {
+        PhotoCatalog.Page page = PhotoCatalog.parse(new JSONObject("{\"response\":{\"count\":2,\"items\":[" +
+                "{\"id\":1,\"owner_id\":42,\"text\":\"\",\"sizes\":[{\"url\":\"https://img/1\"}]}," +
+                "{\"id\":2,\"owner_id\":42,\"sizes\":[{\"url\":\"https://img/2\"}]}]}}"), false);
+        assertTrue(page.knownPhotoDescriptions.contains("42:1")); assertFalse(page.knownPhotoDescriptions.contains("42:2"));
     }
     @Test public void consumedUsesRawRowsAndRejectsMalformedPages() throws Exception {
         PhotoCatalog.Page page = PhotoCatalog.parse(new JSONObject("{\"response\":{\"count\":2,\"items\":[{},null]}}"), false);

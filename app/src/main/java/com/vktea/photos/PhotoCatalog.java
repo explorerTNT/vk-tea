@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -57,14 +59,16 @@ final class PhotoCatalog {
     interface Callback { void success(Page page); void error(String message); }
     enum Kind { ALBUM, ALL, USER }
     static final class Album {
-        final long id; final Kind kind; final String title, cover; final int size;
-        Album(long id, Kind kind, String title, String cover, int size) { this.id = id; this.kind = kind; this.title = title; this.cover = cover; this.size = size; }
+        final long id; final Kind kind; final String title, cover, description; final int size; final boolean titleKnown;
+        Album(long id, Kind kind, String title, String cover, int size) { this(id, kind, title, cover, size, ""); }
+        Album(long id, Kind kind, String title, String cover, int size, String description) { this(id, kind, title, cover, size, description, true); }
+        Album(long id, Kind kind, String title, String cover, int size, String description, boolean titleKnown) { this.id = id; this.kind = kind; this.title = title; this.cover = cover; this.size = size; this.description = description; this.titleKnown = titleKnown; }
         String identity() { return kind == Kind.ALBUM ? "album:" + id : kind.name(); }
     }
     static final class Page {
-        final int total, consumed; final List<Album> albums; final List<ViewerPhoto> photos;
-        Page(int total, int consumed, List<Album> albums, List<ViewerPhoto> photos) {
-            this.total = total; this.consumed = consumed; this.albums = albums; this.photos = photos;
+        final int total, consumed; final List<Album> albums; final List<ViewerPhoto> photos; final Set<String> knownPhotoDescriptions;
+        Page(int total, int consumed, List<Album> albums, List<ViewerPhoto> photos, Set<String> knownPhotoDescriptions) {
+            this.total = total; this.consumed = consumed; this.albums = albums; this.photos = photos; this.knownPhotoDescriptions = knownPhotoDescriptions;
         }
     }
 
@@ -133,7 +137,7 @@ final class PhotoCatalog {
         long count = response.optLong("count", -1);
         JSONArray rows = response.getJSONArray("items");
         if (count < 0 || count > Integer.MAX_VALUE || rows.length() > PAGE_SIZE) throw new JSONException("Invalid page");
-        List<Album> albums = new ArrayList<>(); List<ViewerPhoto> photos = new ArrayList<>();
+        List<Album> albums = new ArrayList<>(); List<ViewerPhoto> photos = new ArrayList<>(); Set<String> known = new HashSet<>();
         if (albumsPage) {
             addSystemAlbum(albums, response.optJSONObject("all_photos"), Kind.ALL, "Все фотографии");
             addSystemAlbum(albums, response.optJSONObject("user_photos"), Kind.USER, "Фотографии с отметками");
@@ -146,13 +150,16 @@ final class PhotoCatalog {
                 String cover = PostPhoto.bestUrl(row);
                 if (cover.isEmpty()) cover = row.optString("thumb_src", "");
                 if (cover.isEmpty()) cover = PostPhoto.bestUrl(row.optJSONObject("thumb"));
-                albums.add(new Album(id, Kind.ALBUM, title.isEmpty() ? "Альбом" : title, cover, Math.max(0, row.optInt("size", 0))));
+                albums.add(new Album(id, Kind.ALBUM, title.isEmpty() ? "Альбом" : title, cover, Math.max(0, row.optInt("size", 0)), row.has("description") && !row.isNull("description") ? row.optString("description", "") : null, !title.isEmpty()));
             } else {
                 ViewerPhoto photo = ViewerPhoto.parse(row);
-                if (!photo.url.isEmpty()) photos.add(photo);
+                if (!photo.url.isEmpty()) {
+                    photos.add(photo);
+                    if (photo.hasIdentity() && row.opt("text") instanceof String) known.add(photo.ownerId + ":" + photo.id);
+                }
             }
         }
-        return new Page((int) count, rows.length(), albums, photos);
+        return new Page((int) count, rows.length(), albums, photos, known);
     }
     private static void addSystemAlbum(List<Album> albums, JSONObject row, Kind kind, String title) {
         if (row == null) return;
@@ -171,7 +178,7 @@ final class PhotoCatalog {
             default: return "VK не удалось загрузить фотографии";
         }
     }
-    private static String signature(String method, LinkedHashMap<String, String> params, String secret) {
+    static String signature(String method, LinkedHashMap<String, String> params, String secret) {
         StringBuilder value = new StringBuilder("/method/").append(method).append('?');
         for (Map.Entry<String, String> entry : params.entrySet()) {
             if (value.charAt(value.length() - 1) != '?') value.append('&');

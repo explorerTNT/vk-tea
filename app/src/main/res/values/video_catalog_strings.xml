@@ -19,4 +19,25 @@
     <string name="videos_error_generic">Не удалось загрузить видео. Попробуйте ещё раз.</string>
     <string name="videos_untitled">Без названия</string>
     <string name="videos_album_count">Видеозаписей: %1$d</string>
+    <string name="videos_upload">Загрузить видео</string>
+    <string name="videos_create_album">Создать видеоальбом</string>
+    <string name="videos_edit">Редактировать</string>
+    <string name="videos_edit_video">Редактировать видео</string>
+    <string name="videos_edit_album">Редактировать видеоальбом</string>
+    <string name="videos_title_hint">Название</string>
+    <string name="videos_description_hint">Описание</string>
+    <string name="videos_save">Сохранить</string>
+    <string name="videos_cancel">Отмена</string>
+    <string name="videos_upload_confirm">Загрузить</string>
+    <string name="videos_saving">Сохранение…</string>
+    <string name="videos_write_success">Готово</string>
+    <string name="videos_write_uncertain">Не удалось подтвердить результат. Проверьте видео в VK перед повторной попыткой: оно могло сохраниться или остаться в обработке.</string>
+    <string name="videos_write_file">Не удалось прочитать выбранный файл или определить его размер. Выберите другой файл.</string>
+    <string name="videos_write_error">VK отклонил запрос. Изменения не подтверждены.</string>
+    <string name="videos_title_required">Введите название</string>
+    <string name="videos_trim_start">Начало, сек.</string>
+    <string name="videos_trim_end">Конец, сек.</string>
+    <string name="videos_preview">Предпросмотр выбранного фрагмента</string>
+    <string name="videos_trim_invalid">Выберите начало и конец в пределах длительности видео</string>
+    <string name="videos_trim_failed">Не удалось подготовить видео. Загрузка не началась.</string>
 </resources>

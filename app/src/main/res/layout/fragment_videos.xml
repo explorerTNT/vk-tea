@@ -3,6 +3,7 @@
     <com.google.android.material.tabs.TabLayout android:id="@+id/videos_tabs" android:layout_width="match_parent" android:layout_height="48dp"
         android:background="@color/vk_blue" app:tabMode="fixed" app:tabIndicatorColor="@android:color/white"
         app:tabSelectedTextColor="@android:color/white" app:tabTextColor="#CCFFFFFF" />
+    <TextView android:id="@+id/videos_write_action" android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical" android:paddingStart="16dp" android:paddingEnd="16dp" android:background="?attr/selectableItemBackground" android:focusable="true" android:textColor="@color/vk_blue" android:visibility="gone" />
     <LinearLayout android:id="@+id/videos_search_row" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:visibility="gone" android:paddingStart="16dp" android:paddingEnd="8dp">
         <EditText android:id="@+id/videos_search_input" android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1" android:singleLine="true"
             android:inputType="text" android:imeOptions="actionSearch" android:hint="@string/videos_search_hint" android:importantForAutofill="no" />

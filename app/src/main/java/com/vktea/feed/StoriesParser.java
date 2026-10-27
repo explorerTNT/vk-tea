@@ -56,10 +56,14 @@ final class StoriesParser {
                 JSONObject story = stories.optJSONObject(j);
                 if (story == null) continue;
                 long id = story.optLong("id"), sid = story.optLong("owner_id", ownerId);
-                if (id <= 0 || sid == 0) continue;
+                // The group's displayed name must describe the actual message recipient.
+                if (id <= 0 || sid == 0 || sid != ownerId) continue;
                 JSONObject entry = new JSONObject();
                 try {
                     entry.put("id", id); entry.put("owner_id", sid);
+                    entry.put("access_key", story.optString("access_key", ""));
+                    entry.put("can_reply", flag(story, "can_reply"));
+                    entry.put("seen", flag(story, "seen"));
                     String type = story.optString("type", "");
                     entry.put("type", type);
                     boolean unavailable = flag(story, "is_deleted") || flag(story, "is_expired") || (story.has("can_see") && !flag(story, "can_see"));

@@ -68,6 +68,32 @@ public class StoriesParserTest {
         assertNotNull(web); assertEquals(View.GONE, web.getVisibility());
         controller.pause().stop().destroy();
     }
+    @Test public void replyPermissionAndAccessKeySurviveNormalization() throws Exception {
+        JSONObject root = new JSONObject("{\"response\":{\"items\":[{\"stories\":[{\"id\":2,\"owner_id\":7,\"can_reply\":1,\"seen\":1,\"access_key\":\"private-key\"},{\"id\":3,\"owner_id\":7}]}]}}");
+        org.json.JSONArray stories = StoriesParser.parse(root).get(0).stories;
+        JSONObject allowed = stories.getJSONObject(0), unknown = stories.getJSONObject(1);
+        assertTrue(allowed.getBoolean("can_reply")); assertTrue(allowed.getBoolean("seen"));
+        assertEquals("private-key", allowed.getString("access_key"));
+        assertTrue(StoryActionsViewModel.canReply(allowed, "8"));
+        assertFalse(StoryActionsViewModel.canReply(allowed, "7"));
+        assertFalse(StoryActionsViewModel.canReply(unknown, "8"));
+        assertFalse(StoryActionsViewModel.canReply(allowed, ""));
+    }
+    @Test public void startKeepsAccessKeyOutOfIntent() throws Exception {
+        JSONObject root = new JSONObject("{\"response\":{\"items\":[{\"stories\":[{\"id\":2,\"owner_id\":7,\"access_key\":\"private-key\"}]}]}}");
+        android.app.Activity activity = Robolectric.buildActivity(android.app.Activity.class).setup().get();
+        StoryViewerActivity.start(activity, StoriesParser.parse(root).get(0));
+        Intent intent = org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity();
+        assertNull(intent.getStringExtra("stories"));
+        assertNotNull(intent.getStringExtra("story_cache"));
+        assertFalse(intent.toString().contains("private-key"));
+    }
+    @Test public void ignoresStoriesWhoseOwnerDiffersFromDisplayedOwner() throws Exception {
+        JSONObject root = new JSONObject("{\"response\":{\"profiles\":[{\"id\":7,\"first_name\":\"Synthetic\"}],\"items\":[{\"owner_id\":7,\"stories\":[{\"id\":1,\"owner_id\":7},{\"id\":2,\"owner_id\":8}]}]}}");
+        StoriesParser.Owner owner = StoriesParser.parse(root).get(0);
+        assertEquals("Synthetic", owner.name); assertEquals(1, owner.stories.length());
+        assertEquals(7, owner.stories.getJSONObject(0).getLong("owner_id"));
+    }
     private static Button findButton(View view, String text) {
         if (view instanceof Button && text.contentEquals(((Button) view).getText())) return (Button) view;
         if (view instanceof android.view.ViewGroup) {

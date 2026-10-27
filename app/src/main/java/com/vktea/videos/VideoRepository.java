@@ -87,7 +87,7 @@ final class VideoRepository implements VideosViewModel.Source {
             else callback.complete(page, error);
         });
     }
-    private static String mapError(int code) {
+    static String mapError(int code) {
         switch (code) {
             case 5: case 17: case 25: return "auth";
             case 7: case 15: case 20: case 23: case 200: case 201: case 204: case 260: return "access";
@@ -95,7 +95,7 @@ final class VideoRepository implements VideosViewModel.Source {
             default: return "generic";
         }
     }
-    private static String signature(String method, LinkedHashMap<String, String> params, String secret) {
+    static String signature(String method, LinkedHashMap<String, String> params, String secret) {
         StringBuilder raw = new StringBuilder("/method/").append(method).append('?');
         for (Map.Entry<String, String> p : params.entrySet()) {
             if (raw.charAt(raw.length() - 1) != '?') raw.append('&');

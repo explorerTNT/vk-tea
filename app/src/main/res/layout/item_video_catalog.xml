@@ -9,4 +9,5 @@
         <TextView android:id="@+id/videos_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="3" android:ellipsize="end" android:textColor="@color/almost_black" android:textSize="16sp" />
         <TextView android:id="@+id/videos_subtitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="@color/post_time" android:textSize="13sp" />
     </LinearLayout>
+    <TextView android:id="@+id/videos_edit" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="⋮" android:textSize="24sp" android:contentDescription="@string/videos_edit" android:background="?attr/selectableItemBackground" android:visibility="gone" />
 </LinearLayout>

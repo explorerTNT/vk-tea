@@ -11,6 +11,7 @@ import java.util.List;
 final class VideoEntry {
     final long ownerId, id;
     final String title, image, accessKey;
+    String description;
     final int duration, count;
     final boolean album;
     VideoEntry(long ownerId, long id, String title, String image, String accessKey, int duration, int count, boolean album) {
@@ -30,9 +31,11 @@ final class VideoEntry {
                 if (!value.isEmpty()) { image = value; break; }
             }
         }
-        return new VideoEntry(owner, id, item.optString("title", ""), image,
+        VideoEntry entry = new VideoEntry(owner, id, item.optString("title", ""), image,
                 item.optString("access_key", ""), Math.max(0, item.optInt("duration", 0)),
                 Math.max(0, item.optInt("count", 0)), album);
+        entry.description = item.has("description") && !item.isNull("description") ? item.optString("description") : null;
+        return entry;
     }
     private static String bestImage(JSONArray images) {
         if (images == null) return "";
