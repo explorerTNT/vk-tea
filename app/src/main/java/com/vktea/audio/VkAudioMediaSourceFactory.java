@@ -28,10 +28,12 @@ import com.vktea.audio.catalog.VkAudioRepository;
 import com.vktea.audio.catalog.VkAudioTrack;
 
 import java.io.IOException;
+import java.io.File;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 
 /** Resolves a VK item when it is prepared, rather than resolving an entire library at once. */
 @UnstableApi
@@ -39,19 +41,30 @@ final class VkAudioMediaSourceFactory implements MediaSource.Factory {
     private final MediaSource.Factory delegate;
     private final VkAudioRepository repository;
     private final BooleanSupplier authorized;
+    @Nullable private final Context application;
+    private final Function<String, String> accessIdentity;
 
     VkAudioMediaSourceFactory(Context context, VkAudioRepository repository, BooleanSupplier authorized) {
         this(new DefaultMediaSourceFactory(new DefaultDataSource.Factory(context,
                 new DefaultHttpDataSource.Factory().setUserAgent(VKApi.USER_AGENT)
                         .setConnectTimeoutMs(15_000).setReadTimeoutMs(20_000)
-                        .setAllowCrossProtocolRedirects(false))), repository, authorized);
+                        .setAllowCrossProtocolRedirects(false))), repository, authorized,
+                context.getApplicationContext(), id -> AudioSources.apiId(context.getApplicationContext(), id));
     }
 
     VkAudioMediaSourceFactory(MediaSource.Factory delegate, VkAudioRepository repository,
                              BooleanSupplier authorized) {
+        this(delegate, repository, authorized, null, VkAudioIds::apiId);
+    }
+
+    VkAudioMediaSourceFactory(MediaSource.Factory delegate, VkAudioRepository repository,
+                             BooleanSupplier authorized, @Nullable Context application,
+                             Function<String, String> accessIdentity) {
         this.delegate = delegate;
         this.repository = repository;
         this.authorized = authorized;
+        this.application = application;
+        this.accessIdentity = accessIdentity;
     }
 
     @Override public MediaSource createMediaSource(MediaItem item) {
@@ -89,7 +102,13 @@ final class VkAudioMediaSourceFactory implements MediaSource.Factory {
             playbackHandler = handler;
             int expected = ++generation;
             if (!authorized.getAsBoolean()) { failure = unavailable(); return; }
-            String apiId = Objects.requireNonNull(VkAudioIds.apiId(original.mediaId));
+            File cached = application == null ? null : AudioOfflineCache.findFile(application, original.mediaId);
+            if (cached != null) {
+                child = delegate.createMediaSource(original.buildUpon().setUri(Uri.fromFile(cached)).build());
+                prepareChildSource(0, child);
+                return;
+            }
+            String apiId = Objects.requireNonNull(accessIdentity.apply(original.mediaId));
             request = repository.getById(Collections.singletonList(apiId),
                     new VkAudioRepository.Callback<List<VkAudioTrack>>() {
                         @Override public void onSuccess(List<VkAudioTrack> tracks) {

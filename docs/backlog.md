@@ -29,13 +29,13 @@
 
 ## 3. Аудио - приоритет №1
 
-- [x] P0 **Ядро плеера** на Media3: свой `AudioPlaybackService` (`MediaSessionService` + ExoPlayer), очередь, состояние, repeat/shuffle, контроллер. «Мои аудиозаписи» загружает библиотеку текущего аккаунта через `audio.get` с пагинацией; `audio.getById` получает актуальный URL при подготовке трека. Импорт локальных файлов удалён из этого экрана. Контракт и ограничения - [audio-playback.md](audio-playback.md); сохранение очереди между запусками ещё не реализовано.
+- [x] P0 **Ядро плеера** на Media3: свой `AudioPlaybackService` (`MediaSessionService` + ExoPlayer), очередь, состояние, repeat/shuffle, контроллер. «Мои аудиозаписи» загружает библиотеку текущего аккаунта через `audio.get` с пагинацией; `audio.getById` получает актуальный URL при подготовке трека. VK-очередь и позиция восстанавливаются на паузе. Контракт и ограничения — [audio-playback.md](audio-playback.md).
 - [ ] P0 **DataSource-слой**: `player/exo/AudioOkHttpDataSource` (сеть), `AudioFileDataSource` (локальный кеш), `AudioCacheHelper` - переносится на Media3 почти 1:1
 - [ ] P0 **Локальный прокси** (обход истекающих URL + кеш) - `player/proxy/PlayerProxy`, `ClientThread`, `LockFile`, `QueryData`
 - [x] P0 **Фоновое воспроизведение + MediaSession** - foreground-сервис, системное управление, audio focus и пауза при отключении проводной гарнитуры через Media3. Эмуляторная проверка описана в [audio-playback.md](audio-playback.md); физическая гарнитура и локскрин телефона требуют отдельной проверки.
-- [x] P1 **Полноэкранный плеер** - `AudioPlayerActivity` + layouts (`audio_player_*`): обложка-заглушка, перемотка, основные кнопки и меню по скриншотам Coffee; общий мини-плеер закреплён снизу основного экрана. Подключены список и воспроизведение VK; изменение библиотеки, lyrics/similar/artist и скачивание удалённых треков пока недоступны; см. [audio-playback.md](audio-playback.md).
-- [ ] P1 **Скачивание треков / оффлайн** - `SavedTracks`, `SavedTrack`, `DownloadTaskTracks`, `DownloadTrackFileConverter`, `CacheUtils` + сервис `CaffeineDownloader`
-- [ ] P1 **Плейлисты** - `fragments/AudioPlaylistFragment`, `AudioListFragment`
+- [x] P1 **Полноэкранный плеер** — `AudioPlayerActivity` + layouts (`audio_player_*`): обложка-заглушка, перемотка, основные кнопки и меню по скриншотам Coffee; общий мини-плеер закреплён снизу основного экрана. Действия библиотеки доступны в каталоге; lyrics/similar/artist остаются недоступны; см. [audio-playback.md](audio-playback.md).
+- [ ] P1 **Скачивание треков / оффлайн** — прямые файлы сохраняются в ограниченный приватный кеш; HLS пока не поддерживается.
+- [ ] P1 **Плейлисты** — просмотр, создание и изменение состава реализованы; переименование и удаление плейлистов остаются задачей.
 - [ ] P2 **Голосовые сообщения** - `AudioMessagePlayerService`
 - [ ] P2 **HLS-потоки** - `player/exo/hls/*` (в Media3 встроено, свой парсер не нужен)
 - [ ] DROP `player/ads/*` (instream-реклама VK мертва)

@@ -65,6 +65,40 @@ public final class VkAudioViewModel extends ViewModel {
     private boolean cleared;
     private long generation;
     private boolean failedRefresh;
+    private String query = "";
+    private VkAudioPlaylist playlist;
+
+    public void showLibrary() { switchSource("", null); }
+    public void search(String value) { switchSource(value == null ? "" : value.trim(), null); }
+    public void showPlaylist(VkAudioPlaylist value) { if (value != null) switchSource("", value); }
+    public boolean isSearch() { return !query.isEmpty(); }
+    public VkAudioPlaylist getPlaylist() { return playlist; }
+    public String getQuery() { return query; }
+
+    private void switchSource(String value, VkAudioPlaylist selected) {
+        requireMain();
+        if (cleared) return;
+        generation++;
+        if (request != null) request.cancel();
+        request = null;
+        query = value;
+        playlist = selected;
+        state.setValue(new State(Collections.emptyList(), 0, 0, false, false, true, false, null));
+        load(true);
+    }
+
+    public void getPlaylists(VkAudioRepository.Callback<List<VkAudioPlaylist>> callback) {
+        repository.getPlaylists(0, 1000, callback);
+    }
+    public void createPlaylist(String title, VkAudioRepository.Callback<Boolean> callback) {
+        repository.createPlaylist(title, callback);
+    }
+    public void changeLibrary(VkAudioTrack track, boolean add, VkAudioRepository.Callback<Boolean> callback) {
+        repository.changeLibrary(track, add, callback);
+    }
+    public void changePlaylist(VkAudioPlaylist selected, VkAudioTrack track, boolean add, VkAudioRepository.Callback<Boolean> callback) {
+        repository.changePlaylist(selected, track, add, callback);
+    }
 
     public VkAudioViewModel(VkAudioRepository repository) {
         this.repository = repository;
@@ -110,7 +144,7 @@ public final class VkAudioViewModel extends ViewModel {
         failedRefresh = refresh;
         state.setValue(new State(previous.items, previous.totalCount, previous.nextOffset,
                 true, refresh && previous.loaded, previous.hasMore, previous.loaded, null));
-        VkAudioRepository.Request started = repository.getMyAudio(offset, PAGE_SIZE, new VkAudioRepository.Callback<VkAudioPage>() {
+        VkAudioRepository.Callback<VkAudioPage> callback = new VkAudioRepository.Callback<VkAudioPage>() {
             @Override
             public void onSuccess(VkAudioPage page) {
                 if (cleared || requestedGeneration != generation) return;
@@ -130,7 +164,10 @@ public final class VkAudioViewModel extends ViewModel {
                 state.setValue(new State(previous.items, previous.totalCount, previous.nextOffset,
                         false, false, previous.hasMore, previous.loaded, error));
             }
-        });
+        };
+        VkAudioRepository.Request started = !query.isEmpty() ? repository.search(query, offset, PAGE_SIZE, callback)
+                : playlist != null ? repository.getPlaylistAudio(playlist, offset, PAGE_SIZE, callback)
+                : repository.getMyAudio(offset, PAGE_SIZE, callback);
         if (!cleared && requestedGeneration == generation && getCurrentState().loading) request = started;
     }
 

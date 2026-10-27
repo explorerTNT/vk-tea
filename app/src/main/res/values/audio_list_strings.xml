@@ -9,9 +9,9 @@
     <string name="audio_list_loading">Загрузка аудиозаписей…</string>
     <string name="audio_list_empty">В вашем аккаунте VK нет аудиозаписей.</string>
     <string name="audio_list_empty_unavailable">Не удалось показать аудиозаписи из ответа VK.</string>
-    <string name="audio_list_no_results">Среди загруженных аудиозаписей ничего не найдено.</string>
-    <string name="audio_list_search_title">Поиск среди загруженных аудиозаписей</string>
-    <string name="audio_list_search_hint">Название или исполнитель из загруженного списка</string>
+    <string name="audio_list_no_results">Аудиозаписи не найдены.</string>
+    <string name="audio_list_search_title">Поиск музыки</string>
+    <string name="audio_list_search_hint">Название или исполнитель</string>
     <string name="audio_list_search_done">Готово</string>
     <string name="audio_list_search_clear">Сбросить</string>
     <string name="audio_list_current_track">Текущая аудиозапись</string>
@@ -23,4 +23,17 @@
     <string name="audio_list_error_response">Не удалось прочитать ответ VK с аудиозаписями.</string>
     <string name="audio_list_error_generic">Не удалось загрузить аудиозаписи VK. Повторите попытку.</string>
     <string name="audio_list_unavailable">Эта аудиозапись недоступна для воспроизведения.</string>
+    <string name="audio_playlists">Плейлисты</string>
+    <string name="audio_offline_library">Офлайн</string>
+    <string name="audio_offline_empty">Нет сохранённых аудиозаписей.</string>
+    <string name="audio_search_network">Искать в VK</string>
+    <string name="audio_search_results">Поиск в VK: %1$s</string>
+    <string name="audio_create_playlist">Создать плейлист</string>
+    <string name="audio_add_playlist">Добавить в плейлист</string>
+    <string name="audio_remove_playlist">Убрать из плейлиста</string>
+    <string name="audio_add_library">Добавить в мои аудиозаписи</string>
+    <string name="audio_remove_library">Удалить из моих аудиозаписей</string>
+    <string name="audio_remove_library_confirm">Удалить аудиозапись из вашей библиотеки VK?</string>
+    <string name="audio_more_actions">Другие действия</string>
+    <string name="audio_change_success">Изменения сохранены в VK.</string>
 </resources>

@@ -28,9 +28,13 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.vktea.R;
 import com.vktea.audio.AudioPlayback;
+import com.vktea.audio.AudioSources;
+import com.vktea.audio.AudioOfflineCache;
 import com.vktea.audio.AudioUi;
 import com.vktea.audio.catalog.VkAudioError;
 import com.vktea.audio.catalog.VkAudioTrack;
+import com.vktea.audio.catalog.VkAudioPlaylist;
+import com.vktea.audio.catalog.VkAudioRepository;
 import com.vktea.audio.catalog.VkAudioViewModel;
 
 import java.util.ArrayList;
@@ -43,11 +47,16 @@ import java.util.concurrent.ThreadLocalRandom;
 @androidx.annotation.OptIn(markerClass = UnstableApi.class)
 public class AudioFragment extends Fragment {
     private static final String SEARCH_QUERY = "audio_search_query";
+    private static final String OFFLINE_MODE = "audio_offline_mode";
     private static final int MENU_LIBRARY = 1;
     private static final int MENU_REFRESH = 2;
+    private static final int MENU_PLAYLISTS = 3;
+    private static final int MENU_OFFLINE = 4;
 
     private String searchQuery = "";
     private boolean connectionFailed;
+    private boolean offlineMode;
+    private boolean actionPending;
     private int actionMessage;
     private VkAudioViewModel catalog;
     private VkAudioViewModel.State libraryState;
@@ -58,6 +67,7 @@ public class AudioFragment extends Fragment {
     private RecyclerView list;
     private SwipeRefreshLayout refresh;
     private TextView shuffle;
+    private TextView sourceLabel;
     private TextView status;
     private TextView empty;
     private TextView retry;
@@ -76,7 +86,10 @@ public class AudioFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (savedInstanceState != null) searchQuery = savedInstanceState.getString(SEARCH_QUERY, "");
+        if (savedInstanceState != null) {
+            searchQuery = savedInstanceState.getString(SEARCH_QUERY, "");
+            offlineMode = savedInstanceState.getBoolean(OFFLINE_MODE, false);
+        }
         catalog = new ViewModelProvider(this, createCatalogFactory()).get(VkAudioViewModel.class);
         libraryState = catalog.getCurrentState();
     }
@@ -96,6 +109,7 @@ public class AudioFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         shuffle = view.findViewById(R.id.audio_list_shuffle);
+        sourceLabel = view.findViewById(R.id.audio_source_label);
         status = view.findViewById(R.id.audio_status);
         empty = view.findViewById(R.id.audio_empty);
         emptyState = view.findViewById(R.id.audio_list_empty_state);
@@ -111,15 +125,16 @@ public class AudioFragment extends Fragment {
             @Override public void onTrackClick(int index) { playLibrary(index, false); }
             @Override public void onTrackLongClick(View anchor, int index) {
                 if (index >= 0 && index < libraryItems.size()) {
-                    AudioUi.showCatalogActions(requireActivity(), anchor, libraryItems.get(index));
+                    if (offlineMode) AudioUi.showCatalogActions(requireActivity(), anchor, libraryItems.get(index), AudioFragment.this::render);
+                    else showTrackActions(anchor, libraryState.items.get(index));
                 }
             }
         });
-        queueAdapter.setQuery(searchQuery);
+        queueAdapter.setQuery(catalog.isSearch() ? "" : searchQuery);
         list.setAdapter(queueAdapter);
         list.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override public void onScrolled(@NonNull RecyclerView view, int dx, int dy) {
-                if (dy > 0 && searchQuery.trim().isEmpty() && libraryState != null
+                if (dy > 0 && !offlineMode && libraryState != null
                         && libraryState.hasMore && !libraryState.loading && libraryState.error == null
                         && layout.findLastVisibleItemPosition() >= queueAdapter.getItemCount() - 5) {
                     catalog.loadNext();
@@ -130,7 +145,7 @@ public class AudioFragment extends Fragment {
         refresh.setOnChildScrollUpCallback((parent, child) -> list.canScrollVertically(-1));
         refresh.setOnRefreshListener(() -> {
             actionMessage = 0;
-            catalog.refresh();
+            if (offlineMode) render(); else catalog.refresh();
         });
         retry.setOnClickListener(v -> catalog.retry());
         loadMore.setOnClickListener(v -> catalog.loadNext());
@@ -157,23 +172,33 @@ public class AudioFragment extends Fragment {
         if (!isAdded() || queueAdapter == null) return;
         PopupMenu menu = new PopupMenu(audioTheme(), anchor);
         menu.getMenu().add(0, MENU_LIBRARY, 0, R.string.audio_list_my_audio)
-                .setCheckable(true).setChecked(true);
+                .setCheckable(true).setChecked(!offlineMode && !catalog.isSearch() && catalog.getPlaylist() == null);
+        menu.getMenu().add(0, MENU_PLAYLISTS, 1, R.string.audio_playlists);
+        menu.getMenu().add(0, MENU_OFFLINE, 2, R.string.audio_offline_library);
         menu.getMenu().add(0, MENU_REFRESH, 1, R.string.audio_list_refresh)
                 .setEnabled(libraryState == null || !libraryState.loading);
         menu.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == MENU_LIBRARY) {
+                offlineMode = false;
                 setSearchQuery("");
+                catalog.showLibrary();
                 list.scrollToPosition(0);
+            } else if (item.getItemId() == MENU_PLAYLISTS) {
+                showPlaylists(null);
+            } else if (item.getItemId() == MENU_OFFLINE) {
+                offlineMode = true;
+                setSearchQuery("");
+                render();
             } else if (item.getItemId() == MENU_REFRESH) {
                 actionMessage = 0;
-                catalog.refresh();
+                if (offlineMode) render(); else catalog.refresh();
             }
             return true;
         });
         menu.show();
     }
 
-    /** Filters only already loaded account rows; this is not a server-wide audio search. */
+    /** Local filtering while typing; the positive action searches VK. */
     public void showAudioSearch() {
         if (!isAdded() || queueAdapter == null || searchDialog != null && searchDialog.isShowing()) return;
         EditText input = new EditText(audioTheme());
@@ -192,9 +217,28 @@ public class AudioFragment extends Fragment {
         });
         searchDialog = new AlertDialog.Builder(audioTheme())
                 .setTitle(R.string.audio_list_search_title).setView(input)
-                .setPositiveButton(R.string.audio_list_search_done, null)
-                .setNegativeButton(R.string.audio_list_search_clear, (dialog, which) -> setSearchQuery(""))
+                .setPositiveButton(R.string.audio_search_network, (dialog, which) -> {
+                    String query = input.getText().toString().trim();
+                    if (!query.isEmpty()) {
+                        offlineMode = false;
+                        searchQuery = query;
+                        queueAdapter.setQuery("");
+                        catalog.search(query);
+                        list.scrollToPosition(0);
+                    }
+                })
+                .setNegativeButton(R.string.audio_list_search_clear, (dialog, which) -> {
+                    setSearchQuery("");
+                    if (catalog.isSearch()) catalog.showLibrary();
+                })
                 .create();
+        searchDialog.setOnDismissListener(dialog -> {
+            if (queueAdapter != null && catalog.isSearch()) {
+                searchQuery = catalog.getQuery();
+                queueAdapter.setQuery("");
+                render();
+            }
+        });
         searchDialog.show();
         input.requestFocus();
     }
@@ -277,6 +321,12 @@ public class AudioFragment extends Fragment {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        if (offlineMode) render();
+    }
+
+    @Override
     public void onStop() {
         if (controller != null) controller.removeListener(playerListener);
         controller = null;
@@ -292,6 +342,7 @@ public class AudioFragment extends Fragment {
     public void onSaveInstanceState(@NonNull Bundle state) {
         super.onSaveInstanceState(state);
         state.putString(SEARCH_QUERY, searchQuery);
+        state.putBoolean(OFFLINE_MODE, offlineMode);
     }
 
     @Override
@@ -302,6 +353,7 @@ public class AudioFragment extends Fragment {
         list = null;
         refresh = null;
         shuffle = null;
+        sourceLabel = null;
         status = null;
         empty = null;
         emptyState = null;
@@ -315,36 +367,138 @@ public class AudioFragment extends Fragment {
     private void render() {
         if (queueAdapter == null || libraryState == null) return;
         libraryItems.clear();
-        for (VkAudioTrack track : libraryState.items) libraryItems.add(track.toMediaItem());
+        if (offlineMode) {
+            libraryItems.addAll(AudioOfflineCache.list(requireContext()));
+        } else {
+            AudioSources.rememberTracks(requireContext(), libraryState.items);
+            for (VkAudioTrack track : libraryState.items) libraryItems.add(track.toMediaItem());
+        }
+        sourceLabel.setText(offlineMode ? getString(R.string.audio_offline_library)
+                : catalog.isSearch() ? getString(R.string.audio_search_results, catalog.getQuery())
+                : catalog.getPlaylist() != null ? catalog.getPlaylist().title : getString(R.string.audio_list_my_audio));
         Player player = playbackPlayer();
         MediaItem current = player == null ? null : player.getCurrentMediaItem();
         queueAdapter.submit(libraryItems, current == null ? null : current.mediaId);
         boolean noMatches = queueAdapter.getItemCount() == 0;
         boolean hasRows = !libraryItems.isEmpty();
-        boolean initialLoading = !hasRows && (libraryState.loading
+        boolean initialLoading = !offlineMode && !hasRows && (libraryState.loading
                 || !libraryState.loaded && libraryState.error == null);
         boolean hasPlayableRows = false;
         for (MediaItem item : libraryItems) {
             if (!Boolean.FALSE.equals(item.mediaMetadata.isPlayable)) hasPlayableRows = true;
         }
-        shuffle.setText(libraryState.hasMore ? R.string.audio_list_shuffle_loaded : R.string.audio_list_shuffle_all);
+        shuffle.setText(!offlineMode && libraryState.hasMore ? R.string.audio_list_shuffle_loaded : R.string.audio_list_shuffle_all);
         shuffle.setEnabled(player != null && hasPlayableRows);
-        refresh.setRefreshing(libraryState.loading && libraryState.refreshing && hasRows);
+        refresh.setRefreshing(!offlineMode && libraryState.loading && libraryState.refreshing && hasRows);
         loading.setVisibility(initialLoading ? View.VISIBLE : View.GONE);
-        emptyState.setVisibility(noMatches && libraryState.error == null ? View.VISIBLE : View.GONE);
+        emptyState.setVisibility(noMatches && (offlineMode || libraryState.error == null) ? View.VISIBLE : View.GONE);
         empty.setText(initialLoading ? R.string.audio_list_loading
-                : hasRows || !searchQuery.trim().isEmpty() ? R.string.audio_list_no_results
+                : offlineMode ? R.string.audio_offline_empty
+                : hasRows || !searchQuery.trim().isEmpty() || catalog.getPlaylist() != null ? R.string.audio_list_no_results
                 : libraryState.totalCount > 0 ? R.string.audio_list_empty_unavailable : R.string.audio_list_empty);
         list.setVisibility(noMatches ? View.GONE : View.VISIBLE);
-        loadMore.setVisibility(libraryState.hasMore && !libraryState.loading && libraryState.error == null
+        loadMore.setVisibility(!offlineMode && libraryState.hasMore && !libraryState.loading && libraryState.error == null
                 ? View.VISIBLE : View.GONE);
-        retry.setVisibility(libraryState.error != null && !libraryState.loading ? View.VISIBLE : View.GONE);
-        int message = libraryState.error != null ? errorMessage(libraryState.error)
+        retry.setVisibility(!offlineMode && libraryState.error != null && !libraryState.loading ? View.VISIBLE : View.GONE);
+        int message = !offlineMode && libraryState.error != null ? errorMessage(libraryState.error)
                 : actionMessage != 0 ? actionMessage
-                : libraryState.loading && hasRows && !libraryState.refreshing ? R.string.audio_list_loading
+                : !offlineMode && libraryState.loading && hasRows && !libraryState.refreshing ? R.string.audio_list_loading
                 : connectionFailed && player == null && hasRows ? R.string.audio_connection_failed : 0;
         if (message != 0) status.setText(message);
         messageRow.setVisibility(message != 0 ? View.VISIBLE : View.GONE);
+    }
+
+    private void showTrackActions(View anchor, VkAudioTrack track) {
+        PopupMenu popup = new PopupMenu(audioTheme(), anchor);
+        boolean library = !catalog.isSearch() && catalog.getPlaylist() == null;
+        if (library) popup.getMenu().add(0, 1, 0, R.string.audio_remove_library);
+        else popup.getMenu().add(0, 2, 0, R.string.audio_add_library);
+        popup.getMenu().add(0, 3, 1, R.string.audio_add_playlist);
+        if (catalog.getPlaylist() != null) popup.getMenu().add(0, 4, 2, R.string.audio_remove_playlist);
+        popup.getMenu().add(0, 5, 3, R.string.audio_more_actions);
+        popup.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case 1:
+                    new AlertDialog.Builder(audioTheme()).setMessage(R.string.audio_remove_library_confirm)
+                            .setPositiveButton(R.string.audio_remove_library, (d, w) -> mutateLibrary(track, false))
+                            .setNegativeButton(android.R.string.cancel, null).show();
+                    return true;
+                case 2: mutateLibrary(track, true); return true;
+                case 3: showPlaylists(track); return true;
+                case 4: mutatePlaylist(catalog.getPlaylist(), track, false); return true;
+                case 5: AudioUi.showCatalogActions(requireActivity(), anchor, track.toMediaItem()); return true;
+                default: return false;
+            }
+        });
+        popup.show();
+    }
+
+    private void showPlaylists(@Nullable VkAudioTrack track) {
+        if (actionPending) return;
+        actionPending = true;
+        catalog.getPlaylists(new VkAudioRepository.Callback<List<VkAudioPlaylist>>() {
+            @Override public void onSuccess(List<VkAudioPlaylist> playlists) {
+                actionPending = false;
+                if (!isAdded() || getView() == null) return;
+                String[] titles = new String[playlists.size()];
+                for (int i = 0; i < playlists.size(); i++) titles[i] = playlists.get(i).title;
+                new AlertDialog.Builder(audioTheme()).setTitle(track == null ? R.string.audio_playlists : R.string.audio_add_playlist)
+                        .setItems(titles, (dialog, which) -> {
+                            VkAudioPlaylist selected = playlists.get(which);
+                            if (track != null) mutatePlaylist(selected, track, true);
+                            else {
+                                offlineMode = false;
+                                setSearchQuery("");
+                                catalog.showPlaylist(selected);
+                                list.scrollToPosition(0);
+                            }
+                        }).setPositiveButton(R.string.audio_create_playlist, (dialog, which) -> createPlaylist())
+                        .setNegativeButton(android.R.string.cancel, null).show();
+            }
+            @Override public void onError(VkAudioError error) { actionFailed(error); }
+        });
+    }
+
+    private void createPlaylist() {
+        EditText input = new EditText(audioTheme());
+        input.setSingleLine(true);
+        new AlertDialog.Builder(audioTheme()).setTitle(R.string.audio_create_playlist).setView(input)
+                .setPositiveButton(R.string.audio_create_playlist, (dialog, which) -> {
+                    String title = input.getText().toString().trim();
+                    if (title.isEmpty() || actionPending) return;
+                    actionPending = true;
+                    catalog.createPlaylist(title, mutationCallback(false));
+                }).setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    private void mutateLibrary(VkAudioTrack track, boolean add) {
+        if (actionPending) return;
+        actionPending = true;
+        catalog.changeLibrary(track, add, mutationCallback(!add));
+    }
+
+    private void mutatePlaylist(VkAudioPlaylist playlist, VkAudioTrack track, boolean add) {
+        if (actionPending || playlist == null) return;
+        actionPending = true;
+        catalog.changePlaylist(playlist, track, add, mutationCallback(!add));
+    }
+
+    private VkAudioRepository.Callback<Boolean> mutationCallback(boolean refreshAfter) {
+        return new VkAudioRepository.Callback<Boolean>() {
+            @Override public void onSuccess(Boolean result) {
+                actionPending = false;
+                if (!isAdded() || getView() == null) return;
+                android.widget.Toast.makeText(requireContext(), R.string.audio_change_success, android.widget.Toast.LENGTH_SHORT).show();
+                if (refreshAfter) catalog.refresh();
+            }
+            @Override public void onError(VkAudioError error) { actionFailed(error); }
+        };
+    }
+
+    private void actionFailed(VkAudioError error) {
+        actionPending = false;
+        if (!isAdded() || getView() == null) return;
+        android.widget.Toast.makeText(requireContext(), errorMessage(error), android.widget.Toast.LENGTH_LONG).show();
     }
 
     private static int errorMessage(VkAudioError error) {

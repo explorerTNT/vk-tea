@@ -25,6 +25,14 @@ public interface VkAudioRepository extends AutoCloseable {
     /** audios are validated owner_id_id[_access_key] identities, never media URLs. */
     Request getById(List<String> audios, Callback<List<VkAudioTrack>> callback);
 
+    // Defaults preserve compatibility with offline repositories that only implement the catalog.
+    default Request search(String query, int offset, int count, Callback<VkAudioPage> callback) { throw new UnsupportedOperationException(); }
+    default Request getPlaylists(int offset, int count, Callback<List<VkAudioPlaylist>> callback) { throw new UnsupportedOperationException(); }
+    default Request getPlaylistAudio(VkAudioPlaylist playlist, int offset, int count, Callback<VkAudioPage> callback) { throw new UnsupportedOperationException(); }
+    default Request createPlaylist(String title, Callback<Boolean> callback) { throw new UnsupportedOperationException(); }
+    default Request changeLibrary(VkAudioTrack track, boolean add, Callback<Boolean> callback) { throw new UnsupportedOperationException(); }
+    default Request changePlaylist(VkAudioPlaylist playlist, VkAudioTrack track, boolean add, Callback<Boolean> callback) { throw new UnsupportedOperationException(); }
+
     @Override
     void close();
 }

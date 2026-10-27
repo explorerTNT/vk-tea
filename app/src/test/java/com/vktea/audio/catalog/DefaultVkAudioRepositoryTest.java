@@ -279,6 +279,79 @@ public class DefaultVkAudioRepositoryTest {
         assertEquals(0, calls.get());
     }
 
+    @Test
+    public void searchUsesNetworkParametersAndRawPageCount() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":{\"count\":3,\"items\":[{\"id\":2,\"owner_id\":-4},{\"id\":0}]}}"));
+        Result<VkAudioPage> result = new Result<>();
+        repository.search(" синтезатор ", 2, 10, result);
+        await(result);
+        assertEquals("/method/audio.search", captured.get().url().encodedPath());
+        assertEquals("синтезатор", captured.get().url().queryParameter("q"));
+        assertEquals("2", captured.get().url().queryParameter("offset"));
+        assertEquals(2, result.value.consumedCount);
+        assertEquals(1, result.value.items.size());
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void playlistsAndMutationsUseValidatedIdentityAndExplicitPost() throws Exception {
+        create(chain -> response(chain, 200, chain.request().url().encodedPath().endsWith("getPlaylists")
+                ? "{\"response\":{\"items\":[{\"id\":7,\"owner_id\":41,\"title\":\"Test\",\"access_key\":\"key\"}]}}"
+                : chain.request().url().encodedPath().endsWith("addToPlaylist")
+                ? "{\"response\":[{\"audio_id\":9}]}" : "{\"response\":1}"));
+        Result<List<VkAudioPlaylist>> playlists = new Result<>();
+        repository.getPlaylists(0, 100, playlists);
+        await(playlists);
+        assertEquals("41", captured.get().url().queryParameter("owner_id"));
+        VkAudioPlaylist playlist = playlists.value.get(0);
+        VkAudioTrack track = new VkAudioTrack(9, -4, "", "", 0, "", "secret-key", true);
+        Result<Boolean> removed = new Result<>();
+        repository.changePlaylist(playlist, track, false, removed);
+        await(removed);
+        assertEquals("POST", captured.get().method());
+        assertEquals("/method/audio.removeFromPlaylist", captured.get().url().encodedPath());
+        assertEquals("41", captured.get().url().queryParameter("owner_id"));
+        assertEquals("7", captured.get().url().queryParameter("playlist_id"));
+        assertEquals("-4_9", captured.get().url().queryParameter("audio_ids"));
+        assertTrue(removed.value);
+        Result<Boolean> added = new Result<>();
+        repository.changePlaylist(playlist, track, true, added);
+        await(added);
+        assertTrue(added.value);
+        assertEquals("/method/audio.addToPlaylist", captured.get().url().encodedPath());
+        Result<Boolean> forbidden = new Result<>();
+        repository.changePlaylist(new VkAudioPlaylist(42, 7, "other", ""), track, true, forbidden);
+        await(forbidden);
+        assertEquals(VkAudioError.Kind.INVALID_REQUEST, forbidden.error.kind);
+        assertEquals(3, calls.get());
+    }
+
+    @Test
+    public void libraryMutationDoesNotClaimSuccessForZeroResponseOrRetry() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":0}"));
+        Result<Boolean> result = new Result<>();
+        repository.changeLibrary(new VkAudioTrack(9, 41, "", "", 0, "", "", true), false, result);
+        await(result);
+        assertEquals("POST", captured.get().method());
+        assertEquals("/method/audio.delete", captured.get().url().encodedPath());
+        assertEquals("41", captured.get().url().queryParameter("owner_id"));
+        assertEquals("9", captured.get().url().queryParameter("audio_id"));
+        assertEquals(VkAudioError.Kind.MALFORMED_RESPONSE, result.error.kind);
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    public void addingPrivateAudioSuppliesItsAccessKey() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":123}"));
+        Result<Boolean> result = new Result<>();
+        repository.changeLibrary(new VkAudioTrack(9, -41, "", "", 0, "", "synthetic-key", true), true, result);
+        await(result);
+        assertTrue(result.value);
+        assertEquals("/method/audio.add", captured.get().url().encodedPath());
+        assertEquals("synthetic-key", captured.get().url().queryParameter("access_key"));
+        assertEquals(1, calls.get());
+    }
+
     private void create(Interceptor transport) {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(chain -> {
             calls.incrementAndGet();

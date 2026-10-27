@@ -202,7 +202,7 @@ public class AudioPlayerActivity extends AppCompatActivity {
         });
         download.setOnClickListener(view -> {
             MediaItem item = currentItem();
-            if (item != null) AudioUi.export(this, item);
+            if (item != null) AudioUi.manageOffline(this, item);
         });
         shuffle.setOnClickListener(view -> {
             if (hasCommand(Player.COMMAND_SET_SHUFFLE_MODE)) {
@@ -355,7 +355,8 @@ public class AudioPlayerActivity extends AppCompatActivity {
         save.setContentDescription(getString(saved ? R.string.audio_player_unsave : R.string.audio_player_save));
         tint(save, saved);
         enable(menu, hasItem);
-        enable(download, hasItem && AudioUi.canExport(item));
+        enable(download, hasItem && (AudioUi.canManageOffline(item) || AudioUi.canExport(item)));
+        download.setContentDescription(getString(AudioUi.offlineActionLabel(this, item)));
         enable(shuffle, hasItem && hasCommand(Player.COMMAND_SET_SHUFFLE_MODE));
         boolean shuffled = controller != null && controller.getShuffleModeEnabled();
         shuffle.setSelected(shuffled);

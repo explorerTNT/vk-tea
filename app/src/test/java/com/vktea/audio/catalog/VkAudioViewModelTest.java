@@ -145,9 +145,38 @@ public class VkAudioViewModelTest {
         return new VkAudioTrack(id, 41, "Synthetic artist", "Synthetic title", 180, "", "", true);
     }
 
+    @Test
+    public void switchingSourcesCancelsOldPageAndIgnoresLateResult() {
+        model.ensureLoaded();
+        FakeRequest old = repository.last();
+        model.search("remote");
+        assertTrue(old.canceled);
+        assertTrue(model.isSearch());
+        assertEquals("remote", repository.query);
+        old.success(new VkAudioPage(1, Collections.singletonList(track(1)), 1));
+        assertTrue(model.getCurrentState().items.isEmpty());
+        repository.last().success(new VkAudioPage(1, Collections.singletonList(track(2)), 1));
+        assertEquals(2, model.getCurrentState().items.get(0).id);
+        model.showPlaylist(new VkAudioPlaylist(41, 7, "playlist", ""));
+        assertFalse(model.isSearch());
+        assertEquals(7, repository.playlist.id);
+        assertTrue(model.getCurrentState().items.isEmpty());
+    }
+
     private static final class FakeRepository implements VkAudioRepository {
         final List<FakeRequest> pending = new ArrayList<>();
         boolean closed;
+        String query;
+        VkAudioPlaylist playlist;
+
+        @Override public Request search(String query, int offset, int count, Callback<VkAudioPage> callback) {
+            this.query = query;
+            return getMyAudio(offset, count, callback);
+        }
+        @Override public Request getPlaylistAudio(VkAudioPlaylist playlist, int offset, int count, Callback<VkAudioPage> callback) {
+            this.playlist = playlist;
+            return getMyAudio(offset, count, callback);
+        }
 
         @Override
         public Request getMyAudio(int offset, int count, Callback<VkAudioPage> callback) {
