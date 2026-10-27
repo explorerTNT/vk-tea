@@ -76,6 +76,7 @@ public class Post {
         public List<String> photos = new ArrayList<>();
         public final List<ViewerPhoto> photoDetails = new ArrayList<>();
         public ViewerPhoto imagePhoto;
+        public long albumOwnerId, albumId;
 
         public long pollId;
         public long pollOwnerId;

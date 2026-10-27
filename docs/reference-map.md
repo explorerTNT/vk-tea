@@ -340,3 +340,14 @@ java -jar apktool.jar d -f -s -o vk-tea-reference\apktool-res <apk>
 | Мёртвые api-роуты (ads, старые методы) | WebView `m.vk.com` |
 | `player.ads.*` | выкидываем |
 | GMS-зависимости старые | актуальные или отказ |
+
+## Альбомы, видео и истории: соответствия Coffee
+
+Пути ниже указаны относительно локального `vk-tea-reference/jadx-code/sources/`. Это декомпил Coffee 2021 года; наблюдения не подтверждают доступность методов, полей или прав для текущего токена VK. Код декомпила в приложение не переносился.
+
+- `su/operator555/vkcoffee/fragments/photos/PhotoAlbumListFragment.java:409` вызывает `api/photos/PhotosGetAlbums.java:27–35`: `photos.getAlbums` с `owner_id`, `need_covers=1`, условным `need_system=1` и `photo_sizes=1`. В `PhotosGetAlbums.java:49–84` обычные альбомы разбираются из массива, а в строках 86–135 отдельно обрабатываются `response.all_photos` и `response.user_photos`. `fragments/photos/PhotoListFragment.java:522–543` выбирает отдельный запрос в зависимости от типа альбома.
+- `api/photos/PhotosGet.java:16–24` использует `photos.get` для альбома и `photos.getAll` при `album_id=0`, с `owner_id`, `extended=1`, `photo_sizes=1`, `offset`, `count` и необязательным `rev=1`. `PhotosGetAll.java:13–21` и `PhotosGetUserPhotos.java:9–11` показывают отдельные маршруты для всех фото и фото с пользователем; второй принимает `user_id`, `sort=desc`, `extended`, `photo_sizes`, `offset` и `count`.
+- `fragments/videos/VideoAlbumsFragment.java:214` вызывает `api/video/VideoGetAlbums.java:9–11`: `video.getAlbums` с `owner_id`, `offset`, `count`, `extended=1`. `api/video/VideoGet.java:39–44` использует исторический серверный `execute.getVideosWithProfiles`, а не прямой `video.get`; ему передаются `owner_id`, `album_id`, `offset`, `count`, `extended=1`, `new_albums=1`, `func_c=2`. Поиск Coffee в `api/video/VideoSearch.java:20–29` также использует серверный `execute.searchVideosWithProfiles`. Реализацию этих серверных процедур из декомпила восстановить нельзя; прямые методы VK нужно проверять отдельно.
+- `api/stories/StoriesGet.java:11–15` запрашивает `stories.get` с `extended=1`, `photo_sizes=1` и полями владельца; `com/vk/stories/model/GetStoriesResponse.java:48–100` сопоставляет истории с `profiles` и `groups`. `api/stories/StoriesGetById.java:11–16` содержит отдельный запрос по `stories`; `StoriesMarkAsSeen.java:9–16` описывает исторический `stories.markSeen` с `owner_id`, `story_id`, `source` и необязательным `access_key`. Наличие этих вызовов не означает, что просмотр в VK Tea отправляет отметку о просмотре.
+
+Права доступа, наличие ссылок для воспроизведения, актуальные форматы ответов и работа на реальном аккаунте требуют отдельной проверки без повторных попыток авторизации. Офлайн-тесты с синтетическими ответами не подтверждают работу VK API.

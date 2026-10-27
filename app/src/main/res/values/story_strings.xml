@@ -1,0 +1,10 @@
+<resources>
+    <string name="story_close">Закрыть</string>
+    <string name="story_previous">Назад</string>
+    <string name="story_next">Далее</string>
+    <string name="story_open_vk">Открыть в VK</string>
+    <string name="story_loading">Загрузка…</string>
+    <string name="story_unavailable">История недоступна для просмотра в приложении</string>
+    <string name="story_progress">%1$s · %2$d / %3$d</string>
+    <string name="stories_load_retry">Не удалось загрузить истории. Нажмите, чтобы повторить</string>
+</resources>

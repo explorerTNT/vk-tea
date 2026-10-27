@@ -58,6 +58,8 @@
             android:name=".feed.PostActivity"
             android:exported="false" />
 
+        <activity android:name=".feed.StoryViewerActivity" android:exported="false" />
+
         <activity
             android:name=".feed.PhotoViewerActivity"
             android:theme="@style/Theme.VKTea.PhotoViewer"

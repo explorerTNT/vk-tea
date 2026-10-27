@@ -1,0 +1,22 @@
+<resources>
+    <string name="videos_my">Видеозаписи</string>
+    <string name="videos_albums">Альбомы</string>
+    <string name="videos_search_tab">Поиск</string>
+    <string name="videos_search_hint">Название видео</string>
+    <string name="videos_search_action">Найти</string>
+    <string name="videos_all_albums">Все альбомы</string>
+    <string name="videos_empty">Видеозаписей пока нет</string>
+    <string name="videos_albums_empty">Альбомов пока нет</string>
+    <string name="videos_search_empty">Ничего не найдено</string>
+    <string name="videos_search_prompt">Введите название видео для поиска</string>
+    <string name="videos_loading">Загрузка…</string>
+    <string name="videos_more">Показать ещё</string>
+    <string name="videos_retry">Повторить</string>
+    <string name="videos_error_auth">Сессия недоступна. Войдите в аккаунт снова.</string>
+    <string name="videos_error_access">Нет доступа к этим видеозаписям.</string>
+    <string name="videos_error_rate">Слишком много запросов. Попробуйте позже.</string>
+    <string name="videos_error_network">Не удалось загрузить видео. Проверьте подключение.</string>
+    <string name="videos_error_generic">Не удалось загрузить видео. Попробуйте ещё раз.</string>
+    <string name="videos_untitled">Без названия</string>
+    <string name="videos_album_count">Видеозаписей: %1$d</string>
+</resources>

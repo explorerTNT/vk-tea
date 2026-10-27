@@ -303,6 +303,12 @@ public class CardsRenderer {
             box.addView(row);
         }
         box.setOnClickListener(v -> {
+            if (ctx instanceof com.vktea.MainActivity && card.albumOwnerId != 0 && card.albumId != 0) {
+                ((com.vktea.MainActivity) ctx).openFragment(
+                        com.vktea.photos.PhotosFragment.newAlbumInstance(card.albumOwnerId, card.albumId, card.title),
+                        com.vktea.R.string.section_photos);
+                return;
+            }
             if (!card.linkUrl.isEmpty()) {
                 Intent intent = new Intent(ctx, AuthWebViewActivity.class);
                 intent.setData(Uri.parse(card.linkUrl));

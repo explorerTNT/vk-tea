@@ -77,6 +77,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 ((com.vktea.friends.FriendsFragment) current).showFriendsSearch();
             } else if (current instanceof com.vktea.groups.GroupsFragment) {
                 ((com.vktea.groups.GroupsFragment) current).showGroupsSearch();
+            } else if (current instanceof com.vktea.videos.VideosFragment) {
+                ((com.vktea.videos.VideosFragment) current).showVideosSearch();
             } else Toast.makeText(this, R.string.section_search, Toast.LENGTH_SHORT).show();
         });
         getSupportFragmentManager().addOnBackStackChangedListener(this::updateContentTitle);
@@ -187,6 +189,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         if (current instanceof com.vktea.feed.ProfileFragment) title = ((com.vktea.feed.ProfileFragment) current).navigationTitleRes();
         else if (current instanceof com.vktea.friends.FriendsFragment) title = R.string.section_friends;
         else if (current instanceof com.vktea.groups.GroupsFragment) title = R.string.section_groups;
+        else if (current instanceof com.vktea.photos.PhotosFragment) title = R.string.section_photos;
+        else if (current instanceof com.vktea.videos.VideosFragment) title = R.string.section_videos;
         else return;
         toolbarTitle.setText(title);
         toolbarTitle.setTextSize(23);
@@ -232,6 +236,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             ((com.vktea.groups.GroupsFragment) current).showGroupsMenu(anchor);
             return;
         }
+        if (current instanceof com.vktea.photos.PhotosFragment || current instanceof com.vktea.videos.VideosFragment) return;
         PopupMenu popup = new PopupMenu(this, anchor);
         popup.getMenu().add(0, 0, 0, R.string.list_newsfeed);
         popup.getMenu().add(0, -1, 1, R.string.list_recommendations);
@@ -317,6 +322,10 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.friends.FriendsFragment();
                 } else if (menuId == R.id.menu_groups) {
                     fragment = new com.vktea.groups.GroupsFragment();
+                } else if (menuId == R.id.menu_photos) {
+                    fragment = new com.vktea.photos.PhotosFragment();
+                } else if (menuId == R.id.menu_videos) {
+                    fragment = new com.vktea.videos.VideosFragment();
                 } else {
                     fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
                 }

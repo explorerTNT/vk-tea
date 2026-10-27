@@ -31,6 +31,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
     private ExoPlayer player;
     private PlayerView playerView;
     private CircularProgressIndicator progress;
+    private boolean foreground, hasMedia, fallbackPending, fallingBack, resumePlayback;
 
     @OptIn(markerClass = UnstableApi.class)
     @Override
@@ -51,9 +52,11 @@ public class VideoPlayerActivity extends AppCompatActivity {
             public void onPlaybackStateChanged(int state) {
                 if (state == androidx.media3.common.Player.STATE_READY) {
                     progress.setVisibility(android.view.View.GONE);
-                } else if (state == androidx.media3.common.Player.STATE_IDLE) {
-                    fallbackToWeb();
                 }
+            }
+
+            @Override public void onPlayerError(androidx.media3.common.PlaybackException error) {
+                fallbackToWeb();
             }
         });
 
@@ -93,7 +96,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
                     }
                 } catch (Exception ignored) {
                 }
-                if (url != null) {
+                if (isFinishing() || isDestroyed() || fallingBack) return;
+                if (url != null && !url.isEmpty()) {
                     play(url);
                 } else {
                     fallbackToWeb();
@@ -108,26 +112,46 @@ public class VideoPlayerActivity extends AppCompatActivity {
     }
 
     private void play(String url) {
+        if (isFinishing() || isDestroyed() || fallingBack || player == null) return;
         MediaItem item = MediaItem.fromUri(Uri.parse(url));
+        hasMedia = true;
         player.setMediaItem(item);
         player.prepare();
-        player.setPlayWhenReady(true);
+        resumePlayback = true;
+        player.setPlayWhenReady(foreground);
     }
 
     private void fallbackToWeb() {
-        runOnUiThread(() -> {
-            startActivity(new Intent(this, com.vktea.auth.AuthWebViewActivity.class)
-                    .setData(Uri.parse("https://m.vk.com/video" + ownerId + "_" + videoId)));
+        if (isFinishing() || isDestroyed() || fallingBack) return;
+        if (!foreground) { fallbackPending = true; return; }
+        fallingBack = true;
+        if (ownerId == 0 || videoId == 0) {
+            android.widget.Toast.makeText(this, R.string.videos_error_generic, android.widget.Toast.LENGTH_LONG).show();
             finish();
-        });
+            return;
+        }
+        startActivity(new Intent(this, com.vktea.auth.AuthWebViewActivity.class)
+                .setData(webUri(ownerId, videoId, getIntent().getStringExtra("access_key"))));
+        finish();
     }
 
-    @Override
-    protected void onStop() {
+    static Uri webUri(long owner, long video, String accessKey) {
+        Uri.Builder uri = Uri.parse("https://m.vk.com/video" + owner + "_" + video).buildUpon();
+        if (accessKey != null && !accessKey.isEmpty()) uri.appendQueryParameter("access_key", accessKey);
+        return uri.build();
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        foreground = true;
+        if (fallbackPending) { fallbackPending = false; fallbackToWeb(); }
+        else if (player != null && hasMedia && resumePlayback) player.play();
+    }
+
+    @Override protected void onStop() {
+        foreground = false;
+        if (player != null) { resumePlayback = player.getPlayWhenReady(); player.pause(); }
         super.onStop();
-        if (player != null) {
-            player.pause();
-        }
     }
 
     @Override

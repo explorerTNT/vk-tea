@@ -378,9 +378,9 @@ public class ProfileFragment extends Fragment {
                 addCounter(counters, R.drawable.ic_menu_friends,
                         getString(R.string.friends_count_fmt, c.optInt("friends", 0)));
                 addCounter(counters, R.drawable.ic_menu_photos,
-                        getString(R.string.photos_count_fmt, c.optInt("photos", 0)));
+                        getString(R.string.photos_count_fmt, c.optInt("photos", 0))).setOnClickListener(v -> openMedia(true));
                 addCounter(counters, R.drawable.ic_menu_videos,
-                        getString(R.string.videos_count_fmt, c.optInt("videos", 0)));
+                        getString(R.string.videos_count_fmt, c.optInt("videos", 0))).setOnClickListener(v -> openMedia(false));
                 addCounter(counters, R.drawable.ic_menu_followers,
                         getString(R.string.followers_count_fmt, c.optInt("followers", 0)));
             }
@@ -413,7 +413,15 @@ public class ProfileFragment extends Fragment {
                     getString(R.string.groups_members_count, Long.toString(members)));
         }
 
-        private void addCounter(LinearLayout parent, int icon, String text) {
+        private void openMedia(boolean photos) {
+            if (!(getActivity() instanceof com.vktea.MainActivity)) return;
+            Fragment screen = photos ? com.vktea.photos.PhotosFragment.newInstance(userId)
+                    : com.vktea.videos.VideosFragment.newInstance(userId);
+            ((com.vktea.MainActivity) getActivity()).openFragment(screen,
+                    photos ? R.string.section_photos : R.string.section_videos);
+        }
+
+        private View addCounter(LinearLayout parent, int icon, String text) {
             LinearLayout row = new LinearLayout(parent.getContext());
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setPadding((int) (16 * getResources().getDisplayMetrics().density), 0, 0, 0);
@@ -434,6 +442,7 @@ public class ProfileFragment extends Fragment {
             label.setPadding(0, m, m, m);
             row.addView(label);
             parent.addView(row);
+            return row;
         }
 
         @Override

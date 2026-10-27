@@ -20,6 +20,18 @@
             android:fontFamily="sans-serif-medium"
             android:visibility="gone" />
 
+        <TextView
+            android:id="@+id/stories_error"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:gravity="center"
+            android:text="@string/stories_load_retry"
+            android:textColor="@color/vk_blue"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/stories_row"
             android:layout_width="match_parent"

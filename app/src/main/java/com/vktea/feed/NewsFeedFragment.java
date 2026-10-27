@@ -48,19 +48,9 @@ public class NewsFeedFragment extends Fragment {
     private long lastCheckTime = 0;
     private TextView newPostsButton;
     private RecyclerView storiesRow;
-    private final List<Story> stories = new ArrayList<>();
-
-    static class Story {
-        final String name;
-        final String avatar;
-        final String link;
-
-        Story(String name, String avatar, String link) {
-            this.name = name;
-            this.avatar = avatar;
-            this.link = link;
-        }
-    }
+    private TextView storiesError;
+    private int storyRequestGeneration;
+    private final List<StoriesParser.Owner> stories = new ArrayList<>();
 
     @Nullable
     @Override
@@ -75,6 +65,8 @@ public class NewsFeedFragment extends Fragment {
         refresh = view.findViewById(R.id.feed_refresh);
         newPostsButton = view.findViewById(R.id.feed_new_posts);
         storiesRow = view.findViewById(R.id.stories_row);
+        storiesError = view.findViewById(R.id.stories_error);
+        storiesError.setOnClickListener(v -> loadStories());
         list = view.findViewById(R.id.feed_list);
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new FeedAdapter(sourceId -> {
@@ -94,6 +86,7 @@ public class NewsFeedFragment extends Fragment {
 
         refresh.setOnRefreshListener(() -> {
             nextFrom = "";
+            loadStories();
             load();
         });
         list.addOnScrollListener(new RecyclerView.OnScrollListener() {
@@ -153,43 +146,24 @@ public class NewsFeedFragment extends Fragment {
     }
 
     private void loadStories() {
-        VKApi.get(requireContext(), "stories.get", "extended=1", new VKApi.Callback() {
-            @Override
-            public void success(JSONObject response) {
-                try {
-                    stories.clear();
-                    JSONObject data = response.getJSONObject("response");
-                    JSONArray countArr = data.optJSONArray("count");
-                    JSONArray items = data.optJSONArray("items");
-                    if (items == null || countArr == null || countArr.length() != items.length()) {
-                        return;
-                    }
-                    for (int i = 0; i < items.length(); i++) {
-                        JSONObject owner = items.getJSONObject(i);
-                        JSONArray ownerStories = owner.getJSONArray("stories");
-                        if (ownerStories.length() == 0) {
-                            continue;
-                        }
-                        JSONObject first = ownerStories.getJSONObject(0);
-                        String name = owner.optBoolean("is_group")
-                                ? owner.optString("name")
-                                : owner.optString("first_name") + " " + owner.optString("last_name");
-                        stories.add(new Story(name,
-                                owner.optString("photo_100", ""),
-                                "https://m.vk.com/story" + first.optLong("owner_id") + "_" + first.optLong("id")));
-                    }
-                    if (!stories.isEmpty() && isAdded()) {
-                        storiesRow.setVisibility(View.VISIBLE);
-                        storiesRow.setLayoutManager(
-                                new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
-                        storiesRow.setAdapter(new StoriesAdapter());
-                    }
-                } catch (Exception ignored) {
-                }
+        View requestView = getView();
+        int generation = ++storyRequestGeneration;
+        storiesError.setVisibility(View.GONE);
+        VKApi.get(requireContext(), "stories.get", "extended=1&fields=photo_100", new VKApi.Callback() {
+            @Override public void success(JSONObject response) {
+                if (!isAdded() || requestView == null || getView() != requestView || generation != storyRequestGeneration) return;
+                storiesError.setVisibility(View.GONE);
+                stories.clear();
+                stories.addAll(StoriesParser.parse(response));
+                storiesRow.setVisibility(stories.isEmpty() ? View.GONE : View.VISIBLE);
+                storiesRow.setLayoutManager(new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
+                storiesRow.setAdapter(new StoriesAdapter());
             }
-
-            @Override
-            public void error(Exception e) {
+            @Override public void error(Exception e) {
+                if (isAdded() && requestView != null && getView() == requestView && generation == storyRequestGeneration) {
+                    storiesRow.setVisibility(View.GONE);
+                    storiesError.setVisibility(View.VISIBLE);
+                }
             }
         });
     }
@@ -205,19 +179,16 @@ public class NewsFeedFragment extends Fragment {
 
         @Override
         public void onBindViewHolder(@NonNull Holder holder, int position) {
-            Story story = stories.get(position);
+            StoriesParser.Owner story = stories.get(position);
             holder.name.setText(story.name);
+            com.bumptech.glide.Glide.with(holder.avatar).clear(holder.avatar);
+            holder.avatar.setImageDrawable(null);
             if (!story.avatar.isEmpty()) {
                 com.bumptech.glide.Glide.with(holder.avatar).load(story.avatar)
                         .apply(com.bumptech.glide.request.RequestOptions.circleCropTransform())
                         .into(holder.avatar);
             }
-            holder.itemView.setOnClickListener(v -> {
-                android.content.Intent intent = new android.content.Intent(v.getContext(),
-                        com.vktea.auth.AuthWebViewActivity.class);
-                intent.setData(android.net.Uri.parse(story.link));
-                v.getContext().startActivity(intent);
-            });
+            holder.itemView.setOnClickListener(v -> StoryViewerActivity.start(v.getContext(), story));
         }
 
         @Override
@@ -579,6 +550,8 @@ public class NewsFeedFragment extends Fragment {
                     return card;
                 }
                 case "album": {
+                    card.albumOwnerId = o.optLong("owner_id");
+                    card.albumId = o.optLong("id");
                     card.title = o.optString("title", "");
                     card.linkUrl = "https://m.vk.com/album" + o.optLong("owner_id") + "_" + o.optLong("id");
                     JSONArray thumbs = o.optJSONArray("thumbs");
