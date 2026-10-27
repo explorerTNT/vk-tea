@@ -39,8 +39,10 @@ public class StoryActionsViewModelTest {
     private final AtomicInteger events = new AtomicInteger();
     private final AtomicReference<String> result = new AtomicReference<>();
     private StoryActionsViewModel model;
-    @After public void clean() {
+    @After public void clean() throws Exception {
         if (model != null) model.onCleared();
+        StoryDraftTestSupport.drain();
+        StoryActionsViewModel.draftStores = StoryDraftStore::create;
         Session.save(app, "", "", "");
         shadowOf(Looper.getMainLooper()).idle();
     }
@@ -147,4 +149,54 @@ public class StoryActionsViewModelTest {
         Session.save(app, "synthetic-token", "456", "synthetic-secret");
         assertFalse(model.sendReply(story, "synthetic reply")); assertEquals(1, calls.get());
     }
+    @Test public void confirmedTextSendDeletesOnlyExactUntrimmedDraft() throws Exception {
+        StoryDraftTestSupport drafts = new StoryDraftTestSupport();
+        StoryActionsViewModel.draftStores = context -> drafts.store;
+        create(chain -> response(chain, "{\"response\":42}"));
+        String raw = "  текст с пробелами  ";
+        assertTrue(drafts.store.save("456", 123, 801, raw));
+        assertTrue(model.sendReply(story(801), raw, true));
+        awaitEvent(); StoryDraftTestSupport.drain();
+        assertEquals(StoryDraftStore.Status.MISSING, drafts.store.load("456", 123, 801).status);
+        assertTrue(form(request.get()).get("message").endsWith("\nтекст с пробелами"));
+    }
+    @Test public void rejectedAndUnknownSendKeepDraft() throws Exception {
+        StoryDraftTestSupport drafts = new StoryDraftTestSupport();
+        StoryActionsViewModel.draftStores = context -> drafts.store;
+        create(chain -> response(chain, "{\"error\":{\"error_code\":7}}"));
+        assertTrue(drafts.store.save("456", 123, 802, "draft"));
+        assertTrue(model.sendReply(story(802), "draft", true));
+        awaitEvent(); StoryDraftTestSupport.drain();
+        assertEquals("draft", drafts.store.load("456", 123, 802).text);
+        assertEquals(StoryActionsViewModel.Outcome.REPLY_REJECTED, model.events.getValue().outcome);
+        model.onCleared(); events.set(0);
+        create(chain -> { throw new IOException("synthetic"); });
+        assertTrue(drafts.store.save("456", 123, 803, "draft"));
+        assertTrue(model.sendReply(story(803), "draft", true));
+        awaitEvent(); StoryDraftTestSupport.drain();
+        assertEquals("draft", drafts.store.load("456", 123, 803).text);
+        assertEquals(StoryActionsViewModel.Outcome.REPLY_UNKNOWN, model.events.getValue().outcome);
+    }
+    @Test public void successAfterNewEditDoesNotDeleteNewDraftAndEmojiNeverDeletes() throws Exception {
+        StoryDraftTestSupport drafts = new StoryDraftTestSupport();
+        StoryActionsViewModel.draftStores = context -> drafts.store;
+        CountDownLatch started = new CountDownLatch(1), release = new CountDownLatch(1);
+        create(chain -> {
+            started.countDown();
+            try { release.await(5, TimeUnit.SECONDS); } catch (InterruptedException e) { throw new IOException(e); }
+            return response(chain, "{\"response\":42}");
+        });
+        assertTrue(drafts.store.save("456", 123, 804, "old"));
+        assertTrue(model.sendReply(story(804), "old", true)); assertTrue(started.await(5, TimeUnit.SECONDS));
+        assertTrue(drafts.store.save("456", 123, 804, "new"));
+        release.countDown(); awaitEvent(); StoryDraftTestSupport.drain();
+        assertEquals("new", drafts.store.load("456", 123, 804).text);
+        model.onCleared(); events.set(0);
+        create(chain -> response(chain, "{\"response\":42}"));
+        assertTrue(drafts.store.save("456", 123, 805, "❤"));
+        assertTrue(model.sendReply(story(805), "❤", false));
+        awaitEvent(); StoryDraftTestSupport.drain();
+        assertEquals("❤", drafts.store.load("456", 123, 805).text);
+    }
+
 }

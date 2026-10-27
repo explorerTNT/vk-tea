@@ -47,6 +47,8 @@ import java.util.UUID;
 
 /** Displays a single author's stories and stops playback while the activity is backgrounded. */
 public class StoryViewerActivity extends AppCompatActivity {
+    // Package-private injection point for offline lifecycle and send-result tests.
+    static java.util.function.Function<android.content.Context, StoryDraftStore> draftStores = StoryDraftStore::create;
     private static final String EXTRA_STORIES = "stories", EXTRA_NAME = "name", EXTRA_CACHE = "story_cache";
     private static final class CachedStories {
         final JSONArray stories; final String token, secret, user;
@@ -80,8 +82,11 @@ public class StoryViewerActivity extends AppCompatActivity {
         static final int NONE = 0, EDIT = 1, CONFIRM = 2;
         int stage = NONE;
         String text = "";
-        boolean emoji;
-        void clear() { stage = NONE; text = ""; emoji = false; }
+        boolean emoji, loaded, saveErrorShown;
+        String account;
+        long owner, storyId;
+        void clear() { stage = NONE; text = ""; emoji = false; loaded = false; saveErrorShown = false;
+            account = null; owner = 0; storyId = 0; }
     }
     private ReplyDraft replyDraft;
     private AlertDialog replyWindow;
@@ -254,29 +259,84 @@ public class StoryViewerActivity extends AppCompatActivity {
     }
     private void replyDialog() {
         JSONObject story = stories.optJSONObject(index);
-        if (!mediaReady || !StoryActionsViewModel.canReply(story, Session.getUserId(this)) || actions.isPending(story)) return;
-        replyDraft.stage = ReplyDraft.EDIT; replyDraft.text = ""; replyDraft.emoji = false;
+        String account = Session.getUserId(this);
+        if (!mediaReady || !actions.sameSession() || account == null || !account.matches("[0-9]{1,20}")
+                || !StoryActionsViewModel.canReply(story, account) || actions.isPending(story)) return;
+        replyDraft.clear(); replyDraft.stage = ReplyDraft.EDIT;
+        replyDraft.account = account; replyDraft.owner = story.optLong("owner_id"); replyDraft.storyId = story.optLong("id");
         showReplyEditor();
+    }
+    private boolean validDraftSession() {
+        JSONObject story = stories == null ? null : stories.optJSONObject(index);
+        return story != null && replyDraft.account != null && actions.sameSession()
+                && replyDraft.account.equals(Session.getUserId(this))
+                && replyDraft.owner == story.optLong("owner_id") && replyDraft.storyId == story.optLong("id");
     }
     private void showReplyEditor() {
         JSONObject story = stories.optJSONObject(index);
+        if (!validDraftSession()) { replyDraft.clear(); resumeAfterDialog(); return; }
         pauseForDialog(); EditText input = new EditText(this); input.setHint(R.string.story_reply_hint);
+        input.setSaveEnabled(false); // Private reply text must never enter Android saved-state Bundles.
         input.setMaxLines(5); input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(4000)});
         input.setText(replyDraft.text); input.setSelection(input.length());
+        input.setEnabled(replyDraft.loaded);
         input.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { replyDraft.text = s.toString(); }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (!replyDraft.loaded || !validDraftSession()) return;
+                replyDraft.text = s.toString();
+                final String text = replyDraft.text, account = replyDraft.account;
+                final long owner = replyDraft.owner, storyId = replyDraft.storyId;
+                Context app = getApplicationContext();
+                StoryDraftCoordinator.execute(() -> {
+                    boolean saved = draftStores.apply(app).save(account, owner, storyId, text);
+                    if (!saved) handler.post(() -> {
+                        if (!isFinishing() && !isDestroyed() && !replyDraft.saveErrorShown && account.equals(Session.getUserId(StoryViewerActivity.this))) {
+                            replyDraft.saveErrorShown = true;
+                            Toast.makeText(StoryViewerActivity.this, R.string.story_draft_save_error, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                });
+            }
             @Override public void afterTextChanged(Editable s) { }
         });
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle(R.string.story_reply).setView(input)
                 .setNegativeButton(android.R.string.cancel, null).setPositiveButton(R.string.story_continue, null).create();
         replyWindow = dialog;
         dialog.setOnDismissListener(v -> { if (isChangingConfigurations()) return; replyDraft.clear(); if (dialogOpen) resumeAfterDialog(); });
-        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
-            String message = input.getText().toString().trim(); if (message.isEmpty()) { input.setError(getString(R.string.story_reply_hint)); return; }
-            dialog.setOnDismissListener(null); dialog.dismiss(); confirmSend(story, message, false);
-        }));
+        dialog.setOnShowListener(v -> {
+            Button continueButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            continueButton.setEnabled(replyDraft.loaded);
+            continueButton.setOnClickListener(button -> {
+                if (!validDraftSession()) { dialog.dismiss(); return; }
+                String message = input.getText().toString();
+                if (message.trim().isEmpty()) { input.setError(getString(R.string.story_reply_hint)); return; }
+                dialog.setOnDismissListener(null); dialog.dismiss(); confirmSend(story, message, false);
+            });
+        });
         dialog.show();
+        if (!replyDraft.loaded) {
+            final String account = replyDraft.account; final long owner = replyDraft.owner, storyId = replyDraft.storyId;
+            Context app = getApplicationContext();
+            StoryDraftCoordinator.execute(() -> {
+                StoryDraftStore.Result result = draftStores.apply(app).load(account, owner, storyId);
+                handler.post(() -> {
+                    if (isFinishing() || isDestroyed() || replyWindow != dialog || !dialog.isShowing()
+                            || replyDraft.stage != ReplyDraft.EDIT || !validDraftSession()
+                            || !account.equals(replyDraft.account) || owner != replyDraft.owner || storyId != replyDraft.storyId) return;
+                    if (result.status == StoryDraftStore.Status.ERROR) {
+                        input.setError(getString(R.string.story_draft_load_error));
+                        Toast.makeText(this, R.string.story_draft_load_error, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    // Set text before marking loaded so restoration cannot queue an overwrite.
+                    replyDraft.text = result.status == StoryDraftStore.Status.FOUND ? result.text : "";
+                    input.setText(replyDraft.text); input.setSelection(input.length());
+                    replyDraft.loaded = true; input.setEnabled(true);
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
+                });
+            });
+        }
     }
     private void reactionDialog() {
         JSONObject story = stories.optJSONObject(index);
@@ -332,12 +392,13 @@ public class StoryViewerActivity extends AppCompatActivity {
         pauseForDialog();
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle(R.string.story_send_confirm_title)
                 .setMessage(getString(emoji ? R.string.story_reaction_confirm : R.string.story_reply_confirm,
-                        getIntent().getStringExtra(EXTRA_NAME), text))
+                        getIntent().getStringExtra(EXTRA_NAME), text.trim()))
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.story_send, (d, which) -> {
+                    boolean allowed = emoji || validDraftSession();
                     replyDraft.clear();
                     awaitingReply = true;
-                    if (!actions.sendReply(story, text)) { awaitingReply = false; Toast.makeText(this, R.string.story_send_blocked, Toast.LENGTH_LONG).show(); }
+                    if (!allowed || !actions.sendReply(story, text, !emoji)) { awaitingReply = false; Toast.makeText(this, R.string.story_send_blocked, Toast.LENGTH_LONG).show(); }
                     updateActions();
                 }).setOnDismissListener(v -> { if (isChangingConfigurations()) return; replyDraft.clear(); resumeAfterDialog(); }).create();
         replyWindow = dialog; dialog.show();

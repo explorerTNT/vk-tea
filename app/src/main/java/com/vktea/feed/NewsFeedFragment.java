@@ -1,5 +1,6 @@
 package com.vktea.feed;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -67,6 +68,8 @@ public class NewsFeedFragment extends Fragment {
         storiesRow = view.findViewById(R.id.stories_row);
         storiesError = view.findViewById(R.id.stories_error);
         storiesError.setOnClickListener(v -> loadStories());
+        view.findViewById(R.id.story_drafts_button).setOnClickListener(v ->
+                startActivity(new Intent(requireContext(), StoryDraftsActivity.class)));
         list = view.findViewById(R.id.feed_list);
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new FeedAdapter(sourceId -> {

@@ -59,6 +59,7 @@
             android:exported="false" />
 
         <activity android:name=".feed.StoryViewerActivity" android:exported="false" />
+        <activity android:name=".feed.StoryDraftsActivity" android:exported="false" />
 
         <activity
             android:name=".feed.PhotoViewerActivity"

@@ -42,6 +42,17 @@
             android:paddingRight="8dp"
             android:visibility="gone" />
 
+        <TextView
+            android:id="@+id/story_drafts_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="10dp"
+            android:gravity="end"
+            android:text="@string/story_drafts_title"
+            android:textColor="@color/vk_blue"
+            android:clickable="true"
+            android:focusable="true" />
+
         <include layout="@layout/view_news_panel" />
 
         <androidx.recyclerview.widget.RecyclerView

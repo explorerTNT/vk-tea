@@ -1,0 +1,16 @@
+<resources>
+    <string name="story_drafts_title">Черновики ответов на истории</string>
+    <string name="story_drafts_description">Здесь можно посмотреть и скопировать ответы, даже если история больше недоступна.</string>
+    <string name="story_drafts_loading">Загрузка черновиков…</string>
+    <string name="story_drafts_read_error">Некоторые черновики не удалось прочитать. Они сохранены на устройстве.</string>
+    <string name="story_drafts_retry">Повторить</string>
+    <string name="story_drafts_empty">Сохранённых ответов пока нет</string>
+    <string name="story_draft_item">История %1$d_%2$d</string>
+    <string name="story_draft_copy">Копировать</string>
+    <string name="story_draft_copied">Текст скопирован</string>
+    <string name="story_draft_copy_error">Не удалось скопировать текст</string>
+    <string name="story_draft_delete">Удалить</string>
+    <string name="story_draft_delete_confirm">Удалить этот черновик с устройства?</string>
+    <string name="story_draft_delete_error">Не удалось удалить черновик</string>
+    <string name="story_draft_changed">Черновик изменился. Обновите его и повторите удаление.</string>
+</resources>

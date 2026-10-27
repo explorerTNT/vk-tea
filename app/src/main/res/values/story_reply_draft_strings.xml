@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="story_draft_save_error">Не удалось сохранить черновик на устройстве</string>
+    <string name="story_draft_load_error">Не удалось загрузить черновик. Попробуйте позже</string>
+</resources>

@@ -28,9 +28,13 @@ import okhttp3.Response;
 
 /** Holds in-flight mutations across configuration changes. Never retries or logs requests. */
 public final class StoryActionsViewModel extends AndroidViewModel {
+    // Package-private injection point for offline lifecycle and send-result tests.
+    static java.util.function.Function<android.content.Context, StoryDraftStore> draftStores = StoryDraftStore::create;
+    enum Outcome { SEEN_FAILED, REPLY_SENT, REPLY_REJECTED, REPLY_UNKNOWN }
     static final class Event {
         final String key, message;
-        Event(String key, String message) { this.key = key; this.message = message; }
+        final Outcome outcome;
+        Event(String key, String message, Outcome outcome) { this.key = key; this.message = message; this.outcome = outcome; }
     }
     final MutableLiveData<Event> events = new MutableLiveData<>();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -74,13 +78,16 @@ public final class StoryActionsViewModel extends AndroidViewModel {
         args.put("story_id", Long.toString(story.optLong("id"))); args.put("source", "list");
         String access = story.optString("access_key", ""); if (!access.isEmpty()) args.put("access_key", access);
         execute("stories.markSeen", args, (success, unknown) -> {
-            if (!success) events.setValue(new Event(key, "Не удалось подтвердить отметку просмотра"));
+            if (!success) events.setValue(new Event(key, "Не удалось подтвердить отметку просмотра", Outcome.SEEN_FAILED));
         });
     }
-    boolean sendReply(JSONObject story, String text) {
+    boolean sendReply(JSONObject story, String text) { return sendReply(story, text, false); }
+    boolean sendReply(JSONObject story, String text, boolean clearDraftOnSuccess) {
+        final String draftText = text;
         text = text == null ? "" : text.trim();
         if (!sameSession() || !canReply(story, user()) || text.isEmpty() || text.length() > 4000) return false;
         String key = storyKey(story), lock = initialUser + ":" + key;
+        final long owner = story.optLong("owner_id"), storyId = story.optLong("id");
         if (!pending.add(lock)) return false;
         String action = reserveMarker(key, text);
         if (action == null) { pending.remove(lock); return false; }
@@ -91,9 +98,15 @@ public final class StoryActionsViewModel extends AndroidViewModel {
         execute("messages.send", args, (success, unknown) -> {
             pending.remove(lock);
             if (!unknown) clearMarker(action);
+            if (success && clearDraftOnSuccess && draftText != null) {
+                // The callback is independent of the Activity lifecycle. Never delete a newer edit.
+                StoryDraftCoordinator.execute(() -> draftStores.apply(getApplication())
+                        .clearIfMatches(initialUser, owner, storyId, draftText));
+            }
             events.setValue(new Event(key, success ? "Сообщение отправлено" : unknown
                     ? "Результат неизвестен. Проверьте диалог перед повторной отправкой"
-                    : "Не удалось отправить сообщение"));
+                    : "Не удалось отправить сообщение", success ? Outcome.REPLY_SENT
+                    : unknown ? Outcome.REPLY_UNKNOWN : Outcome.REPLY_REJECTED));
         });
         return true;
     }
