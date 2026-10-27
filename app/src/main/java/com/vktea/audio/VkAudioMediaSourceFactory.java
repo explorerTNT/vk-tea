@@ -104,7 +104,9 @@ final class VkAudioMediaSourceFactory implements MediaSource.Factory {
             if (!authorized.getAsBoolean()) { failure = unavailable(); return; }
             File cached = application == null ? null : AudioOfflineCache.findFile(application, original.mediaId);
             if (cached != null) {
-                child = delegate.createMediaSource(original.buildUpon().setUri(Uri.fromFile(cached)).build());
+                MediaItem.Builder local = original.buildUpon().setUri(Uri.fromFile(cached));
+                if (cached.getName().endsWith(".m3u8")) local.setMimeType(MimeTypes.APPLICATION_M3U8);
+                child = delegate.createMediaSource(local.build());
                 prepareChildSource(0, child);
                 return;
             }

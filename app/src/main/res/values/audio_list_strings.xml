@@ -24,6 +24,7 @@
     <string name="audio_list_error_generic">Не удалось загрузить аудиозаписи VK. Повторите попытку.</string>
     <string name="audio_list_unavailable">Эта аудиозапись недоступна для воспроизведения.</string>
     <string name="audio_playlists">Плейлисты</string>
+    <string name="audio_playlist_open_vk">Открыть плейлист в VK</string>
     <string name="audio_offline_library">Офлайн</string>
     <string name="audio_offline_empty">Нет сохранённых аудиозаписей.</string>
     <string name="audio_search_network">Искать в VK</string>

@@ -1,6 +1,8 @@
 package com.vktea.ui;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -27,6 +29,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.vktea.R;
+import com.vktea.auth.AuthWebViewActivity;
 import com.vktea.audio.AudioPlayback;
 import com.vktea.audio.AudioSources;
 import com.vktea.audio.AudioOfflineCache;
@@ -52,6 +55,7 @@ public class AudioFragment extends Fragment {
     private static final int MENU_REFRESH = 2;
     private static final int MENU_PLAYLISTS = 3;
     private static final int MENU_OFFLINE = 4;
+    private static final int MENU_PLAYLIST_WEB = 5;
 
     private String searchQuery = "";
     private boolean connectionFailed;
@@ -175,6 +179,10 @@ public class AudioFragment extends Fragment {
                 .setCheckable(true).setChecked(!offlineMode && !catalog.isSearch() && catalog.getPlaylist() == null);
         menu.getMenu().add(0, MENU_PLAYLISTS, 1, R.string.audio_playlists);
         menu.getMenu().add(0, MENU_OFFLINE, 2, R.string.audio_offline_library);
+        VkAudioPlaylist selectedPlaylist = !offlineMode ? catalog.getPlaylist() : null;
+        if (selectedPlaylist != null) {
+            menu.getMenu().add(0, MENU_PLAYLIST_WEB, 3, R.string.audio_playlist_open_vk);
+        }
         menu.getMenu().add(0, MENU_REFRESH, 1, R.string.audio_list_refresh)
                 .setEnabled(libraryState == null || !libraryState.loading);
         menu.setOnMenuItemClickListener(item -> {
@@ -189,6 +197,9 @@ public class AudioFragment extends Fragment {
                 offlineMode = true;
                 setSearchQuery("");
                 render();
+            } else if (item.getItemId() == MENU_PLAYLIST_WEB && selectedPlaylist != null) {
+                startActivity(new Intent(requireContext(), AuthWebViewActivity.class)
+                        .setData(Uri.parse(selectedPlaylist.webUrl())));
             } else if (item.getItemId() == MENU_REFRESH) {
                 actionMessage = 0;
                 if (offlineMode) render(); else catalog.refresh();

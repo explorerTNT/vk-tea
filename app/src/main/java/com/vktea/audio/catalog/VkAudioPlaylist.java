@@ -13,4 +13,10 @@ public final class VkAudioPlaylist {
         this.title = title == null ? "" : title;
         this.accessKey = accessKey != null && accessKey.matches("[A-Za-z0-9_-]{1,256}") ? accessKey : "";
     }
+
+    /** VK's playlist attachment route; access keys have already been restricted to safe characters. */
+    public String webUrl() {
+        return "https://m.vk.com/audio?z=audio_playlist" + ownerId + "_" + id
+                + (accessKey.isEmpty() ? "" : "/" + accessKey);
+    }
 }
