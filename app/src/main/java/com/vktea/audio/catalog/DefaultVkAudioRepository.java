@@ -161,8 +161,12 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
                 JSONObject row = items.optJSONObject(i);
                 if (row == null) continue;
                 long owner = row.optLong("owner_id", 0), id = row.optLong("id", 0);
+                Object description = row.opt("description");
+                JSONObject permissions = row.optJSONObject("permissions");
                 if (owner != 0 && id > 0) playlists.add(new VkAudioPlaylist(owner, id,
-                        row.optString("title", ""), row.optString("access_key", "")));
+                        row.optString("title", ""), row.optString("access_key", ""),
+                        description instanceof String ? (String) description : null,
+                        optionalBoolean(permissions, "edit"), optionalBoolean(permissions, "delete")));
             }
             return Collections.unmodifiableList(playlists);
         });
@@ -231,6 +235,10 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
     }
 
     private static boolean validPage(int offset, int count) { return offset >= 0 && count > 0 && count <= 1000; }
+    private static Boolean optionalBoolean(JSONObject object, String key) {
+        Object value = object == null ? null : object.opt(key);
+        return value instanceof Boolean ? (Boolean) value : null;
+    }
     private static boolean validOwner(String id) {
         try { return Long.parseLong(id) > 0; } catch (NumberFormatException ignored) { return false; }
     }

@@ -327,6 +327,35 @@ public class DefaultVkAudioRepositoryTest {
     }
 
     @Test
+    public void playlistsKeepDescriptionAndBooleanPermissionsDistinctFromMissingOrInvalidValues() throws Exception {
+        create(chain -> response(chain, 200, "{\"response\":{\"items\":["
+                + "{\"id\":1,\"owner_id\":41,\"description\":\"описание\","
+                + "\"permissions\":{\"edit\":true,\"delete\":false}},"
+                + "{\"id\":2,\"owner_id\":41,\"description\":\"\","
+                + "\"permissions\":{\"edit\":false,\"delete\":true}},"
+                + "{\"id\":3,\"owner_id\":41},"
+                + "{\"id\":4,\"owner_id\":41,\"description\":null,"
+                + "\"permissions\":{\"edit\":null,\"delete\":1}},"
+                + "{\"id\":5,\"owner_id\":41,\"description\":7,\"permissions\":\"invalid\"}]}}"));
+        Result<List<VkAudioPlaylist>> result = new Result<>();
+        repository.getPlaylists(0, 100, result);
+        await(result);
+        assertNull(result.error);
+        assertEquals(5, result.value.size());
+        assertEquals("описание", result.value.get(0).description);
+        assertEquals(Boolean.TRUE, result.value.get(0).canEdit);
+        assertEquals(Boolean.FALSE, result.value.get(0).canDelete);
+        assertEquals("", result.value.get(1).description);
+        assertEquals(Boolean.FALSE, result.value.get(1).canEdit);
+        assertEquals(Boolean.TRUE, result.value.get(1).canDelete);
+        for (int i = 2; i < result.value.size(); i++) {
+            assertNull(result.value.get(i).description);
+            assertNull(result.value.get(i).canEdit);
+            assertNull(result.value.get(i).canDelete);
+        }
+    }
+
+    @Test
     public void libraryMutationDoesNotClaimSuccessForZeroResponseOrRetry() throws Exception {
         create(chain -> response(chain, 200, "{\"response\":0}"));
         Result<Boolean> result = new Result<>();
