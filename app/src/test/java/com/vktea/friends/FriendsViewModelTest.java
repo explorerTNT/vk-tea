@@ -122,6 +122,20 @@ public class FriendsViewModelTest {
         assertEquals(1, repository.requests.size());
     }
 
+    @Test public void changingOrderPreservesFiltersAndDoesNotRefetch() {
+        model.ensureLoaded();
+        repository.requests.get(0).success(Arrays.asList(friend(1, "Anna", "Zulu", true),
+                friend(3, "Zoe", "Alpha", true), friend(2, "Ben", "Beta", false)));
+        model.setOnlineOnly(true);
+        assertEquals(1, state().visibleItems.get(0).id);
+        model.setOrder("lastname");
+        assertEquals(3, state().visibleItems.get(0).id);
+        model.setOrder("hints");
+        assertEquals(1, state().visibleItems.get(0).id);
+        assertEquals(3, state().visibleItems.get(1).id);
+        assertEquals(1, repository.requests.size());
+    }
+
     private FriendsViewModel.State state() { return model.getCurrentState(); }
     private ViewModelProvider provider() {
         return new ViewModelProvider(store, new ViewModelProvider.Factory() {

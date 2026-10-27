@@ -1,12 +1,12 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="@color/surface" android:orientation="vertical"
+    android:background="?attr/teaSurface" android:orientation="vertical"
     android:focusable="true" android:focusableInTouchMode="true">
 
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/groups_tabs" android:layout_width="match_parent" android:layout_height="48dp"
-        android:background="@color/brand_bar" app:tabMode="fixed" app:tabGravity="fill"
+        android:background="?attr/teaBrandBar" app:tabMode="fixed" app:tabGravity="fill"
         app:tabIndicatorColor="@android:color/white" app:tabSelectedTextColor="@android:color/white"
         app:tabTextColor="#CCFFFFFF" />
 
@@ -14,27 +14,27 @@
         android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="16dp" android:paddingEnd="4dp">
         <ImageView android:layout_width="24dp" android:layout_height="24dp"
             android:layout_marginEnd="12dp" android:src="@drawable/ic_menu_search"
-            app:tint="@color/post_time" android:contentDescription="@null" />
+            app:tint="?attr/teaPostTime" android:contentDescription="@null" />
         <EditText android:id="@+id/groups_search" android:layout_width="0dp" android:layout_height="match_parent"
             android:layout_weight="1" android:background="@null" android:hint="@string/groups_search"
             android:inputType="text" android:importantForAutofill="no" android:imeOptions="actionDone|flagNoExtractUi" android:singleLine="true"
-            android:textSize="16sp" android:textColor="@color/almost_black" android:textColorHint="@color/post_time" />
+            android:textSize="16sp" android:textColor="?attr/teaAlmostBlack" android:textColorHint="?attr/teaPostTime" />
         <ImageButton android:id="@+id/groups_clear_search" android:layout_width="48dp" android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_close_clear_cancel"
-            app:tint="@color/post_time" android:contentDescription="@string/groups_clear_search" android:visibility="invisible" />
+            app:tint="?attr/teaPostTime" android:contentDescription="@string/groups_clear_search" android:visibility="invisible" />
     </LinearLayout>
 
-    <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="@color/post_divider" />
+    <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="?attr/teaPostDivider" />
 
     <LinearLayout android:id="@+id/groups_notice_row" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:paddingStart="16dp" android:paddingEnd="8dp" android:gravity="center_vertical"
         android:orientation="horizontal" android:visibility="gone">
         <TextView android:id="@+id/groups_notice" android:layout_width="0dp" android:layout_height="wrap_content"
             android:layout_weight="1" android:paddingTop="8dp" android:paddingBottom="8dp"
-            android:textColor="@color/post_time" android:textSize="14sp" android:accessibilityLiveRegion="polite" />
+            android:textColor="?attr/teaPostTime" android:textSize="14sp" android:accessibilityLiveRegion="polite" />
         <TextView android:id="@+id/groups_retry" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:minHeight="48dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:gravity="center"
-            android:text="@string/groups_retry" android:textColor="@color/vk_blue" android:textSize="14sp"
+            android:text="@string/groups_retry" android:textColor="?attr/teaVkBlue" android:textSize="14sp"
             android:fontFamily="sans-serif-medium" android:background="?attr/selectableItemBackground" android:focusable="true" />
     </LinearLayout>
 
@@ -49,7 +49,7 @@
             <ProgressBar android:id="@+id/groups_loading" android:layout_width="40dp" android:layout_height="40dp"
                 android:layout_marginBottom="16dp" android:visibility="gone" />
             <TextView android:id="@+id/groups_empty" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:gravity="center" android:textColor="@color/post_time" android:textSize="16sp" />
+                android:gravity="center" android:textColor="?attr/teaPostTime" android:textSize="16sp" />
         </LinearLayout>
     </FrameLayout>
 </LinearLayout>

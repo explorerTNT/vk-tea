@@ -36,7 +36,7 @@
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
                 android:singleLine="true"
-                android:textColor="@color/post_name"
+                android:textColor="?attr/teaPostName"
                 android:textSize="14sp" />
 
             <TextView
@@ -44,7 +44,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="8dp"
-                android:textColor="@color/post_time"
+                android:textColor="?attr/teaPostTime"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -53,7 +53,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:textColor="@color/almost_black"
+            android:textColor="?attr/teaAlmostBlack"
             android:textSize="15sp" />
 
         <TextView
@@ -63,9 +63,9 @@
             android:layout_marginTop="4dp"
             android:drawableLeft="@drawable/ic_like_24dp"
             android:drawablePadding="4dp"
-            android:drawableTint="@color/post_icons"
+            android:drawableTint="?attr/teaPostIcons"
             android:gravity="center_vertical"
-            android:textColor="@color/post_icons"
+            android:textColor="?attr/teaPostIcons"
             android:textSize="13sp" />
     </LinearLayout>
 </LinearLayout>

@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/brand_bar"
+    android:background="?attr/teaBrandBar"
     android:fillViewport="true"
     android:fadingEdge="none"
     android:fitsSystemWindows="true">
@@ -67,7 +67,7 @@
             android:gravity="center"
             android:minHeight="48dp"
             android:text="@string/log_in"
-            android:textColor="@color/brand_bar"
+            android:textColor="?attr/teaBrandBar"
             android:textSize="16sp" />
 
         <TextView

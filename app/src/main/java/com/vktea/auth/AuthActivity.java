@@ -25,7 +25,7 @@ import java.net.URL;
 
 import okhttp3.HttpUrl;
 
-public class AuthActivity extends AppCompatActivity {
+public class AuthActivity extends com.vktea.ui.TeaActivity {
 
     private static final String TOKEN_URL = "https://oauth.vk.com/token";
     private static final String CLIENT_ID = "2274003";

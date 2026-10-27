@@ -29,7 +29,7 @@ import com.vktea.ui.PlaceholderFragment;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements MenuEntry.Callback {
+public class MainActivity extends com.vktea.ui.TeaActivity implements MenuEntry.Callback {
 
     private static final String STATE_SECTION = "current_section";
     private static final String ACTION_OPEN_AUDIO = "com.vktea.action.OPEN_AUDIO";
@@ -97,7 +97,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         menuView.setLayoutManager(new LinearLayoutManager(this));
 
         currentId = savedInstanceState != null
-                ? savedInstanceState.getInt(STATE_SECTION, R.id.menu_news) : R.id.menu_news;
+                ? savedInstanceState.getInt(STATE_SECTION, R.id.menu_news)
+                : initialSection(com.vktea.ui.UserSettings.startSection(this));
         menuAdapter = new LeftMenuAdapter(menu, this, currentId);
         menuView.setAdapter(menuAdapter);
         ViewCompat.setOnApplyWindowInsetsListener(menuView, (v, insets) -> {
@@ -293,6 +294,15 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         entries.add(new MenuEntry(R.id.menu_docs, R.drawable.ic_profile_counter_documents, R.string.section_docs));
         entries.add(new MenuEntry(R.id.menu_settings, R.drawable.ic_menu_settings, R.string.section_settings));
         return entries;
+    }
+
+    private static int initialSection(String section) {
+        switch (section) {
+            case "messages": return R.id.menu_messages;
+            case "friends": return R.id.menu_friends;
+            case "audio": return R.id.menu_audios;
+            default: return R.id.menu_news;
+        }
     }
 
     @Override

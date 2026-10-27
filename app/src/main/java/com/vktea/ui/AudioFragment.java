@@ -126,7 +126,7 @@ public class AudioFragment extends Fragment {
                 }
             }
         });
-        refresh.setColorSchemeColors(ContextCompat.getColor(requireContext(), R.color.audio_accent));
+        refresh.setColorSchemeColors(com.vktea.ui.TeaColors.get(requireContext(), R.color.audio_accent));
         refresh.setOnChildScrollUpCallback((parent, child) -> list.canScrollVertically(-1));
         refresh.setOnRefreshListener(() -> {
             actionMessage = 0;

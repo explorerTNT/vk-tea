@@ -3,19 +3,19 @@
   xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_selected="true">
         <shape>
-            <solid android:color="@color/button_gray_pressed" />
+            <solid android:color="?attr/teaButtonGrayPressed" />
             <corners android:radius="2.0dp" />
         </shape>
     </item>
     <item android:state_pressed="true">
         <shape>
-            <solid android:color="@color/button_gray_pressed" />
+            <solid android:color="?attr/teaButtonGrayPressed" />
             <corners android:radius="2.0dp" />
         </shape>
     </item>
     <item>
         <shape>
-            <solid android:color="@color/button_gray_background" />
+            <solid android:color="?attr/teaButtonGrayBackground" />
             <corners android:radius="2.0dp" />
         </shape>
     </item>

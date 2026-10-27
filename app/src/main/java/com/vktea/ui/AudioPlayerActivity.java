@@ -51,7 +51,7 @@ import java.util.concurrent.Future;
 
 /** A controller-only player screen; the service owns the queue and audio lifetime. */
 @androidx.annotation.OptIn(markerClass = UnstableApi.class)
-public class AudioPlayerActivity extends AppCompatActivity {
+public class AudioPlayerActivity extends com.vktea.ui.TeaActivity {
     private static final int SEEK_STEPS = 1000;
     private static final int MAX_ARTWORK_BYTES = 8 * 1024 * 1024;
     private static final String STATE_AUDIBLE_VOLUME = "audio_player_audible_volume";
@@ -122,7 +122,7 @@ public class AudioPlayerActivity extends AppCompatActivity {
         }
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
-        getWindow().setNavigationBarColor(ContextCompat.getColor(this, R.color.vk_blue));
+        getWindow().setNavigationBarColor(com.vktea.ui.TeaColors.get(this, R.color.vk_blue));
         WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView())
                 .setAppearanceLightStatusBars(false);
         WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView())
@@ -443,7 +443,7 @@ public class AudioPlayerActivity extends AppCompatActivity {
     }
 
     private void tint(ImageView view, boolean selected) {
-        ImageViewCompat.setImageTintList(view, ColorStateList.valueOf(ContextCompat.getColor(this,
+        ImageViewCompat.setImageTintList(view, ColorStateList.valueOf(com.vktea.ui.TeaColors.get(this,
                 selected ? R.color.audio_accent : R.color.audio_text)));
     }
 

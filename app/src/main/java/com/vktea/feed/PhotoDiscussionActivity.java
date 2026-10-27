@@ -34,7 +34,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** Photo discussion only: photo IDs always refer to the photo entity, never its containing wall post. */
-public class PhotoDiscussionActivity extends AppCompatActivity {
+public class PhotoDiscussionActivity extends com.vktea.ui.TeaActivity {
     public static final String EXTRA_PHOTO = "photo";
     private PhotoSocialViewModel model;
     private EditText input;
@@ -134,7 +134,7 @@ public class PhotoDiscussionActivity extends AppCompatActivity {
         like.setText(photo.likes > 0 ? FeedAdapter.formatCount(photo.likes) : getString(R.string.photo_viewer_like));
         like.setContentDescription(getString(R.string.photo_viewer_action_count,
                 getString(photo.liked ? R.string.photo_viewer_unlike : R.string.photo_viewer_like), photo.likes));
-        int color = getColor(photo.liked ? R.color.audio_accent : R.color.post_time);
+        int color = com.vktea.ui.TeaColors.get(this, photo.liked ? R.color.audio_accent : R.color.post_time);
         like.setTextColor(color);
         TextViewCompat.setCompoundDrawableTintList(like, ColorStateList.valueOf(color));
         like.setEnabled(canAct && (photo.canLike || photo.liked));
@@ -162,7 +162,7 @@ public class PhotoDiscussionActivity extends AppCompatActivity {
                 String heading = comment.date > 0 ? getString(R.string.photo_discussion_comment_author,
                         comment.author, RuDate.format(comment.date)) : comment.author;
                 row.setText(getString(R.string.photo_discussion_comment, heading, comment.text));
-                row.setTextSize(15); row.setTextColor(getColor(R.color.almost_black)); row.setTextIsSelectable(true);
+                row.setTextSize(15); row.setTextColor(com.vktea.ui.TeaColors.get(this, R.color.almost_black)); row.setTextIsSelectable(true);
                 int padding = Math.round(12 * getResources().getDisplayMetrics().density);
                 row.setPadding(0, padding, 0, padding); rows.addView(row);
             }

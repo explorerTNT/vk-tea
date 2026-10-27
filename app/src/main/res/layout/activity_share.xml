@@ -4,7 +4,7 @@
     android:id="@+id/share_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/surface"
+    android:background="?attr/teaSurface"
     android:focusableInTouchMode="true"
     android:orientation="vertical">
 
@@ -23,7 +23,7 @@
             android:padding="12dp"
             android:src="@drawable/photo_viewer_back"
             android:visibility="gone"
-            app:tint="@color/post_time" />
+            app:tint="?attr/teaPostTime" />
 
         <TextView
             android:id="@+id/share_header_title"
@@ -33,7 +33,7 @@
             android:paddingStart="16dp"
             android:paddingEnd="8dp"
             android:text="@string/share_title"
-            android:textColor="@color/almost_black"
+            android:textColor="?attr/teaAlmostBlack"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -87,7 +87,7 @@
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
                     android:paddingBottom="8dp"
-                    android:textColor="@color/post_time"
+                    android:textColor="?attr/teaPostTime"
                     android:textSize="13sp"
                     android:visibility="gone" />
 
@@ -104,7 +104,7 @@
                     android:id="@+id/share_actions"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@color/surface_secondary"
+                    android:background="?attr/teaSurfaceSecondary"
                     android:orientation="horizontal"
                     android:paddingStart="4dp"
                     android:paddingTop="8dp"
@@ -148,7 +148,7 @@
                     android:id="@+id/share_targets_heading"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/almost_black"
+                    android:textColor="?attr/teaAlmostBlack"
                     android:textSize="16sp" />
                 <EditText
                     android:id="@+id/share_query"
@@ -159,8 +159,8 @@
                     android:inputType="textCapWords"
                     android:minHeight="48dp"
                     android:singleLine="true"
-                    android:textColor="@color/almost_black"
-                    android:textColorHint="@color/post_time"
+                    android:textColor="?attr/teaAlmostBlack"
+                    android:textColorHint="?attr/teaPostTime"
                     android:textSize="16sp" />
                 <ProgressBar
                     android:id="@+id/share_loading"
@@ -174,7 +174,7 @@
                     android:layout_height="wrap_content"
                     android:paddingTop="8dp"
                     android:paddingBottom="8dp"
-                    android:textColor="@color/post_time"
+                    android:textColor="?attr/teaPostTime"
                     android:textSize="13sp" />
                 <Button
                     android:id="@+id/share_retry"
@@ -202,7 +202,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:paddingBottom="12dp"
-                    android:textColor="@color/almost_black"
+                    android:textColor="?attr/teaAlmostBlack"
                     android:textSize="16sp"
                     android:textStyle="bold" />
                 <EditText
@@ -214,15 +214,15 @@
                     android:inputType="textMultiLine|textCapSentences"
                     android:maxLines="6"
                     android:minLines="2"
-                    android:textColor="@color/almost_black"
-                    android:textColorHint="@color/post_time"
+                    android:textColor="?attr/teaAlmostBlack"
+                    android:textColorHint="?attr/teaPostTime"
                     android:textSize="16sp" />
                 <TextView
                     android:id="@+id/share_confirm_status"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:paddingTop="8dp"
-                    android:textColor="@color/post_time"
+                    android:textColor="?attr/teaPostTime"
                     android:textSize="14sp" />
             </LinearLayout>
         </LinearLayout>

@@ -7,7 +7,7 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 
 /** A fresh task prevents screens from the previous account surviving a login. */
-public class TokenRevealActivity extends AppCompatActivity {
+public class TokenRevealActivity extends com.vktea.ui.TeaActivity {
     /** Called before restoring any screen belonging to a prior account. */
     public static boolean redirectIfPending(Activity activity) {
         if (activity instanceof TokenRevealActivity || !Session.hasPendingReveal(activity)) return false;

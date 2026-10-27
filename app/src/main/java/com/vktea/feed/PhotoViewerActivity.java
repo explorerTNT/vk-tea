@@ -33,7 +33,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PhotoViewerActivity extends AppCompatActivity {
+public class PhotoViewerActivity extends com.vktea.ui.TeaActivity {
     public static final String EXTRA_PHOTOS = "photos", EXTRA_INDEX = "index";
     private static final String STATE_INDEX = "photo_index", STATE_CHROME = "photo_chrome",
             STATE_DOCUMENT = "photo_document", STATE_DISCUSSION = "photo_discussion";

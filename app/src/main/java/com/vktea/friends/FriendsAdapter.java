@@ -46,7 +46,7 @@ public final class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.Ho
         holder.name.setText(friend.name);
         MessageAvatars.bind(holder.avatar, friend.photo, false);
         holder.online.setVisibility(friend.online ? View.VISIBLE : View.GONE);
-        holder.status.setTextColor(ContextCompat.getColor(holder.status.getContext(),
+        holder.status.setTextColor(com.vktea.ui.TeaColors.get(holder.status.getContext(),
                 friend.online ? R.color.vk_blue : R.color.post_time));
         if (friend.online) holder.status.setText(friend.onlineMobile ? R.string.friends_online_mobile : R.string.friends_online_status);
         else if (friend.lastSeen > 0) holder.status.setText(holder.status.getContext().getString(R.string.friends_last_seen,

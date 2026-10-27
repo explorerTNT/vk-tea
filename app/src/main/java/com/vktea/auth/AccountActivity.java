@@ -22,7 +22,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 /** Explicit account changes always recreate the application task. */
-public class AccountActivity extends AppCompatActivity {
+public class AccountActivity extends com.vktea.ui.TeaActivity {
     private LinearLayout rows;
     @Override protected void onCreate(Bundle state) {
         boolean pendingReveal = com.vktea.auth.Session.hasPendingReveal(this);

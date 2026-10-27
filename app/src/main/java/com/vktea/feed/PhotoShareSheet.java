@@ -98,7 +98,7 @@ public final class PhotoShareSheet {
         Context context = sheet.getContext(); LinearLayout body = body(context);
         body.setFocusableInTouchMode(true);
         TextView title = new TextView(context); title.setText(R.string.photo_share_title); title.setTextSize(20);
-        title.setTypeface(null, Typeface.BOLD); title.setTextColor(context.getColor(R.color.almost_black)); title.setGravity(Gravity.START);
+        title.setTypeface(null, Typeface.BOLD); title.setTextColor(com.vktea.ui.TeaColors.get(context, R.color.almost_black)); title.setGravity(Gravity.START);
         title.setPadding(0, dp(8), 0, dp(16)); body.addView(title);
         search = new EditText(context); search.setId(R.id.photo_share_search_input); search.setSingleLine();
         search.setImeOptions(search.getImeOptions() | EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_FLAG_NO_FULLSCREEN);

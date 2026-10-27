@@ -95,7 +95,7 @@ public class GroupsFragment extends Fragment {
         };
         search.addTextChangedListener(watcher);
         clear.setOnClickListener(v -> { model.setQuery(""); list.scrollToPosition(0); });
-        refresh.setColorSchemeResources(R.color.vk_blue);
+        refresh.setColorSchemeColors(com.vktea.ui.TeaColors.get(requireContext(), R.color.vk_blue));
         refresh.setOnRefreshListener(model::refresh);
         refresh.setOnChildScrollUpCallback((parent, child) -> list != null && list.canScrollVertically(-1));
         view.findViewById(R.id.groups_retry).setOnClickListener(v -> model.retry());

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.VKTea.PhotoShare" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
-        <item name="colorPrimary">@color/vk_blue</item>
-        <item name="colorSurface">@color/surface</item>
-        <item name="android:colorBackground">@color/surface</item>
-        <item name="android:colorAccent">@color/vk_blue</item>
-        <item name="colorAccent">@color/vk_blue</item>
-        <item name="android:textColorPrimary">@color/almost_black</item>
+        <item name="colorPrimary">?attr/teaVkBlue</item>
+        <item name="colorSurface">?attr/teaSurface</item>
+        <item name="android:colorBackground">?attr/teaSurface</item>
+        <item name="android:colorAccent">?attr/teaVkBlue</item>
+        <item name="colorAccent">?attr/teaVkBlue</item>
+        <item name="android:textColorPrimary">?attr/teaAlmostBlack</item>
         <item name="android:windowSoftInputMode">adjustResize|stateAlwaysHidden</item>
     </style>
 </resources>

@@ -4,6 +4,6 @@
     android:height="20dp"
     android:viewportWidth="16"
     android:viewportHeight="20">
-    <path android:fillColor="@color/audio_accent"
+    <path android:fillColor="?attr/teaAudioAccent"
         android:pathData="M0,9h4v11h-4zM6,0h4v20h-4zM12,4h4v16h-4z" />
 </vector>

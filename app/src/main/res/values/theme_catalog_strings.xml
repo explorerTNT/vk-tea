@@ -1,0 +1,29 @@
+<resources>
+    <string name="theme_catalog_title">Темы оформления</string>
+    <string name="theme_catalog_description">Палитры Coffee и файлы тем VK Tea</string>
+    <string name="theme_catalog_import">Открыть файл темы</string>
+    <string name="theme_catalog_create">Создать свою тему</string>
+    <string name="theme_catalog_name">Название темы</string>
+    <string name="theme_catalog_color_hint">Цвет #RRGGBB</string>
+    <string name="theme_catalog_chrome_contrast">Верхняя панель и строка состояния должны быть достаточно тёмными: белый текст и значки должны оставаться видимыми. Измените эти цвета перед применением.</string>
+    <string name="theme_catalog_bad_color">Укажите название и все цвета в формате #RRGGBB</string>
+    <string name="theme_catalog_custom_name">Моя тема</string>
+    <string-array name="theme_catalog_color_names">
+        <item>Верхняя панель</item><item>Строка состояния</item><item>Фон</item><item>Карточки</item>
+        <item>Основной текст</item><item>Второстепенный текст</item><item>Ссылки и акценты</item>
+        <item>Разделители</item><item>Входящие сообщения</item><item>Исходящие сообщения</item>
+    </string-array>
+    <string name="theme_catalog_export">Сохранить текущую тему в файл</string>
+    <string name="theme_catalog_apply">Применить</string>
+    <string name="theme_catalog_preview">Предпросмотр</string>
+    <string name="theme_catalog_preview_text">Пример текста и ссылки</string>
+    <string name="theme_catalog_invalid">Не удалось открыть тему. Проверьте формат файла VK Tea.</string>
+    <string name="theme_catalog_saved">Тема сохранена</string>
+    <string name="theme_catalog_save_error">Не удалось сохранить тему</string>
+    <string name="theme_catalog_apply_failed">Не удалось применить тему на этом устройстве. Прежнее оформление восстановлено.</string>
+    <string name="theme_catalog_custom_unavailable">Пользовательские цвета доступны начиная с Android 11. Встроенные темы работают на этой версии Android.</string>
+    <string name="theme_catalog_custom_apply_error">Не удалось применить цвета на этом устройстве. Предыдущая тема сохранена.</string>
+    <string name="theme_catalog_picker_unavailable">На устройстве нет приложения для выбора файлов</string>
+    <string name="theme_catalog_file_title">vktea-theme.json</string>
+    <string name="theme_catalog_selected">Выбрана</string>
+</resources>

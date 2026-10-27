@@ -32,6 +32,7 @@
 
         <activity android:name=".auth.AccountActivity" android:exported="false" />
         <activity android:name=".auth.TokenRevealActivity" android:exported="false" />
+        <activity android:name=".ui.ThemeCatalogActivity" android:exported="false" />
 
         <activity android:name=".ui.AudioPlayerActivity"
             android:theme="@style/Theme.VKTea.AudioPlayer" android:exported="false" />

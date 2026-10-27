@@ -22,7 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /** User chooses an output document; the original audio document is never modified. */
-public class AudioExportActivity extends AppCompatActivity {
+public class AudioExportActivity extends com.vktea.ui.TeaActivity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private Uri source;
     private final ActivityResultLauncher<Intent> destination = registerForActivityResult(

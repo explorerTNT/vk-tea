@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="8dp"
-    android:background="@color/surface"
+    android:background="?attr/teaSurface"
     android:orientation="vertical">
 
     <RelativeLayout
@@ -42,7 +42,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:paddingLeft="12dp"
                 android:singleLine="true"
-                android:textColor="@color/post_name"
+                android:textColor="?attr/teaPostName"
                 android:textSize="15sp" />
 
             <TextView
@@ -52,7 +52,7 @@
                 android:ellipsize="end"
                 android:paddingLeft="12dp"
                 android:singleLine="true"
-                android:textColor="@color/post_time"
+                android:textColor="?attr/teaPostTime"
                 android:textSize="14sp" />
         </LinearLayout>
 
@@ -78,10 +78,10 @@
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:text="@string/feed_collapse"
-        android:textColor="@color/vk_blue"
+        android:textColor="?attr/teaVkBlue"
         android:textSize="15sp"
         android:fontFamily="sans-serif-medium"
-        android:background="@color/surface"
+        android:background="?attr/teaSurface"
         android:foreground="?attr/selectableItemBackground"
         android:elevation="2dp"
         android:focusable="true"
@@ -105,7 +105,7 @@
         android:lineSpacingExtra="2dp"
         android:paddingLeft="16dp"
         android:paddingRight="16dp"
-        android:textColor="@color/almost_black"
+        android:textColor="?attr/teaAlmostBlack"
         android:textSize="15sp" />
 
     <LinearLayout
@@ -144,18 +144,18 @@
                     android:layout_height="wrap_content"
                     android:drawableLeft="@drawable/ic_retweet"
                     android:drawablePadding="3dp"
-                    android:drawableTint="@color/post_time"
+                    android:drawableTint="?attr/teaPostTime"
                     android:ellipsize="end"
                     android:fontFamily="sans-serif-medium"
                     android:singleLine="true"
-                    android:textColor="@color/post_name"
+                    android:textColor="?attr/teaPostName"
                     android:textSize="15sp" />
 
                 <TextView
                     android:id="@+id/repost_time"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/post_time"
+                    android:textColor="?attr/teaPostTime"
                     android:textSize="14sp" />
             </LinearLayout>
         </LinearLayout>
@@ -166,7 +166,7 @@
             android:layout_height="wrap_content"
             android:lineSpacingExtra="2dp"
             android:paddingTop="4dp"
-            android:textColor="@color/almost_black"
+            android:textColor="?attr/teaAlmostBlack"
             android:textSize="15sp" />
 
         <LinearLayout
@@ -229,7 +229,7 @@
         android:paddingLeft="16dp"
         android:paddingRight="16dp"
         android:text="@string/feed_show_full"
-        android:textColor="@color/vk_blue"
+        android:textColor="?attr/teaVkBlue"
         android:textSize="15sp"
         android:fontFamily="sans-serif-medium"
         android:visibility="gone" />
@@ -245,7 +245,7 @@
             android:layout_marginLeft="16dp"
             android:layout_marginTop="7.5dp"
             android:layout_marginRight="16dp"
-            android:background="@color/post_divider" />
+            android:background="?attr/teaPostDivider" />
 
         <TextView
             android:id="@+id/post_likes"
@@ -254,12 +254,12 @@
             android:layout_alignParentLeft="true"
             android:drawableLeft="@drawable/ic_like_24dp"
             android:drawablePadding="6dp"
-            android:drawableTint="@color/post_icons"
+            android:drawableTint="?attr/teaPostIcons"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:paddingLeft="16dp"
             android:paddingRight="18dp"
-            android:textColor="@color/post_icons"
+            android:textColor="?attr/teaPostIcons"
             android:textSize="16sp" />
 
         <TextView
@@ -269,12 +269,12 @@
             android:layout_toRightOf="@id/post_likes"
             android:drawableLeft="@drawable/ic_comment_24dp"
             android:drawablePadding="6dp"
-            android:drawableTint="@color/post_icons"
+            android:drawableTint="?attr/teaPostIcons"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:paddingLeft="16dp"
             android:paddingRight="18dp"
-            android:textColor="@color/post_icons"
+            android:textColor="?attr/teaPostIcons"
             android:textSize="16sp" />
 
         <TextView
@@ -284,12 +284,12 @@
             android:layout_toRightOf="@id/post_comments"
             android:drawableLeft="@drawable/ic_share_24dp"
             android:drawablePadding="6dp"
-            android:drawableTint="@color/post_icons"
+            android:drawableTint="?attr/teaPostIcons"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:paddingLeft="16dp"
             android:paddingRight="18dp"
-            android:textColor="@color/post_icons"
+            android:textColor="?attr/teaPostIcons"
             android:textSize="16sp" />
 
         <TextView
@@ -299,12 +299,12 @@
             android:layout_alignParentRight="true"
             android:drawableLeft="@drawable/ic_viewers_24dp"
             android:drawablePadding="6dp"
-            android:drawableTint="@color/post_icons"
+            android:drawableTint="?attr/teaPostIcons"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:paddingLeft="16dp"
             android:paddingRight="18dp"
-            android:textColor="@color/post_icons"
+            android:textColor="?attr/teaPostIcons"
             android:textSize="16sp" />
     </RelativeLayout>
 
@@ -315,11 +315,11 @@
         android:background="?attr/selectableItemBackground"
         android:drawableLeft="@drawable/ic_comment_24dp"
         android:drawablePadding="6dp"
-        android:drawableTint="@color/vk_blue"
+        android:drawableTint="?attr/teaVkBlue"
         android:fontFamily="sans-serif-medium"
         android:gravity="center_vertical"
         android:paddingLeft="16dp"
-        android:textColor="@color/vk_blue"
+        android:textColor="?attr/teaVkBlue"
         android:textSize="15sp"
         android:visibility="gone" />
 

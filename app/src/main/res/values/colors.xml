@@ -29,4 +29,5 @@
     <color name="button_gray_pressed">#FFBBC3CC</color>
     <color name="button_gray_background">#FFE6EBF0</color>
     <color name="button_gray_text">#FF4774A8</color>
+    <color name="tea_on_accent">#FFFFFFFF</color>
 </resources>

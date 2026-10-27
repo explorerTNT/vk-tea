@@ -7,6 +7,8 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateUtils;
 import android.view.View;
+import android.view.KeyEvent;
+import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -26,6 +28,7 @@ import com.vktea.api.VKApi;
 import com.vktea.feed.PostPhotosRenderer;
 import com.vktea.feed.ViewerPhoto;
 import com.vktea.feed.VideoPlayerActivity;
+import com.vktea.ui.UserSettings;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -38,7 +41,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class ChatActivity extends AppCompatActivity {
+public class ChatActivity extends com.vktea.ui.TeaActivity {
     public static final String EXTRA_PEER_ID = "peer_id";
     public static final String EXTRA_TITLE = "title";
     public static final String EXTRA_PHOTO = "photo";
@@ -123,6 +126,25 @@ public class ChatActivity extends AppCompatActivity {
             input.setText("");
             sendMessage(text);
         });
+        if (UserSettings.sendByEnter(this)) {
+            input.setImeOptions(EditorInfo.IME_ACTION_SEND);
+            input.setOnKeyListener((view, keyCode, event) -> {
+                if (keyCode != KeyEvent.KEYCODE_ENTER || !event.hasNoModifiers()) return false;
+                if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) send.performClick();
+                return true;
+            });
+            input.setOnEditorActionListener((view, actionId, event) -> {
+                if (event == null && actionId == EditorInfo.IME_ACTION_SEND) {
+                    send.performClick();
+                    return true;
+                }
+                if (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER && event.hasNoModifiers()) {
+                    if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) send.performClick();
+                    return true;
+                }
+                return false;
+            });
+        }
 
         if (peerId == 0) {
             showState(R.string.chat_unavailable, false);

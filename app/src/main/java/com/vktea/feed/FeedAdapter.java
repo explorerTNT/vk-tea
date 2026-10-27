@@ -157,7 +157,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
         holder.more.setOnClickListener(toggleContent);
         holder.collapseTop.setOnClickListener(toggleContent);
         updateStickyCollapse(holder);
-        int linkColor = ContextCompat.getColor(holder.text.getContext(), R.color.post_name);
+        int linkColor = com.vktea.ui.TeaColors.get(holder.text.getContext(), R.color.post_name);
 
         holder.name.setText(post.sourceName);
         holder.time.setText(com.vktea.util.RuDate.format(post.date));
@@ -355,7 +355,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.PostViewHolder
     }
 
     private void applyLikeState(TextView view, Post post) {
-        int color = ContextCompat.getColor(view.getContext(),
+        int color = com.vktea.ui.TeaColors.get(view.getContext(),
                 post.userLikes ? R.color.vk_blue : R.color.post_icons);
         view.setTextColor(color);
         view.setCompoundDrawableTintList(ColorStateList.valueOf(color));

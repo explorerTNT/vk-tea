@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/audio_surface"
+    android:background="?attr/teaAudioSurface"
     android:orientation="vertical">
 
     <TextView
@@ -13,18 +13,18 @@
         android:clickable="true"
         android:drawableStart="@drawable/audio_list_shuffle"
         android:drawablePadding="16dp"
-        android:drawableTint="@color/audio_accent"
+        android:drawableTint="?attr/teaAudioAccent"
         android:focusable="true"
         android:fontFamily="sans-serif"
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:text="@string/audio_list_shuffle_all"
-        android:textColor="@color/audio_accent"
+        android:textColor="?attr/teaAudioAccent"
         android:textSize="16sp" />
 
     <View android:layout_width="match_parent" android:layout_height="1dp"
-        android:background="@color/audio_divider" />
+        android:background="?attr/teaAudioDivider" />
 
     <LinearLayout
         android:id="@+id/audio_list_message_row"
@@ -41,7 +41,7 @@
             android:layout_weight="1"
             android:accessibilityLiveRegion="polite"
             android:padding="16dp"
-            android:textColor="@color/audio_secondary"
+            android:textColor="?attr/teaAudioSecondary"
             android:textSize="14sp" />
 
         <TextView
@@ -55,7 +55,7 @@
             android:gravity="center"
             android:padding="16dp"
             android:text="@string/audio_list_retry"
-            android:textColor="@color/audio_accent"
+            android:textColor="?attr/teaAudioAccent"
             android:textSize="14sp"
             android:visibility="gone" />
     </LinearLayout>
@@ -90,7 +90,7 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:layout_marginBottom="16dp"
-                    android:indeterminateTint="@color/audio_accent"
+                    android:indeterminateTint="?attr/teaAudioAccent"
                     android:visibility="gone" />
 
                 <TextView
@@ -99,7 +99,7 @@
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:text="@string/audio_list_empty"
-                    android:textColor="@color/audio_secondary"
+                    android:textColor="?attr/teaAudioSecondary"
                     android:textSize="14sp" />
             </LinearLayout>
         </FrameLayout>
@@ -114,7 +114,7 @@
         android:focusable="true"
         android:gravity="center"
         android:text="@string/audio_list_load_more"
-        android:textColor="@color/audio_accent"
+        android:textColor="?attr/teaAudioAccent"
         android:textSize="14sp"
         android:visibility="gone" />
 </LinearLayout>

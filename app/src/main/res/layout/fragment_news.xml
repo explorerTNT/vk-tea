@@ -13,7 +13,7 @@
             android:id="@+id/feed_new_posts"
             android:layout_width="match_parent"
             android:layout_height="40dp"
-            android:background="@color/brand_bar"
+            android:background="?attr/teaBrandBar"
             android:gravity="center"
             android:textColor="@android:color/white"
             android:textSize="14sp"
@@ -24,7 +24,7 @@
             android:id="@+id/stories_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/surface"
+            android:background="?attr/teaSurface"
             android:clipToPadding="false"
             android:paddingLeft="8dp"
             android:paddingRight="8dp"
@@ -36,7 +36,7 @@
             android:id="@+id/feed_list"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@color/page_background"
+            android:background="?attr/teaPageBackground"
             android:clipToPadding="false" />
     </LinearLayout>
 

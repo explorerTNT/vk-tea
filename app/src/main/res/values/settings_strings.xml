@@ -1,18 +1,44 @@
 <resources>
     <string name="settings_accounts">Аккаунты</string>
     <string name="settings_accounts_summary">Добавление и переключение аккаунтов</string>
+    <string name="settings_general">Общие</string>
+    <string name="settings_start_section">Раздел при запуске</string>
+    <string-array name="settings_start_section_options">
+        <item>Новости</item>
+        <item>Сообщения</item>
+        <item>Друзья</item>
+        <item>Музыка</item>
+    </string-array>
     <string name="settings_appearance">Оформление</string>
     <string name="settings_theme">Тема</string>
+    <string name="settings_theme_catalog">Темы оформления</string>
+    <string name="settings_theme_catalog_summary">Палитры Coffee и файлы тем VK Tea</string>
     <string-array name="settings_theme_options">
         <item>Как в системе</item>
         <item>Светлая</item>
         <item>Тёмная</item>
+    </string-array>
+    <string name="settings_friends">Друзья</string>
+    <string name="settings_friends_order">Порядок друзей</string>
+    <string-array name="settings_friends_order_options">
+        <item>По имени</item>
+        <item>По фамилии</item>
+        <item>Порядок VK</item>
     </string-array>
     <string name="settings_feed">Лента</string>
     <string name="settings_stories">Истории</string>
     <string name="settings_stories_summary">Показывать истории в ленте</string>
     <string name="settings_new_posts">Новые записи</string>
     <string name="settings_new_posts_summary">Проверять новые записи при просмотре ленты</string>
+    <string name="settings_messages">Сообщения</string>
+    <string name="settings_send_by_enter">Отправлять по Enter</string>
+    <string name="settings_send_by_enter_summary">Отправлять сообщение клавишей Enter; Shift+Enter добавляет строку</string>
+    <string name="settings_message_text_size">Размер текста сообщений</string>
+    <string-array name="settings_message_size_options">
+        <item>Меньше</item>
+        <item>Обычный</item>
+        <item>Больше</item>
+    </string-array>
     <string name="settings_storage">Хранилище</string>
     <string name="settings_clear_feed_cache">Очистить кеш ленты</string>
     <string name="settings_clear_feed_cache_summary">Удалить сохранённую копию ленты для просмотра без сети</string>

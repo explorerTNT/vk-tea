@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:minHeight="44dp" android:orientation="horizontal" android:paddingTop="4dp" android:paddingBottom="4dp">
     <ImageView android:layout_width="24dp" android:layout_height="28dp" android:layout_marginEnd="8dp" android:contentDescription="@null" android:src="@drawable/chat_attachment_file" />
     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-        <TextView android:id="@+id/chat_attachment_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:breakStrategy="simple" android:hyphenationFrequency="none" android:textColor="@color/chat_bubble_text" android:textSize="14sp" />
-        <TextView android:id="@+id/chat_attachment_subtitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:breakStrategy="simple" android:hyphenationFrequency="none" android:paddingTop="2dp" android:textColor="@color/post_time" android:textSize="12sp" android:visibility="gone" />
+        <TextView android:id="@+id/chat_attachment_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:breakStrategy="simple" android:hyphenationFrequency="none" android:textColor="?attr/teaChatBubbleText" android:textSize="14sp" />
+        <TextView android:id="@+id/chat_attachment_subtitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:breakStrategy="simple" android:hyphenationFrequency="none" android:paddingTop="2dp" android:textColor="?attr/teaPostTime" android:textSize="12sp" android:visibility="gone" />
     </LinearLayout>
 </LinearLayout>

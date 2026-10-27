@@ -6,6 +6,8 @@ import static org.robolectric.Shadows.shadowOf;
 import android.content.Intent;
 import android.os.Looper;
 import android.view.View;
+import android.view.KeyEvent;
+import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -18,6 +20,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import com.vktea.R;
 import com.vktea.api.VKApi;
 import com.vktea.feed.ViewerPhoto;
+import com.vktea.ui.UserSettings;
 
 import org.json.JSONObject;
 import org.junit.After;
@@ -38,7 +41,10 @@ public class ChatActivityTest {
     private ActivityController<OfflineChat> controller;
     private OfflineChat activity;
 
-    @After public void close() { if (controller != null) controller.close(); }
+    @After public void close() {
+        if (controller != null) controller.close();
+        UserSettings.setSendByEnter(RuntimeEnvironment.getApplication(), false);
+    }
 
     private void open(long peerId) {
         Intent intent = new Intent(RuntimeEnvironment.getApplication(), OfflineChat.class)
@@ -136,6 +142,38 @@ public class ChatActivityTest {
         assertFalse(activity.findViewById(R.id.chat_input).isEnabled());
         assertEquals(activity.getString(R.string.chat_unavailable),
                 ((TextView) activity.findViewById(R.id.chat_state_text)).getText().toString());
+    }
+
+    @Test public void sendActionIsOptInAndUsesSameNonblankSubmissionAsButton() {
+        UserSettings.setSendByEnter(RuntimeEnvironment.getApplication(), true);
+        open(42);
+        EditText input = activity.findViewById(R.id.chat_input);
+        assertEquals(EditorInfo.IME_ACTION_SEND, input.getImeOptions() & EditorInfo.IME_MASK_ACTION);
+        EditorInfo info = new EditorInfo();
+        input.onCreateInputConnection(info);
+        assertEquals(EditorInfo.IME_ACTION_SEND, info.imeOptions & EditorInfo.IME_MASK_ACTION);
+        assertEquals(0, info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION);
+        input.setText("  Synthetic message  ");
+        input.onEditorAction(EditorInfo.IME_ACTION_SEND);
+        assertEquals(1, activity.sendCalls);
+        assertEquals("Synthetic message", activity.sent);
+        assertEquals("", input.getText().toString());
+        input.onEditorAction(EditorInfo.IME_ACTION_SEND);
+        assertEquals(1, activity.sendCalls);
+    }
+
+    @Test public void hardwareEnterSendsOnceAndShiftEnterDoesNotSend() {
+        UserSettings.setSendByEnter(RuntimeEnvironment.getApplication(), true);
+        open(42);
+        EditText input = activity.findViewById(R.id.chat_input);
+        input.setText("Synthetic draft");
+        input.dispatchKeyEvent(new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0, KeyEvent.META_SHIFT_ON));
+        assertEquals(0, activity.sendCalls);
+        input.setText("Synthetic message");
+        input.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER));
+        input.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER));
+        assertEquals(1, activity.sendCalls);
+        assertEquals("Synthetic message", activity.sent);
     }
 
     @Test public void openingDialogPassesItsAvatarToChatHeader() {

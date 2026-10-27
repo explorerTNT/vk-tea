@@ -20,6 +20,7 @@ import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
 import com.vktea.R;
+import com.vktea.ui.UserSettings;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -83,8 +84,8 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         holder.bubble.setBackgroundResource((message.out ? OUT_BACKGROUNDS : IN_BACKGROUNDS)[group]);
         boolean night = (holder.itemView.getResources().getConfiguration().uiMode
                 & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        holder.bubble.setBackgroundTintList(night ? ColorStateList.valueOf(holder.itemView.getContext()
-                .getColor(message.out ? R.color.chat_bubble_out : R.color.chat_bubble_in)) : null);
+        holder.bubble.setBackgroundTintList(night ? ColorStateList.valueOf(com.vktea.ui.TeaColors.get(holder.itemView.getContext(),
+                message.out ? R.color.chat_bubble_out : R.color.chat_bubble_in)) : null);
         holder.bubble.setPaddingRelative(dp(holder.bubble, message.out ? 12 : 22), dp(holder.bubble, 7),
                 dp(holder.bubble, message.out ? 22 : 12), dp(holder.bubble, 6));
         holder.row.setPaddingRelative(holder.row.getPaddingStart(),
@@ -95,6 +96,7 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         holder.date.setText(showDate ? formatDate(message.date) : "");
         holder.text.setText(message.body.isEmpty() && message.attachments.isEmpty()
                 ? holder.text.getContext().getString(R.string.chat_message_empty) : message.body);
+        holder.text.setTextSize(16 + 2 * UserSettings.messageTextSize(holder.text.getContext()));
         holder.text.setVisibility(holder.text.length() == 0 ? View.GONE : View.VISIBLE);
         holder.time.setText(new SimpleDateFormat("HH:mm", Locale.getDefault())
                 .format(new Date(message.date * 1000L)));

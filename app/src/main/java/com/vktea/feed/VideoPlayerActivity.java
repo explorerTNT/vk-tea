@@ -18,7 +18,7 @@ import com.vktea.api.VKApi;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-public class VideoPlayerActivity extends AppCompatActivity {
+public class VideoPlayerActivity extends com.vktea.ui.TeaActivity {
 
     public static void start(android.content.Context ctx, long ownerId, long videoId) {
         ctx.startActivity(new Intent(ctx, VideoPlayerActivity.class)

@@ -27,7 +27,12 @@ import com.vktea.auth.Session;
 
 public class SettingsFragment extends Fragment {
     private static final String[] MODES = {"system", "light", "dark"};
+    private static final String[] FRIENDS_ORDERS = {"firstname", "lastname", "hints"};
+    private static final String[] START_SECTIONS = {"news", "messages", "friends", "audio"};
     private TextView themeSummary;
+    private TextView messageSizeSummary;
+    private TextView friendsOrderSummary;
+    private TextView startSectionSummary;
     private static final java.util.concurrent.ExecutorService CACHE_EXECUTOR =
             java.util.concurrent.Executors.newSingleThreadExecutor();
 
@@ -45,15 +50,31 @@ public class SettingsFragment extends Fragment {
                 () -> startActivity(new Intent(requireContext(), AccountActivity.class)));
         addRow(root, R.string.settings_logout, 0, this::confirmLogout);
 
+        addSection(root, R.string.settings_general);
+        startSectionSummary = addRow(root, R.string.settings_start_section, 0, this::chooseStartSection);
+        updateStartSectionSummary();
+
         addSection(root, R.string.settings_appearance);
         themeSummary = addRow(root, R.string.settings_theme, 0, this::chooseTheme);
         updateThemeSummary();
+        addRow(root, R.string.settings_theme_catalog, R.string.settings_theme_catalog_summary,
+                () -> startActivity(new Intent(requireContext(), ThemeCatalogActivity.class)));
 
         addSection(root, R.string.settings_feed);
         addSwitch(root, R.string.settings_stories, R.string.settings_stories_summary,
                 UserSettings.showStories(requireContext()), enabled -> UserSettings.setShowStories(requireContext(), enabled));
         addSwitch(root, R.string.settings_new_posts, R.string.settings_new_posts_summary,
                 UserSettings.checkNewPosts(requireContext()), enabled -> UserSettings.setCheckNewPosts(requireContext(), enabled));
+
+        addSection(root, R.string.settings_messages);
+        addSwitch(root, R.string.settings_send_by_enter, R.string.settings_send_by_enter_summary,
+                UserSettings.sendByEnter(requireContext()), enabled -> UserSettings.setSendByEnter(requireContext(), enabled));
+        messageSizeSummary = addRow(root, R.string.settings_message_text_size, 0, this::chooseMessageSize);
+        updateMessageSizeSummary();
+
+        addSection(root, R.string.settings_friends);
+        friendsOrderSummary = addRow(root, R.string.settings_friends_order, 0, this::chooseFriendsOrder);
+        updateFriendsOrderSummary();
 
         addSection(root, R.string.settings_storage);
         addRow(root, R.string.settings_clear_feed_cache, R.string.settings_clear_feed_cache_summary, this::clearFeedCache);
@@ -155,6 +176,68 @@ public class SettingsFragment extends Fragment {
     private int modeIndex(String mode) {
         for (int i = 0; i < MODES.length; i++) if (MODES[i].equals(mode)) return i;
         return 0;
+    }
+
+    private void chooseMessageSize() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.settings_message_text_size)
+                .setSingleChoiceItems(R.array.settings_message_size_options,
+                        UserSettings.messageTextSize(requireContext()) + 1, (dialog, which) -> {
+                            UserSettings.setMessageTextSize(requireContext(), which - 1);
+                            updateMessageSizeSummary();
+                            dialog.dismiss();
+                        })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private int startSectionIndex() {
+        String section = UserSettings.startSection(requireContext());
+        for (int i = 0; i < START_SECTIONS.length; i++) if (START_SECTIONS[i].equals(section)) return i;
+        return 0;
+    }
+
+    private void chooseStartSection() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.settings_start_section)
+                .setSingleChoiceItems(R.array.settings_start_section_options, startSectionIndex(), (dialog, which) -> {
+                    UserSettings.setStartSection(requireContext(), START_SECTIONS[which]);
+                    updateStartSectionSummary();
+                    dialog.dismiss();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void updateStartSectionSummary() {
+        startSectionSummary.setText(getResources().getStringArray(R.array.settings_start_section_options)[startSectionIndex()]);
+    }
+
+    private void updateMessageSizeSummary() {
+        messageSizeSummary.setText(getResources().getStringArray(R.array.settings_message_size_options)
+                [UserSettings.messageTextSize(requireContext()) + 1]);
+    }
+
+    private int friendsOrderIndex() {
+        String order = UserSettings.friendsOrder(requireContext());
+        for (int i = 0; i < FRIENDS_ORDERS.length; i++) if (FRIENDS_ORDERS[i].equals(order)) return i;
+        return 0;
+    }
+
+    private void chooseFriendsOrder() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.settings_friends_order)
+                .setSingleChoiceItems(R.array.settings_friends_order_options, friendsOrderIndex(), (dialog, which) -> {
+                    UserSettings.setFriendsOrder(requireContext(), FRIENDS_ORDERS[which]);
+                    updateFriendsOrderSummary();
+                    dialog.dismiss();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void updateFriendsOrderSummary() {
+        friendsOrderSummary.setText(getResources().getStringArray(R.array.settings_friends_order_options)[friendsOrderIndex()]);
     }
 
     private void clearFeedCache() {

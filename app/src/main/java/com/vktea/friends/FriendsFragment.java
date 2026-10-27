@@ -26,6 +26,7 @@ import com.vktea.MainActivity;
 import com.vktea.R;
 import com.vktea.feed.ProfileFragment;
 import com.vktea.msg.ChatActivity;
+import com.vktea.ui.UserSettings;
 
 import java.util.List;
 
@@ -55,6 +56,11 @@ public class FriendsFragment extends Fragment {
 
     protected ViewModelProvider.Factory createModelFactory() {
         return new FriendsViewModel.Factory(requireContext());
+    }
+
+    @Override public void onResume() {
+        super.onResume();
+        model.setOrder(UserSettings.friendsOrder(requireContext()));
     }
 
     @Nullable @Override public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup parent,
@@ -97,7 +103,7 @@ public class FriendsFragment extends Fragment {
         };
         search.addTextChangedListener(watcher);
         clear.setOnClickListener(v -> model.setQuery(""));
-        refresh.setColorSchemeResources(R.color.vk_blue);
+        refresh.setColorSchemeColors(com.vktea.ui.TeaColors.get(requireContext(), R.color.vk_blue));
         refresh.setOnRefreshListener(model::refresh);
         refresh.setOnChildScrollUpCallback((parent, child) -> list != null && list.canScrollVertically(-1));
         view.findViewById(R.id.friends_retry).setOnClickListener(v -> model.retry());

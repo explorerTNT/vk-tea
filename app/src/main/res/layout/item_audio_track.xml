@@ -22,7 +22,7 @@
         android:contentDescription="@string/audio_list_current_track"
         android:src="@drawable/audio_list_equalizer"
         android:visibility="gone"
-        app:tint="@color/audio_accent" />
+        app:tint="?attr/teaAudioAccent" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -37,7 +37,7 @@
             android:ellipsize="end"
             android:fontFamily="sans-serif"
             android:maxLines="1"
-            android:textColor="@color/audio_text"
+            android:textColor="?attr/teaAudioText"
             android:textSize="16sp" />
 
         <TextView
@@ -48,7 +48,7 @@
             android:ellipsize="end"
             android:fontFamily="sans-serif"
             android:maxLines="1"
-            android:textColor="@color/audio_secondary"
+            android:textColor="?attr/teaAudioSecondary"
             android:textSize="14sp" />
     </LinearLayout>
 
@@ -60,7 +60,7 @@
         android:contentDescription="@string/audio_list_local_file"
         android:src="@drawable/audio_list_local"
         android:visibility="gone"
-        app:tint="@color/audio_accent" />
+        app:tint="?attr/teaAudioAccent" />
 
     <TextView
         android:id="@+id/audio_list_duration"
@@ -69,6 +69,6 @@
         android:layout_marginStart="6dp"
         android:fontFamily="sans-serif"
         android:maxLines="1"
-        android:textColor="@color/audio_secondary"
+        android:textColor="?attr/teaAudioSecondary"
         android:textSize="12sp" />
 </LinearLayout>

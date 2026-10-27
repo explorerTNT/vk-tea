@@ -9,15 +9,48 @@
         <item name="colorOnPrimary">#000000</item>
     </style>
     <style name="Theme.VKTea.AudioPlayer" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/audio_accent</item>
-        <item name="colorSurface">@color/audio_surface</item>
-        <item name="android:colorBackground">@color/audio_surface</item>
-        <item name="android:colorBackgroundFloating">@color/audio_surface</item>
-        <item name="android:colorAccent">@color/audio_accent</item>
-        <item name="android:statusBarColor">@color/audio_artwork</item>
-        <item name="android:navigationBarColor">@color/vk_blue</item>
+        <item name="teaVkBlue">@color/vk_blue</item>
+        <item name="teaBrandBar">@color/brand_bar</item>
+        <item name="teaSurface">@color/surface</item>
+        <item name="teaSurfaceSecondary">@color/surface_secondary</item>
+        <item name="teaPageBackground">@color/page_background</item>
+        <item name="teaChatBackground">@color/chat_background</item>
+        <item name="teaSurfaceDivider">@color/surface_divider</item>
+        <item name="teaAlmostBlack">@color/almost_black</item>
+        <item name="teaSectionHeader">@color/section_header</item>
+        <item name="teaCounterText">@color/counter_text</item>
+        <item name="teaMenuBg">@color/menu_bg</item>
+        <item name="teaMenuIconNormal">@color/menu_icon_normal</item>
+        <item name="teaMenuSelectedBg">@color/menu_selected_bg</item>
+        <item name="teaMenuHeaderBg">@color/menu_header_bg</item>
+        <item name="teaAvatarPlaceholder">@color/avatar_placeholder</item>
+        <item name="teaToolbarBg">@color/toolbar_bg</item>
+        <item name="teaPostName">@color/post_name</item>
+        <item name="teaPostTime">@color/post_time</item>
+        <item name="teaPostIcons">@color/post_icons</item>
+        <item name="teaPostDivider">@color/post_divider</item>
+        <item name="teaMsgInBg">@color/msg_in_bg</item>
+        <item name="teaAudioSurface">@color/audio_surface</item>
+        <item name="teaAudioText">@color/audio_text</item>
+        <item name="teaAudioSecondary">@color/audio_secondary</item>
+        <item name="teaAudioAccent">@color/audio_accent</item>
+        <item name="teaAudioArtwork">@color/audio_artwork</item>
+        <item name="teaAudioDivider">@color/audio_divider</item>
+        <item name="teaChatBubbleIn">@color/chat_bubble_in</item>
+        <item name="teaChatBubbleOut">@color/chat_bubble_out</item>
+        <item name="teaChatBubbleText">@color/chat_bubble_text</item>
+        <item name="teaButtonGrayPressed">@color/button_gray_pressed</item>
+        <item name="teaButtonGrayBackground">@color/button_gray_background</item>
+        <item name="teaButtonGrayText">@color/button_gray_text</item>
+        <item name="colorPrimary">?attr/teaAudioAccent</item>
+        <item name="colorSurface">?attr/teaAudioSurface</item>
+        <item name="android:colorBackground">?attr/teaAudioSurface</item>
+        <item name="android:colorBackgroundFloating">?attr/teaAudioSurface</item>
+        <item name="android:colorAccent">?attr/teaAudioAccent</item>
+        <item name="android:statusBarColor">?attr/teaAudioArtwork</item>
+        <item name="android:navigationBarColor">?attr/teaVkBlue</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowBackground">@color/audio_surface</item>
+        <item name="android:windowBackground">?attr/teaAudioSurface</item>
     </style>
     <style name="Theme.VKTea.AudioExport" parent="Theme.VKTea.AudioPlayer">
         <item name="android:windowIsTranslucent">true</item>
@@ -26,9 +59,42 @@
         <item name="android:backgroundDimEnabled">false</item>
     </style>
     <style name="Theme.VKTea" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/vk_blue</item>
-        <item name="colorPrimaryDark">@color/brand_bar</item>
-        <item name="android:statusBarColor">@color/brand_bar</item>
+        <item name="teaVkBlue">@color/vk_blue</item>
+        <item name="teaBrandBar">@color/brand_bar</item>
+        <item name="teaSurface">@color/surface</item>
+        <item name="teaSurfaceSecondary">@color/surface_secondary</item>
+        <item name="teaPageBackground">@color/page_background</item>
+        <item name="teaChatBackground">@color/chat_background</item>
+        <item name="teaSurfaceDivider">@color/surface_divider</item>
+        <item name="teaAlmostBlack">@color/almost_black</item>
+        <item name="teaSectionHeader">@color/section_header</item>
+        <item name="teaCounterText">@color/counter_text</item>
+        <item name="teaMenuBg">@color/menu_bg</item>
+        <item name="teaMenuIconNormal">@color/menu_icon_normal</item>
+        <item name="teaMenuSelectedBg">@color/menu_selected_bg</item>
+        <item name="teaMenuHeaderBg">@color/menu_header_bg</item>
+        <item name="teaAvatarPlaceholder">@color/avatar_placeholder</item>
+        <item name="teaToolbarBg">@color/toolbar_bg</item>
+        <item name="teaPostName">@color/post_name</item>
+        <item name="teaPostTime">@color/post_time</item>
+        <item name="teaPostIcons">@color/post_icons</item>
+        <item name="teaPostDivider">@color/post_divider</item>
+        <item name="teaMsgInBg">@color/msg_in_bg</item>
+        <item name="teaAudioSurface">@color/audio_surface</item>
+        <item name="teaAudioText">@color/audio_text</item>
+        <item name="teaAudioSecondary">@color/audio_secondary</item>
+        <item name="teaAudioAccent">@color/audio_accent</item>
+        <item name="teaAudioArtwork">@color/audio_artwork</item>
+        <item name="teaAudioDivider">@color/audio_divider</item>
+        <item name="teaChatBubbleIn">@color/chat_bubble_in</item>
+        <item name="teaChatBubbleOut">@color/chat_bubble_out</item>
+        <item name="teaChatBubbleText">@color/chat_bubble_text</item>
+        <item name="teaButtonGrayPressed">@color/button_gray_pressed</item>
+        <item name="teaButtonGrayBackground">@color/button_gray_background</item>
+        <item name="teaButtonGrayText">@color/button_gray_text</item>
+        <item name="colorPrimary">?attr/teaVkBlue</item>
+        <item name="colorPrimaryDark">?attr/teaBrandBar</item>
+        <item name="android:statusBarColor">?attr/teaBrandBar</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
@@ -39,7 +105,7 @@
 
     <style name="Widget.VKTea.Toolbar" parent="Widget.Material3.Toolbar">
         <item name="titleTextAppearance">@style/TextAppearance.VKTea.Toolbar.Title</item>
-        <item name="android:background">@color/brand_bar</item>
+        <item name="android:background">?attr/teaBrandBar</item>
         <item name="titleTextColor">@android:color/white</item>
     </style>
 
@@ -72,7 +138,7 @@
     </style>
 
     <style name="ButtonAction.Gray">
-        <item name="android:textColor">@color/button_gray_text</item>
+        <item name="android:textColor">?attr/teaButtonGrayText</item>
         <item name="android:background">@drawable/white_button</item>
         <item name="android:minWidth">85dp</item>
     </style>

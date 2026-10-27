@@ -1,0 +1,200 @@
+<resources>
+    <attr name="teaVkBlue" format="color|reference" />
+    <attr name="teaBrandBar" format="color|reference" />
+    <attr name="teaSurface" format="color|reference" />
+    <attr name="teaSurfaceSecondary" format="color|reference" />
+    <attr name="teaPageBackground" format="color|reference" />
+    <attr name="teaChatBackground" format="color|reference" />
+    <attr name="teaSurfaceDivider" format="color|reference" />
+    <attr name="teaAlmostBlack" format="color|reference" />
+    <attr name="teaSectionHeader" format="color|reference" />
+    <attr name="teaCounterText" format="color|reference" />
+    <attr name="teaMenuBg" format="color|reference" />
+    <attr name="teaMenuIconNormal" format="color|reference" />
+    <attr name="teaMenuSelectedBg" format="color|reference" />
+    <attr name="teaMenuHeaderBg" format="color|reference" />
+    <attr name="teaAvatarPlaceholder" format="color|reference" />
+    <attr name="teaToolbarBg" format="color|reference" />
+    <attr name="teaPostName" format="color|reference" />
+    <attr name="teaPostTime" format="color|reference" />
+    <attr name="teaPostIcons" format="color|reference" />
+    <attr name="teaPostDivider" format="color|reference" />
+    <attr name="teaMsgInBg" format="color|reference" />
+    <attr name="teaAudioSurface" format="color|reference" />
+    <attr name="teaAudioText" format="color|reference" />
+    <attr name="teaAudioSecondary" format="color|reference" />
+    <attr name="teaAudioAccent" format="color|reference" />
+    <attr name="teaAudioArtwork" format="color|reference" />
+    <attr name="teaAudioDivider" format="color|reference" />
+    <attr name="teaChatBubbleIn" format="color|reference" />
+    <attr name="teaChatBubbleOut" format="color|reference" />
+    <attr name="teaChatBubbleText" format="color|reference" />
+    <attr name="teaButtonGrayPressed" format="color|reference" />
+    <attr name="teaButtonGrayBackground" format="color|reference" />
+    <attr name="teaButtonGrayText" format="color|reference" />
+    <style name="TeaPaletteDefault">
+        <item name="teaVkBlue">@color/vk_blue</item>
+        <item name="teaBrandBar">@color/brand_bar</item>
+        <item name="teaSurface">@color/surface</item>
+        <item name="teaSurfaceSecondary">@color/surface_secondary</item>
+        <item name="teaPageBackground">@color/page_background</item>
+        <item name="teaChatBackground">@color/chat_background</item>
+        <item name="teaSurfaceDivider">@color/surface_divider</item>
+        <item name="teaAlmostBlack">@color/almost_black</item>
+        <item name="teaSectionHeader">@color/section_header</item>
+        <item name="teaCounterText">@color/counter_text</item>
+        <item name="teaMenuBg">@color/menu_bg</item>
+        <item name="teaMenuIconNormal">@color/menu_icon_normal</item>
+        <item name="teaMenuSelectedBg">@color/menu_selected_bg</item>
+        <item name="teaMenuHeaderBg">@color/menu_header_bg</item>
+        <item name="teaAvatarPlaceholder">@color/avatar_placeholder</item>
+        <item name="teaToolbarBg">@color/toolbar_bg</item>
+        <item name="teaPostName">@color/post_name</item>
+        <item name="teaPostTime">@color/post_time</item>
+        <item name="teaPostIcons">@color/post_icons</item>
+        <item name="teaPostDivider">@color/post_divider</item>
+        <item name="teaMsgInBg">@color/msg_in_bg</item>
+        <item name="teaAudioSurface">@color/audio_surface</item>
+        <item name="teaAudioText">@color/audio_text</item>
+        <item name="teaAudioSecondary">@color/audio_secondary</item>
+        <item name="teaAudioAccent">@color/audio_accent</item>
+        <item name="teaAudioArtwork">@color/audio_artwork</item>
+        <item name="teaAudioDivider">@color/audio_divider</item>
+        <item name="teaChatBubbleIn">@color/chat_bubble_in</item>
+        <item name="teaChatBubbleOut">@color/chat_bubble_out</item>
+        <item name="teaChatBubbleText">@color/chat_bubble_text</item>
+        <item name="teaButtonGrayPressed">@color/button_gray_pressed</item>
+        <item name="teaButtonGrayBackground">@color/button_gray_background</item>
+        <item name="teaButtonGrayText">@color/button_gray_text</item>
+        <item name="colorSurface">?attr/teaSurface</item>
+        <item name="android:colorBackground">?attr/teaPageBackground</item>
+        <item name="android:colorBackgroundFloating">?attr/teaSurface</item>
+        <item name="colorPrimary">?attr/teaVkBlue</item>
+        <item name="android:statusBarColor">?attr/teaBrandBar</item>
+    </style>
+    <!-- Night colors are styles instead of resource qualifiers so custom resource loaders can override the same IDs. -->
+    <style name="TeaPaletteNight">
+        <item name="teaVkBlue">#FF91B9DF</item>
+        <item name="teaBrandBar">#FF242728</item>
+        <item name="teaSurface">#FF171819</item>
+        <item name="teaSurfaceSecondary">#FF272C31</item>
+        <item name="teaPageBackground">#FF0F0F0F</item>
+        <item name="teaChatBackground">#FF0F0F0F</item>
+        <item name="teaSurfaceDivider">#FF353B41</item>
+        <item name="teaAlmostBlack">#FFE4E8EC</item>
+        <item name="teaSectionHeader">#FFABB2BA</item>
+        <item name="teaCounterText">#FFA8C7E4</item>
+        <item name="teaMenuBg">#FF171819</item>
+        <item name="teaMenuIconNormal">#FFA4ADB8</item>
+        <item name="teaMenuSelectedBg">#FF30383F</item>
+        <item name="teaMenuHeaderBg">#FF18212A</item>
+        <item name="teaAvatarPlaceholder">#FF3C4A55</item>
+        <item name="teaToolbarBg">#FF171819</item>
+        <item name="teaPostName">#FF91B9DF</item>
+        <item name="teaPostTime">#FFA5ADB5</item>
+        <item name="teaPostIcons">#FFA5ADB5</item>
+        <item name="teaPostDivider">#FF373D43</item>
+        <item name="teaMsgInBg">#FF333A40</item>
+        <item name="teaAudioSurface">#FF171819</item>
+        <item name="teaAudioText">#FFE4E8EC</item>
+        <item name="teaAudioSecondary">#FFA5ADB5</item>
+        <item name="teaAudioAccent">#FF91B9DF</item>
+        <item name="teaAudioArtwork">#FF18212A</item>
+        <item name="teaAudioDivider">#FF353B41</item>
+        <item name="teaChatBubbleIn">#FF242728</item>
+        <item name="teaChatBubbleOut">#FF33485A</item>
+        <item name="teaChatBubbleText">#FFE4E8EC</item>
+        <item name="teaButtonGrayPressed">#FF46525D</item>
+        <item name="teaButtonGrayBackground">#FF333A40</item>
+        <item name="teaButtonGrayText">#FFB6D5EF</item>
+    </style>
+    <!-- Applied only to imported or user-authored palettes; system DayNight colors stay intact. -->
+    <style name="TeaCustomTextView" parent="Widget.AppCompat.TextView">
+        <item name="android:textColor">?attr/teaAlmostBlack</item>
+    </style>
+    <style name="TeaPaletteCustom">
+        <item name="android:textViewStyle">@style/TeaCustomTextView</item>
+        <item name="android:windowBackground">?attr/teaPageBackground</item>
+        <item name="android:textColorPrimary">?attr/teaAlmostBlack</item>
+        <item name="android:textColorSecondary">?attr/teaSectionHeader</item>
+        <item name="colorOnSurface">?attr/teaAlmostBlack</item>
+        <item name="colorOnBackground">?attr/teaAlmostBlack</item>
+        <item name="colorPrimary">?attr/teaVkBlue</item>
+        <item name="colorSecondary">?attr/teaVkBlue</item>
+        <item name="android:colorAccent">?attr/teaVkBlue</item>
+        <item name="colorControlActivated">?attr/teaVkBlue</item>
+        <item name="colorControlNormal">?attr/teaSectionHeader</item>
+        <item name="colorOnPrimary">@color/tea_on_accent</item>
+        <item name="colorOnSecondary">@color/tea_on_accent</item>
+    </style>
+    <style name="TeaPaletteAMOLED">
+        <item name="teaVkBlue">#91B9DF</item>
+        <item name="teaBrandBar">#000000</item>
+        <item name="teaSurface">#000000</item>
+        <item name="teaSurfaceSecondary">#171819</item>
+        <item name="teaPageBackground">#000000</item>
+        <item name="teaChatBackground">#000000</item>
+        <item name="teaSurfaceDivider">#363636</item>
+        <item name="teaAlmostBlack">#E4E8EC</item>
+        <item name="teaSectionHeader">#ABB2BA</item>
+        <item name="teaCounterText">#A8C7E4</item>
+        <item name="teaMenuBg">#000000</item>
+        <item name="teaMenuIconNormal">#A4ADB8</item>
+        <item name="teaMenuSelectedBg">#30383F</item>
+        <item name="teaMenuHeaderBg">#000000</item>
+        <item name="teaAvatarPlaceholder">#3C4A55</item>
+        <item name="teaToolbarBg">#000000</item>
+        <item name="teaPostName">#91B9DF</item>
+        <item name="teaPostTime">#A5ADB5</item>
+        <item name="teaPostIcons">#A5ADB5</item>
+        <item name="teaPostDivider">#363636</item>
+        <item name="teaMsgInBg">#242728</item>
+        <item name="teaAudioSurface">#000000</item>
+        <item name="teaAudioText">#E4E8EC</item>
+        <item name="teaAudioSecondary">#A5ADB5</item>
+        <item name="teaAudioAccent">#91B9DF</item>
+        <item name="teaAudioArtwork">#000000</item>
+        <item name="teaAudioDivider">#363636</item>
+        <item name="teaChatBubbleIn">#242728</item>
+        <item name="teaChatBubbleOut">#33485A</item>
+        <item name="teaChatBubbleText">#E4E8EC</item>
+        <item name="teaButtonGrayPressed">#46525D</item>
+        <item name="teaButtonGrayBackground">#333A40</item>
+        <item name="teaButtonGrayText">#B6D5EF</item>
+    </style>
+    <style name="TeaPaletteBlue">
+        <item name="teaVkBlue">#91B9DF</item>
+        <item name="teaBrandBar">#1C2938</item>
+        <item name="teaSurface">#15202B</item>
+        <item name="teaSurfaceSecondary">#1C2938</item>
+        <item name="teaPageBackground">#10171F</item>
+        <item name="teaChatBackground">#10171F</item>
+        <item name="teaSurfaceDivider">#38434D</item>
+        <item name="teaAlmostBlack">#E4E8EC</item>
+        <item name="teaSectionHeader">#ABB2BA</item>
+        <item name="teaCounterText">#A8C7E4</item>
+        <item name="teaMenuBg">#15202B</item>
+        <item name="teaMenuIconNormal">#A4ADB8</item>
+        <item name="teaMenuSelectedBg">#303E4B</item>
+        <item name="teaMenuHeaderBg">#1C2938</item>
+        <item name="teaAvatarPlaceholder">#3C4A55</item>
+        <item name="teaToolbarBg">#15202B</item>
+        <item name="teaPostName">#91B9DF</item>
+        <item name="teaPostTime">#A5ADB5</item>
+        <item name="teaPostIcons">#A5ADB5</item>
+        <item name="teaPostDivider">#38434D</item>
+        <item name="teaMsgInBg">#242728</item>
+        <item name="teaAudioSurface">#15202B</item>
+        <item name="teaAudioText">#E4E8EC</item>
+        <item name="teaAudioSecondary">#A5ADB5</item>
+        <item name="teaAudioAccent">#91B9DF</item>
+        <item name="teaAudioArtwork">#1C2938</item>
+        <item name="teaAudioDivider">#38434D</item>
+        <item name="teaChatBubbleIn">#242728</item>
+        <item name="teaChatBubbleOut">#33485A</item>
+        <item name="teaChatBubbleText">#E4E8EC</item>
+        <item name="teaButtonGrayPressed">#46525D</item>
+        <item name="teaButtonGrayBackground">#333A40</item>
+        <item name="teaButtonGrayText">#B6D5EF</item>
+    </style>
+</resources>

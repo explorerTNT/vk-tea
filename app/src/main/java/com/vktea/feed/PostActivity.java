@@ -36,7 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class PostActivity extends AppCompatActivity {
+public class PostActivity extends com.vktea.ui.TeaActivity {
 
     public static Post currentPost;
 
@@ -248,12 +248,12 @@ public class PostActivity extends AppCompatActivity {
                 CommentHolder ch = (CommentHolder) holder;
                 ch.author.setText(c.author);
                 ch.text.setText(VkTextUtils.parse(c.text,
-                        ContextCompat.getColor(ch.text.getContext(), R.color.post_name),
+                        com.vktea.ui.TeaColors.get(ch.text.getContext(), R.color.post_name),
                         url -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)))));
                 ch.text.setMovementMethod(LinkMovementMethod.getInstance());
                 ch.time.setText(RuDate.format(c.date));
                 ch.likes.setText(c.likes > 0 ? FeedAdapter.formatCount(c.likes) : "");
-                int color = ContextCompat.getColor(ch.likes.getContext(),
+                int color = com.vktea.ui.TeaColors.get(ch.likes.getContext(),
                         c.liked ? R.color.vk_blue : R.color.post_icons);
                 ch.likes.setTextColor(color);
                 ch.likes.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(color));
@@ -292,7 +292,7 @@ public class PostActivity extends AppCompatActivity {
         }
 
         private void bindPostCard(PostCardHolder holder) {
-            int linkColor = ContextCompat.getColor(PostActivity.this, R.color.post_name);
+            int linkColor = com.vktea.ui.TeaColors.get(PostActivity.this, R.color.post_name);
             holder.name.setText(post.sourceName);
             holder.time.setText(RuDate.format(post.date));
 
@@ -346,7 +346,7 @@ public class PostActivity extends AppCompatActivity {
                         .into(holder.avatar);
             }
 
-            int color = ContextCompat.getColor(PostActivity.this,
+            int color = com.vktea.ui.TeaColors.get(PostActivity.this,
                     post.userLikes ? R.color.vk_blue : R.color.post_icons);
             holder.likes.setTextColor(color);
             holder.likes.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(color));

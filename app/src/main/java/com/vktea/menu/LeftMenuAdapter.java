@@ -118,7 +118,7 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         int type = getItemViewType(position);
         if (type == TYPE_STATUS_SPACER) {
             holder.itemView.getLayoutParams().height = topInset;
-            holder.itemView.setBackgroundColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.vk_blue));
+            holder.itemView.setBackgroundColor(com.vktea.ui.TeaColors.get(holder.itemView.getContext(), R.color.vk_blue));
         } else if (type == TYPE_FOOTER_SPACER) {
             holder.itemView.getLayoutParams().height = bottomInset;
         } else if (type == TYPE_ITEM) {
@@ -215,13 +215,13 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             icon.setImageResource(entry.iconRes);
             title.setText(entry.titleRes);
             itemView.setBackgroundColor(selected
-                    ? ContextCompat.getColor(itemView.getContext(), R.color.menu_selected_bg)
-                    : ContextCompat.getColor(itemView.getContext(), R.color.menu_bg));
+                    ? com.vktea.ui.TeaColors.get(itemView.getContext(), R.color.menu_selected_bg)
+                    : com.vktea.ui.TeaColors.get(itemView.getContext(), R.color.menu_bg));
             int iconColor = selected
-                    ? ContextCompat.getColor(icon.getContext(), R.color.vk_blue)
-                    : ContextCompat.getColor(icon.getContext(), R.color.menu_icon_normal);
+                    ? com.vktea.ui.TeaColors.get(icon.getContext(), R.color.vk_blue)
+                    : com.vktea.ui.TeaColors.get(icon.getContext(), R.color.menu_icon_normal);
             icon.setColorFilter(iconColor);
-            title.setTextColor(ContextCompat.getColor(title.getContext(),
+            title.setTextColor(com.vktea.ui.TeaColors.get(title.getContext(),
                     selected ? R.color.vk_blue : R.color.almost_black));
             if (entry.counter > 0) {
                 counter.setVisibility(View.VISIBLE);

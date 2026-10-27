@@ -72,7 +72,7 @@ public class ProfileFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         refresh = view.findViewById(R.id.profile_refresh);
-        refresh.setColorSchemeResources(R.color.vk_blue);
+        refresh.setColorSchemeColors(com.vktea.ui.TeaColors.get(requireContext(), R.color.vk_blue));
         recycler = view.findViewById(R.id.profile_wall);
         recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new ProfileAdapter();
@@ -419,7 +419,7 @@ public class ProfileFragment extends Fragment {
             row.setPadding((int) (16 * getResources().getDisplayMetrics().density), 0, 0, 0);
             ImageView iconView = new ImageView(parent.getContext());
             iconView.setImageResource(icon);
-            iconView.setColorFilter(parent.getContext().getColor(R.color.post_time));
+            iconView.setColorFilter(com.vktea.ui.TeaColors.get(parent.getContext(), R.color.post_time));
             LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
                     (int) (24 * getResources().getDisplayMetrics().density),
                     (int) (24 * getResources().getDisplayMetrics().density));
@@ -429,7 +429,7 @@ public class ProfileFragment extends Fragment {
             row.addView(iconView);
             TextView label = new TextView(parent.getContext());
             label.setText(text);
-            label.setTextColor(parent.getContext().getColor(R.color.post_time));
+            label.setTextColor(com.vktea.ui.TeaColors.get(parent.getContext(), R.color.post_time));
             label.setTextSize(14);
             label.setPadding(0, m, m, m);
             row.addView(label);

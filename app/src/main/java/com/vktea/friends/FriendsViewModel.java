@@ -34,8 +34,12 @@ public final class FriendsViewModel extends ViewModel {
                 if ((!onlineOnly || row.online) && normalized(row.name).contains(needle)) visible.add(row);
             }
             onlineCount = count;
-            visible.sort(Comparator.comparing((Friend row) -> normalized(row.firstName))
-                    .thenComparing(row -> normalized(row.lastName)).thenComparingLong(row -> row.id));
+            if (!"hints".equals(model.order)) {
+                boolean byLastName = "lastname".equals(model.order);
+                visible.sort(Comparator.comparing((Friend row) -> normalized(byLastName ? row.lastName : row.firstName))
+                        .thenComparing(row -> normalized(byLastName ? row.firstName : row.lastName))
+                        .thenComparingLong(row -> row.id));
+            }
             visibleItems = Collections.unmodifiableList(visible);
         }
     }
@@ -51,6 +55,7 @@ public final class FriendsViewModel extends ViewModel {
     private final MutableLiveData<State> state = new MutableLiveData<>();
     private List<Friend> items = Collections.emptyList();
     private String query = "";
+    private String order = "firstname";
     private boolean onlineOnly, loading, loaded, cleared;
     private FriendsError error;
     private long generation;
@@ -68,6 +73,11 @@ public final class FriendsViewModel extends ViewModel {
         if (!next.equals(query)) { query = next; publish(); }
     }
     public void setOnlineOnly(boolean value) { requireMain(); if (!cleared && onlineOnly != value) { onlineOnly = value; publish(); } }
+    public void setOrder(String value) {
+        requireMain();
+        String next = "lastname".equals(value) || "hints".equals(value) ? value : "firstname";
+        if (!cleared && !next.equals(order)) { order = next; publish(); }
+    }
     private void load() {
         if (cleared) return;
         long requested = ++generation;

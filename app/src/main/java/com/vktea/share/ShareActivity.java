@@ -41,7 +41,7 @@ import com.vktea.msg.MessageAvatars;
 import java.util.List;
 
 /** Transparent carrier: all destination choices and explicit confirmation stay in one bottom sheet. */
-public class ShareActivity extends AppCompatActivity {
+public class ShareActivity extends com.vktea.ui.TeaActivity {
     public static final String EXTRA_ATTACHMENT = "share_attachment";
     private ShareViewModel model;
     private BottomSheetDialog sheet;
@@ -143,7 +143,7 @@ public class ShareActivity extends AppCompatActivity {
             window.setDimAmount(.55f);
         }
         View container = sheet.findViewById(com.google.android.material.R.id.design_bottom_sheet);
-        if (container != null) container.setBackgroundColor(getColor(R.color.surface));
+        if (container != null) container.setBackgroundColor(com.vktea.ui.TeaColors.get(this, R.color.surface));
         sheet.getBehavior().setSkipCollapsed(true);
         sheet.getBehavior().setState(BottomSheetBehavior.STATE_EXPANDED);
         content.requestFocus();
@@ -237,7 +237,7 @@ public class ShareActivity extends AppCompatActivity {
         image.setBackgroundResource(R.drawable.share_sheet_circle); image.setElevation(dp(1));
         image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         cell.addView(image, new LinearLayout.LayoutParams(dp(64), dp(64)));
-        TextView text = new TextView(this); text.setText(label); text.setTextColor(getColor(R.color.almost_black)); text.setTextSize(12);
+        TextView text = new TextView(this); text.setText(label); text.setTextColor(com.vktea.ui.TeaColors.get(this, R.color.almost_black)); text.setTextSize(12);
         text.setGravity(Gravity.CENTER); text.setMaxLines(2); text.setPadding(0, dp(8), 0, 0);
         cell.addView(text, new LinearLayout.LayoutParams(-1, -2)); parent.addView(cell, new LinearLayout.LayoutParams(0, -2, 1));
         return cell;
@@ -250,7 +250,7 @@ public class ShareActivity extends AppCompatActivity {
             ImageView avatar = new ImageView(this); avatar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             cell.addView(avatar, new LinearLayout.LayoutParams(dp(64), dp(64)));
             bindAvatar(avatar, target.photo, target.id < 0 || target.id >= 2_000_000_000L);
-            TextView title = new TextView(this); title.setText(target.title); title.setTextColor(getColor(R.color.almost_black)); title.setTextSize(12);
+            TextView title = new TextView(this); title.setText(target.title); title.setTextColor(com.vktea.ui.TeaColors.get(this, R.color.almost_black)); title.setTextSize(12);
             title.setGravity(Gravity.CENTER); title.setMaxLines(2); title.setEllipsize(TextUtils.TruncateAt.END); title.setPadding(0, dp(6), 0, 0);
             cell.addView(title, new LinearLayout.LayoutParams(-1, -2));
             cell.setOnClickListener(view -> { expandedForInput = false; model.selectRecent(target); });
@@ -267,7 +267,7 @@ public class ShareActivity extends AppCompatActivity {
             ImageView avatar = new ImageView(this); avatar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             row.addView(avatar, new LinearLayout.LayoutParams(dp(48), dp(48)));
             bindAvatar(avatar, target.photo, !dialog || target.id < 0 || target.id >= 2_000_000_000L);
-            TextView name = new TextView(this); name.setText(target.title); name.setTextColor(getColor(R.color.almost_black)); name.setTextSize(16); name.setPadding(dp(12), 0, 0, 0);
+            TextView name = new TextView(this); name.setText(target.title); name.setTextColor(com.vktea.ui.TeaColors.get(this, R.color.almost_black)); name.setTextSize(16); name.setPadding(dp(12), 0, 0, 0);
             row.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
             row.setOnClickListener(view -> { hideKeyboard(); expandedForInput = false; model.selectTarget(target); });
             rows.addView(row, new LinearLayout.LayoutParams(-1, -2));

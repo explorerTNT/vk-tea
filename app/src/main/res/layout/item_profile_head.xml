@@ -3,7 +3,7 @@
     android:id="@+id/profile_head"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/surface"
+    android:background="?attr/teaSurface"
     android:orientation="vertical">
 
     <FrameLayout
@@ -66,7 +66,7 @@
         android:layout_marginTop="8dp"
         android:fontFamily="sans-serif-medium"
         android:gravity="center"
-        android:textColor="@color/almost_black"
+        android:textColor="?attr/teaAlmostBlack"
         android:textSize="20sp" />
 
     <TextView
@@ -77,7 +77,7 @@
         android:gravity="center"
         android:paddingLeft="24dp"
         android:paddingRight="24dp"
-        android:textColor="@color/post_time"
+        android:textColor="?attr/teaPostTime"
         android:textSize="14sp" />
 
     <LinearLayout

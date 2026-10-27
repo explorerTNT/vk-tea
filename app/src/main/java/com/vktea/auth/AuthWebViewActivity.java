@@ -27,7 +27,7 @@ import java.util.Map;
 
 import okhttp3.FormBody;
 
-public class AuthWebViewActivity extends AppCompatActivity {
+public class AuthWebViewActivity extends com.vktea.ui.TeaActivity {
 
     public static final String EXTRA_MODE = "mode";
     public static final String MODE_VK_ID = "vk_id";

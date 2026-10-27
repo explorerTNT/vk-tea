@@ -1,8 +1,8 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent" android:layout_height="wrap_content"
-    android:background="@color/audio_surface" android:orientation="vertical">
-    <View android:layout_width="match_parent" android:layout_height="2dp" android:background="@color/audio_divider" />
+    android:background="?attr/teaAudioSurface" android:orientation="vertical">
+    <View android:layout_width="match_parent" android:layout_height="2dp" android:background="?attr/teaAudioDivider" />
     <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal">
         <LinearLayout android:id="@+id/audio_mini_open" android:layout_width="0dp" android:layout_height="match_parent"
             android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical"
@@ -14,14 +14,14 @@
                 android:layout_weight="1" android:layout_marginStart="14dp" android:orientation="vertical">
                 <TextView android:id="@+id/audio_mini_title" android:layout_width="match_parent"
                     android:layout_height="wrap_content" android:singleLine="true" android:ellipsize="end"
-                    android:textColor="@color/audio_text" android:textSize="14sp" />
+                    android:textColor="?attr/teaAudioText" android:textSize="14sp" />
                 <TextView android:id="@+id/audio_mini_artist" android:layout_width="match_parent"
                     android:layout_height="wrap_content" android:singleLine="true" android:ellipsize="end"
-                    android:textColor="@color/audio_secondary" android:textSize="12sp" />
+                    android:textColor="?attr/teaAudioSecondary" android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
         <ImageButton android:id="@+id/audio_mini_play" android:layout_width="52dp" android:layout_height="56dp"
             android:background="?attr/selectableItemBackgroundBorderless" android:src="@drawable/audio_mini_play"
-            android:contentDescription="@string/audio_player_play" app:tint="@color/audio_text" />
+            android:contentDescription="@string/audio_player_play" app:tint="?attr/teaAudioText" />
     </LinearLayout>
 </LinearLayout>

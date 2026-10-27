@@ -14,6 +14,7 @@ import android.widget.TextView;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.vktea.R;
+import com.vktea.ui.UserSettings;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,6 +38,21 @@ public class ChatMessagesAdapterTest {
     private final FakeImages images = new FakeImages();
     private final List<ChatAttachment> clicked = new ArrayList<>();
     private final ChatMessagesAdapter adapter = new ChatMessagesAdapter(clicked::add, images);
+
+    @Test public void messageSizeSettingAppliesOnEveryBindIncludingRecycledRows() {
+        Context context = RuntimeEnvironment.getApplication();
+        try {
+            adapter.replaceAll(Collections.singletonList(message(true, 1, "Synthetic")));
+            UserSettings.setMessageTextSize(context, -1);
+            ChatMessagesAdapter.Holder holder = bind(0, 320, 1f);
+            assertEquals(14f, holder.text.getTextSize() / holder.text.getResources().getDisplayMetrics().scaledDensity, 0.01f);
+            UserSettings.setMessageTextSize(context, 1);
+            adapter.onBindViewHolder(holder, 0);
+            assertEquals(18f, holder.text.getTextSize() / holder.text.getResources().getDisplayMetrics().scaledDensity, 0.01f);
+        } finally {
+            UserSettings.setMessageTextSize(context, 0);
+        }
+    }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     public void outgoingLongUnbrokenTextFitsNarrowLargeFontAndLandscape() {
