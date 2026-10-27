@@ -63,6 +63,10 @@ final class StoriesParser {
                     entry.put("id", id); entry.put("owner_id", sid);
                     entry.put("access_key", story.optString("access_key", ""));
                     entry.put("can_reply", flag(story, "can_reply"));
+                    entry.put("can_like", flag(story, "can_like"));
+                    Object userReaction = story.opt("user_reaction_id");
+                    if (userReaction instanceof Number && ((Number) userReaction).intValue() >= 0)
+                        entry.put("user_reaction_id", ((Number) userReaction).intValue());
                     entry.put("seen", flag(story, "seen"));
                     String type = story.optString("type", "");
                     entry.put("type", type);

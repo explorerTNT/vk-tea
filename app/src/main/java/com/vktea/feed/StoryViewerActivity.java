@@ -7,6 +7,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -21,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AlertDialog;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModel;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -71,7 +74,18 @@ public class StoryViewerActivity extends AppCompatActivity {
     private Button reply, reaction, nativeReaction;
     private Button close, previous, next;
     private StoryActionsViewModel actions;
-    private boolean dialogOpen, mediaReady, awaitingReply;
+    private StoryReactionsViewModel reactions;
+    /** Kept only across configuration changes; reply text is never placed in saved instance state. */
+    public static class ReplyDraft extends ViewModel {
+        static final int NONE = 0, EDIT = 1, CONFIRM = 2;
+        int stage = NONE;
+        String text = "";
+        boolean emoji;
+        void clear() { stage = NONE; text = ""; emoji = false; }
+    }
+    private ReplyDraft replyDraft;
+    private AlertDialog replyWindow;
+    private boolean dialogOpen, mediaReady, awaitingReply, awaitingReaction;
 
     static void start(Context context, StoriesParser.Owner owner) {
         String key = UUID.randomUUID().toString();
@@ -94,7 +108,10 @@ public class StoryViewerActivity extends AppCompatActivity {
         if (stories.length() == 0) { finish(); return; }
         index = Math.max(0, Math.min(stories.length() - 1, state == null ? 0 : state.getInt("index", 0)));
         awaitingReply = state != null && state.getBoolean("awaiting_reply", false);
+        awaitingReaction = state != null && state.getBoolean("awaiting_reaction", false);
         actions = new ViewModelProvider(this).get(StoryActionsViewModel.class);
+        reactions = new ViewModelProvider(this).get(StoryReactionsViewModel.class);
+        replyDraft = new ViewModelProvider(this).get(ReplyDraft.class);
         actions.events.observe(this, event -> {
             JSONObject current = stories.optJSONObject(index);
             if (event != null && current != null && event.key.equals(StoryActionsViewModel.storyKey(current))) {
@@ -102,6 +119,23 @@ public class StoryViewerActivity extends AppCompatActivity {
                 if (awaitingReply && !actions.isPending(current)) { awaitingReply = false; resumeAfterDialog(); }
                 updateActions();
             }
+        });
+        reactions.events.observe(this, event -> {
+            JSONObject current = stories.optJSONObject(index);
+            if (event == null || current == null || !event.key.equals(StoryActionsViewModel.storyKey(current))) return;
+            int message;
+            switch (event.result) {
+                case REACTION_CONFIRMED:
+                    try { current.put("user_reaction_id", event.reactionId); } catch (org.json.JSONException ignored) { }
+                    message = R.string.story_native_confirmed; break;
+                case APPLIED: current.remove("user_reaction_id"); message = R.string.story_native_unconfirmed; break;
+                case REMOVED: current.remove("user_reaction_id"); message = R.string.story_native_removed; break;
+                case REJECTED: message = R.string.story_native_rejected; break;
+                default: message = R.string.story_native_unknown; break;
+            }
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            if (awaitingReaction && !reactions.isPending(current)) { awaitingReaction = false; resumeAfterDialog(); }
+            updateActions();
         });
         FrameLayout root = new FrameLayout(this); root.setBackgroundColor(Color.BLACK);
         image = new ImageView(this); image.setScaleType(ImageView.ScaleType.FIT_CENTER);
@@ -122,7 +156,7 @@ public class StoryViewerActivity extends AppCompatActivity {
         LinearLayout actionsRow = new LinearLayout(this);
         reply = button(getString(R.string.story_reply)); reply.setOnClickListener(v -> replyDialog());
         reaction = button(getString(R.string.story_reaction_message)); reaction.setOnClickListener(v -> reactionDialog());
-        nativeReaction = button(getString(R.string.story_native_reaction)); nativeReaction.setOnClickListener(v -> openWeb());
+        nativeReaction = button(getString(R.string.story_native_reaction)); nativeReaction.setOnClickListener(v -> nativeReactionDialog());
         actionsRow.addView(reply, new LinearLayout.LayoutParams(0, -2, 1));
         actionsRow.addView(reaction, new LinearLayout.LayoutParams(0, -2, 1));
         actionsRow.addView(nativeReaction, new LinearLayout.LayoutParams(0, -2, 1));
@@ -132,6 +166,8 @@ public class StoryViewerActivity extends AppCompatActivity {
         next = button(getString(R.string.story_next)); next.setOnClickListener(v -> next());
         controls.addView(previous, new LinearLayout.LayoutParams(0, -2, 1)); controls.addView(next, new LinearLayout.LayoutParams(0, -2, 1));
         overlay.addView(controls); setContentView(root);
+        if (replyDraft.stage == ReplyDraft.EDIT) showReplyEditor();
+        else if (replyDraft.stage == ReplyDraft.CONFIRM) confirmSend(stories.optJSONObject(index), replyDraft.text, replyDraft.emoji);
     }
     private Button button(String text) { Button b = new Button(this); b.setText(text); return b; }
     private int dp(int n) { return (int) (n * getResources().getDisplayMetrics().density + .5f); }
@@ -168,13 +204,17 @@ public class StoryViewerActivity extends AppCompatActivity {
                 @Override public void onRenderedFirstFrame() { if (generation == request) ready(); }
                 @Override public void onPlayerError(PlaybackException error) { if (generation == request) unavailable(); }
             });
-            player.setMediaItem(MediaItem.fromUri(Uri.parse(url))); player.prepare(); player.setPlayWhenReady(active && !sending());
+            player.setMediaItem(MediaItem.fromUri(Uri.parse(url))); player.prepare(); player.setPlayWhenReady(active && !dialogOpen && !sending());
         } else unavailable();
     }
     private void unavailable() { mediaReady = false; updateActions(); handler.removeCallbacks(advance); releasePlayer(); status.setText(R.string.story_unavailable);
         JSONObject story = stories.optJSONObject(index);
         web.setVisibility(story != null && story.optLong("owner_id") != 0 && story.optLong("id") > 0 ? View.VISIBLE : View.GONE); }
-    private boolean sending() { return actions != null && stories != null && actions.isPending(stories.optJSONObject(index)); }
+    private boolean sending() {
+        if (stories == null) return false;
+        JSONObject story = stories.optJSONObject(index);
+        return actions != null && actions.isPending(story) || reactions != null && reactions.isPending(story);
+    }
     private void closeViewer() { if (sending()) Toast.makeText(this, R.string.story_sending_wait, Toast.LENGTH_SHORT).show(); else finish(); }
     @Override public void onBackPressed() { if (sending()) closeViewer(); else super.onBackPressed(); }
     private void previous() { if (!sending() && index > 0) { index--; show(); } }
@@ -194,9 +234,9 @@ public class StoryViewerActivity extends AppCompatActivity {
     private void updateActions() {
         if (reply == null || stories == null || actions == null) return;
         JSONObject story = stories.optJSONObject(index);
-        boolean identity = StoryActionsViewModel.identity(story);
         boolean canSend = mediaReady && actions.sameSession() && StoryActionsViewModel.canReply(story, Session.getUserId(this)) && !actions.isPending(story);
-        reply.setEnabled(canSend); reaction.setEnabled(canSend); nativeReaction.setEnabled(identity && !sending());
+        reply.setEnabled(canSend && !sending()); reaction.setEnabled(canSend && !sending());
+        nativeReaction.setEnabled(mediaReady && StoryActionsViewModel.identity(story) && !sending());
         if (close != null) close.setEnabled(!sending());
         if (previous != null) previous.setEnabled(!sending());
         if (next != null) next.setEnabled(!sending());
@@ -207,7 +247,7 @@ public class StoryViewerActivity extends AppCompatActivity {
     }
     private void resumeAfterDialog() {
         dialogOpen = false;
-        if (!active || isFinishing() || sending() || awaitingReply) return;
+        if (!active || isFinishing() || sending() || awaitingReply || awaitingReaction) return;
         if (!mediaReady) show();
         else if (player != null) player.setPlayWhenReady(true);
         else if (mediaReady) handler.postDelayed(advance, 5000);
@@ -215,11 +255,23 @@ public class StoryViewerActivity extends AppCompatActivity {
     private void replyDialog() {
         JSONObject story = stories.optJSONObject(index);
         if (!mediaReady || !StoryActionsViewModel.canReply(story, Session.getUserId(this)) || actions.isPending(story)) return;
+        replyDraft.stage = ReplyDraft.EDIT; replyDraft.text = ""; replyDraft.emoji = false;
+        showReplyEditor();
+    }
+    private void showReplyEditor() {
+        JSONObject story = stories.optJSONObject(index);
         pauseForDialog(); EditText input = new EditText(this); input.setHint(R.string.story_reply_hint);
         input.setMaxLines(5); input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(4000)});
+        input.setText(replyDraft.text); input.setSelection(input.length());
+        input.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { replyDraft.text = s.toString(); }
+            @Override public void afterTextChanged(Editable s) { }
+        });
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle(R.string.story_reply).setView(input)
                 .setNegativeButton(android.R.string.cancel, null).setPositiveButton(R.string.story_continue, null).create();
-        dialog.setOnDismissListener(v -> { if (!dialogOpen) return; resumeAfterDialog(); });
+        replyWindow = dialog;
+        dialog.setOnDismissListener(v -> { if (isChangingConfigurations()) return; replyDraft.clear(); if (dialogOpen) resumeAfterDialog(); });
         dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
             String message = input.getText().toString().trim(); if (message.isEmpty()) { input.setError(getString(R.string.story_reply_hint)); return; }
             dialog.setOnDismissListener(null); dialog.dismiss(); confirmSend(story, message, false);
@@ -237,24 +289,66 @@ public class StoryViewerActivity extends AppCompatActivity {
                 .setNegativeButton(android.R.string.cancel, null).create();
         dialog.setOnDismissListener(v -> { if (!handoff[0]) resumeAfterDialog(); }); dialog.show();
     }
-    private void confirmSend(JSONObject story, String text, boolean emoji) {
+    private void nativeReactionDialog() {
+        JSONObject story = stories.optJSONObject(index);
+        if (!mediaReady || sending() || reactions == null || !StoryActionsViewModel.identity(story)) return;
         pauseForDialog();
-        new AlertDialog.Builder(this).setTitle(R.string.story_send_confirm_title)
+        if (reactions.sameSession() && reactions.isUncertain(story)) {
+            new AlertDialog.Builder(this).setMessage(R.string.story_native_unknown_explanation)
+                    .setPositiveButton(R.string.story_open_vk, (d, which) -> openWeb())
+                    .setNeutralButton(R.string.story_native_checked, (d, which) -> {
+                        if (reactions.acknowledgeUnknown(story))
+                            Toast.makeText(this, R.string.story_native_unblocked, Toast.LENGTH_SHORT).show();
+                        updateActions();
+                    }).setNegativeButton(android.R.string.cancel, null)
+                    .setOnDismissListener(d -> resumeAfterDialog()).show();
+            return;
+        }
+        if (!reactions.sameSession() || !StoryReactionsViewModel.canLike(story)) {
+            new AlertDialog.Builder(this).setMessage(R.string.story_native_blocked)
+                    .setPositiveButton(R.string.story_open_vk, (d, which) -> openWeb())
+                    .setNegativeButton(android.R.string.cancel, null).setOnDismissListener(d -> resumeAfterDialog()).show();
+            return;
+        }
+        final String[] labels = {"❤️", "🔥", "👍", "😂", "😍", "🙏", getString(R.string.story_native_remove), getString(R.string.story_open_vk)};
+        final Integer[] ids = {0, 2, 6, 1, 3, 5, null};
+        boolean[] submitted = {false};
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle(R.string.story_native_reaction)
+                .setItems(labels, (d, choice) -> {
+                    if (choice == ids.length) { openWeb(); return; }
+                    awaitingReaction = true;
+                    submitted[0] = reactions.send(story, ids[choice]);
+                    if (!submitted[0]) {
+                        awaitingReaction = false;
+                        Toast.makeText(this, R.string.story_native_blocked, Toast.LENGTH_LONG).show();
+                    }
+                    updateActions();
+                }).setNegativeButton(android.R.string.cancel, null).create();
+        dialog.setOnDismissListener(v -> { if (!submitted[0]) resumeAfterDialog(); });
+        dialog.show();
+    }
+    private void confirmSend(JSONObject story, String text, boolean emoji) {
+        replyDraft.stage = ReplyDraft.CONFIRM; replyDraft.text = text; replyDraft.emoji = emoji;
+        pauseForDialog();
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle(R.string.story_send_confirm_title)
                 .setMessage(getString(emoji ? R.string.story_reaction_confirm : R.string.story_reply_confirm,
                         getIntent().getStringExtra(EXTRA_NAME), text))
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.story_send, (d, which) -> {
+                    replyDraft.clear();
                     awaitingReply = true;
                     if (!actions.sendReply(story, text)) { awaitingReply = false; Toast.makeText(this, R.string.story_send_blocked, Toast.LENGTH_LONG).show(); }
                     updateActions();
-                }).setOnDismissListener(v -> resumeAfterDialog()).show();
+                }).setOnDismissListener(v -> { if (isChangingConfigurations()) return; replyDraft.clear(); resumeAfterDialog(); }).create();
+        replyWindow = dialog; dialog.show();
     }
     private void releasePlayer() { if (player != null) { video.setPlayer(null); player.release(); player = null; } }
     @Override protected void onStart() { super.onStart(); if (isFinishing() || stories == null || image == null) return; active = true; show(); }
     @Override protected void onStop() { active = false; generation++; handler.removeCallbacks(advance); releasePlayer(); super.onStop(); }
-    @Override protected void onSaveInstanceState(Bundle state) { state.putInt("index", index); state.putBoolean("awaiting_reply", awaitingReply); super.onSaveInstanceState(state); }
+    @Override protected void onSaveInstanceState(Bundle state) { state.putInt("index", index); state.putBoolean("awaiting_reply", awaitingReply); state.putBoolean("awaiting_reaction", awaitingReaction); super.onSaveInstanceState(state); }
     @Override protected void onDestroy() {
         handler.removeCallbacks(advance); releasePlayer();
+        if (replyWindow != null) { replyWindow.dismiss(); replyWindow = null; }
         if (isFinishing()) { synchronized (STORY_CACHE) { STORY_CACHE.remove(getIntent().getStringExtra(EXTRA_CACHE)); } }
         super.onDestroy();
     }

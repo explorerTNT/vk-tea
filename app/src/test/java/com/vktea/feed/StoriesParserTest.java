@@ -88,6 +88,14 @@ public class StoriesParserTest {
         assertNotNull(intent.getStringExtra("story_cache"));
         assertFalse(intent.toString().contains("private-key"));
     }
+    @Test public void reactionPermissionAndKnownSelectionArePreservedConservatively() throws Exception {
+        JSONObject root = new JSONObject("{\"response\":{\"items\":[{\"owner_id\":7,\"stories\":[{\"id\":2,\"owner_id\":7,\"can_like\":1,\"user_reaction_id\":0},{\"id\":3,\"owner_id\":7}]}]}}");
+        org.json.JSONArray stories = StoriesParser.parse(root).get(0).stories;
+        assertTrue(stories.getJSONObject(0).getBoolean("can_like"));
+        assertEquals(0, stories.getJSONObject(0).getInt("user_reaction_id"));
+        assertFalse(stories.getJSONObject(1).getBoolean("can_like"));
+        assertFalse(stories.getJSONObject(1).has("user_reaction_id"));
+    }
     @Test public void ignoresStoriesWhoseOwnerDiffersFromDisplayedOwner() throws Exception {
         JSONObject root = new JSONObject("{\"response\":{\"profiles\":[{\"id\":7,\"first_name\":\"Synthetic\"}],\"items\":[{\"owner_id\":7,\"stories\":[{\"id\":1,\"owner_id\":7},{\"id\":2,\"owner_id\":8}]}]}}");
         StoriesParser.Owner owner = StoriesParser.parse(root).get(0);
