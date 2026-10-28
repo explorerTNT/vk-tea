@@ -59,6 +59,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".auth.AuthSettingsActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".feed.PhotoViewerActivity"
             android:theme="@style/Theme.VKTea.PhotoViewer"
             android:exported="false" />
