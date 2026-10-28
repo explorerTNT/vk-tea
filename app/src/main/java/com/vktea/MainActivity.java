@@ -40,6 +40,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private List<MenuEntry> menu;
     private int currentId;
     private long feedListId;
+    private boolean feedSortRecent = false;
     private TextView toolbarTitle;
     private TextView toolbarBadge;
     private com.vktea.ui.AudioMiniPlayerView miniPlayer;
@@ -233,17 +234,26 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             return;
         }
         PopupMenu popup = new PopupMenu(this, anchor);
-        popup.getMenu().add(0, 0, 0, R.string.list_newsfeed);
-        popup.getMenu().add(0, -1, 1, R.string.list_recommendations);
-        popup.getMenu().add(0, -2, 2, R.string.list_friends);
-        popup.getMenu().add(0, -4, 3, R.string.list_photos);
-        popup.getMenu().add(0, -5, 4, R.string.list_videos);
-        int order = 5;
+        popup.getMenu().add(0, -100, 0, R.string.sort_interesting);
+        popup.getMenu().add(0, -101, 1, R.string.sort_recent);
+        popup.getMenu().add(0, 0, 2, R.string.list_newsfeed);
+        popup.getMenu().add(0, -1, 3, R.string.list_recommendations);
+        popup.getMenu().add(0, -2, 4, R.string.list_friends);
+        popup.getMenu().add(0, -4, 5, R.string.list_photos);
+        popup.getMenu().add(0, -5, 6, R.string.list_videos);
+        int order = 7;
         for (int i = 0; i < userFeedLists.size(); i++) {
             popup.getMenu().add(0, userFeedLists.keyAt(i), order++, userFeedLists.valueAt(i));
         }
         popup.setOnMenuItemClickListener(item -> {
-            feedListId = item.getItemId();
+            int id = item.getItemId();
+            if (id == -100 || id == -101) {
+                feedSortRecent = id == -101;
+                toolbarTitle.setText(item.getTitle());
+                showSection(R.id.menu_news);
+                return true;
+            }
+            feedListId = id;
             toolbarTitle.setText(item.getTitle());
             showSection(R.id.menu_news);
             return true;
@@ -309,6 +319,9 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.ui.SettingsFragment();
                 } else if (menuId == R.id.menu_news) {
                     fragment = com.vktea.feed.NewsFeedFragment.newInstance(feedListId);
+                if (fragment instanceof com.vktea.feed.NewsFeedFragment) {
+                    ((com.vktea.feed.NewsFeedFragment) fragment).setSortRecent(feedSortRecent);
+                }
                 } else if (menuId == R.id.menu_messages) {
                     fragment = new com.vktea.msg.DialogsFragment();
                 } else if (menuId == R.id.menu_audios) {

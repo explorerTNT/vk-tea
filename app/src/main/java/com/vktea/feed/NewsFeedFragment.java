@@ -44,6 +44,7 @@ public class NewsFeedFragment extends Fragment {
     private boolean loading;
     private String nextFrom = "";
     private long listId;
+    private boolean sortRecent = false;
     private long newestDate = 0;
     private long lastCheckTime = 0;
     private TextView newPostsButton;
@@ -237,6 +238,17 @@ public class NewsFeedFragment extends Fragment {
         }
     }
 
+    public void setSortRecent(boolean recent) {
+        sortRecent = recent;
+        nextFrom = "";
+        refresh.setRefreshing(true);
+        load();
+    }
+
+    public boolean isSortRecent() {
+        return sortRecent;
+    }
+
     private void load() {
         loading = true;
         String params = "filters=post,photo&count=" + PAGE_SIZE + "&max_photos=1&photo_sizes=1"
@@ -264,8 +276,14 @@ public class NewsFeedFragment extends Fragment {
                                     }
                                 }
                             }
+                            if (sortRecent && !refresh.isRefreshing()) {
+                                java.util.Collections.sort(posts, (a, b) -> Long.compare(b.date, a.date));
+                            }
                             if (refresh.isRefreshing()) {
                                 adapter.clear();
+                                if (sortRecent) {
+                                    java.util.Collections.sort(posts, (a, b) -> Long.compare(b.date, a.date));
+                                }
                             }
                             adapter.addAll(posts);
                         } catch (Exception ignored) {

@@ -153,40 +153,47 @@ public class ProfileFragment extends Fragment {
                             List<Post> posts = new ArrayList<>();
                             JSONArray items = data.getJSONArray("items");
                             for (int i = 0; i < items.length(); i++) {
-                                JSONObject item = items.getJSONObject(i);
-                                long sid = item.optLong("from_id", userId);
-                                String[] src = sources.containsKey(sid) ? sources.get(sid) : new String[]{"", ""};
-                                java.util.List<String> photoUrls = new ArrayList<>();
-                                java.util.List<ViewerPhoto> photoDetails = new ArrayList<>();
-                                JSONArray attachments = item.optJSONArray("attachments");
-                                if (attachments != null) {
-                                    for (int a = 0; a < attachments.length() && photoUrls.size() < 10; a++) {
-                                        JSONObject att = attachments.getJSONObject(a);
-                                        if ("photo".equals(att.optString("type"))) {
-                                            ViewerPhoto photo = ViewerPhoto.parse(att.getJSONObject("photo"));
-                                            String purl = photo.url;
-                                            if (!purl.isEmpty()) {
-                                                photoUrls.add(purl);
-                                                photoDetails.add(photo);
+                                try {
+                                    JSONObject item = items.getJSONObject(i);
+                                    long sid = item.optLong("from_id", userId);
+                                    String[] src = sources.containsKey(sid) ? sources.get(sid) : new String[]{"", ""};
+                                    if (src[0].isEmpty() && sources.containsKey(userId)) {
+                                        src = sources.get(userId);
+                                    }
+                                    java.util.List<String> photoUrls = new ArrayList<>();
+                                    java.util.List<ViewerPhoto> photoDetails = new ArrayList<>();
+                                    JSONArray attachments = item.optJSONArray("attachments");
+                                    if (attachments != null) {
+                                        for (int a = 0; a < attachments.length() && photoUrls.size() < 10; a++) {
+                                            JSONObject att = attachments.getJSONObject(a);
+                                            if ("photo".equals(att.optString("type"))) {
+                                                ViewerPhoto photo = ViewerPhoto.parse(att.getJSONObject("photo"));
+                                                String purl = photo.url;
+                                                if (!purl.isEmpty()) {
+                                                    photoUrls.add(purl);
+                                                    photoDetails.add(photo);
+                                                }
                                             }
                                         }
                                     }
+                                    JSONObject likes = item.optJSONObject("likes");
+                                    JSONObject comments = item.optJSONObject("comments");
+                                    JSONObject reposts = item.optJSONObject("reposts");
+                                    JSONObject views = item.optJSONObject("views");
+                                    Post post = new Post(sid, src[0], src[1],
+                                            item.optString("text", ""), item.optLong("date", 0), photoUrls,
+                                            likes != null ? likes.optInt("count", 0) : 0,
+                                            comments != null ? comments.optInt("count", 0) : 0,
+                                            reposts != null ? reposts.optInt("count", 0) : 0,
+                                            views != null ? views.optInt("count", 0) : 0,
+                                            likes != null && likes.optInt("user_likes", 0) == 1,
+                                            Post.TYPE_POST, item.optLong("owner_id", userId), item.optLong("id", 0));
+                                    post.photoDetails.addAll(photoDetails);
+                                    post.readShareMetadata(item);
+                                    posts.add(post);
+                                } catch (Exception itemError) {
+                                    android.util.Log.w("VKTea", "profile wall item " + i + " skipped", itemError);
                                 }
-                                JSONObject likes = item.optJSONObject("likes");
-                                JSONObject comments = item.optJSONObject("comments");
-                                JSONObject reposts = item.optJSONObject("reposts");
-                                JSONObject views = item.optJSONObject("views");
-                                Post post = new Post(sid, src[0], src[1],
-                                        item.optString("text", ""), item.optLong("date", 0), photoUrls,
-                                        likes != null ? likes.optInt("count", 0) : 0,
-                                        comments != null ? comments.optInt("count", 0) : 0,
-                                        reposts != null ? reposts.optInt("count", 0) : 0,
-                                        views != null ? views.optInt("count", 0) : 0,
-                                        likes != null && likes.optInt("user_likes", 0) == 1,
-                                        Post.TYPE_POST, item.optLong("owner_id", userId), item.optLong("id", 0));
-                                post.photoDetails.addAll(photoDetails);
-                                post.readShareMetadata(item);
-                                posts.add(post);
                             }
                             adapter.setWall(posts);
                         } catch (Exception ignored) {

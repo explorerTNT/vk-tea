@@ -103,5 +103,16 @@
     <string name="saved">Сохранено</string>
     <string name="copied">Скопировано</string>
     <string name="proxy_note">Прокси применяется к запросам входа и API. Используйте при блокировках провайдера.</string>
+    <string name="sort_interesting">Сначала интересные</string>
+    <string name="sort_recent">Сначала свежие</string>
+    <string name="settings_section">Настройки</string>
+    <string name="settings_theme">Тема оформления</string>
+    <string name="settings_dark_theme">Тёмная тема</string>
+    <string name="settings_notifications">Уведомления</string>
+    <string name="settings_cache">Кеш</string>
+    <string name="settings_clear_cache">Очистить кеш изображений</string>
+    <string name="settings_about">О приложении</string>
+    <string name="settings_version">Версия</string>
+    <string name="cache_cleared">Кеш очищен</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>
