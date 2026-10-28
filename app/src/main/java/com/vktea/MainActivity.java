@@ -318,10 +318,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 if (menuId == R.id.menu_settings) {
                     fragment = new com.vktea.ui.SettingsFragment();
                 } else if (menuId == R.id.menu_news) {
-                    fragment = com.vktea.feed.NewsFeedFragment.newInstance(feedListId);
-                if (fragment instanceof com.vktea.feed.NewsFeedFragment) {
-                    ((com.vktea.feed.NewsFeedFragment) fragment).setSortRecent(feedSortRecent);
-                }
+                    fragment = com.vktea.feed.NewsFeedFragment.newInstance(feedListId, feedSortRecent);
                 } else if (menuId == R.id.menu_messages) {
                     fragment = new com.vktea.msg.DialogsFragment();
                 } else if (menuId == R.id.menu_audios) {

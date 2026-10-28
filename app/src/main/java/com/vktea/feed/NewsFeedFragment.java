@@ -30,12 +30,17 @@ public class NewsFeedFragment extends Fragment {
 
     private static final int PAGE_SIZE = 20;
 
-    public static NewsFeedFragment newInstance(long listId) {
+    public static NewsFeedFragment newInstance(long listId, boolean sortRecent) {
         Bundle args = new Bundle();
         args.putLong("list_id", listId);
+        args.putBoolean("sort_recent", sortRecent);
         NewsFeedFragment fragment = new NewsFeedFragment();
         fragment.setArguments(args);
         return fragment;
+    }
+
+    public static NewsFeedFragment newInstance(long listId) {
+        return newInstance(listId, false);
     }
 
     private FeedAdapter adapter;
@@ -241,7 +246,9 @@ public class NewsFeedFragment extends Fragment {
     public void setSortRecent(boolean recent) {
         sortRecent = recent;
         nextFrom = "";
-        refresh.setRefreshing(true);
+        if (refresh != null) {
+            refresh.setRefreshing(true);
+        }
         load();
     }
 
