@@ -21,7 +21,20 @@ import okhttp3.ResponseBody;
 
 /** Auth transport never retries credentials, follows redirects, or logs response bodies. */
 class AuthHttpClient {
-    static final String PASSWORD_USER_AGENT = "VKAndroidApp/8.09-1113 (Android 13; SDK 33; arm64-v8a; samsung SM-S908N; ru)";
+    static final String PASSWORD_USER_AGENT = buildUserAgent();
+
+    private static String buildUserAgent() {
+        return String.format(java.util.Locale.US,
+                "VKAndroidApp/%s-%d (Android %s; SDK %d; %s; %s %s; %s)",
+                "4.13.1", 1206,
+                android.os.Build.VERSION.RELEASE,
+                android.os.Build.VERSION.SDK_INT,
+                android.os.Build.SUPPORTED_ABIS.length > 0 ? android.os.Build.SUPPORTED_ABIS[0] : "armeabi-v7a",
+                android.os.Build.MANUFACTURER,
+                android.os.Build.MODEL,
+                System.getProperty("user.language"));
+    }
+
     private static volatile OkHttpClient client;
 
     static void installCookieJar(Context context) {
@@ -29,14 +42,15 @@ class AuthHttpClient {
             synchronized (AuthHttpClient.class) {
                 if (client == null) {
                     client = new OkHttpClient.Builder()
-                            .cookieJar(new PersistentCookieJar(context))
-                            .protocols(Collections.singletonList(Protocol.HTTP_1_1))
+                            .cookieJar(context != null ? new PersistentCookieJar(context) : CookieJar.NO_COOKIES)
                             .retryOnConnectionFailure(false)
-                            .followRedirects(false)
-                            .followSslRedirects(false)
-                            .connectTimeout(15, TimeUnit.SECONDS)
-                            .readTimeout(15, TimeUnit.SECONDS)
-                            .callTimeout(30, TimeUnit.SECONDS)
+                            .followRedirects(true)
+                            .followSslRedirects(true)
+                            .connectTimeout(20, TimeUnit.SECONDS)
+                            .readTimeout(30, TimeUnit.SECONDS)
+                            .writeTimeout(20, TimeUnit.SECONDS)
+                            .addInterceptor(chain -> chain.proceed(chain.request().newBuilder()
+                                    .header("User-Agent", PASSWORD_USER_AGENT).build()))
                             .addNetworkInterceptor(chain -> {
                                 okhttp3.Response response = chain.proceed(chain.request());
                                 if (response.code() == 503) {
@@ -61,7 +75,7 @@ class AuthHttpClient {
     AuthResponse password(HttpUrl url) throws IOException {
         AuthLog.log("req", AuthLog.maskUrl(url.toString()));
         try (Response response = http().newCall(new Request.Builder().url(url)
-                .header("User-Agent", PASSWORD_USER_AGENT).get().build()).execute()) {
+                .get().build()).execute()) {
             JSONObject json = readJson(response);
             AuthLog.log("resp", response.code() + " " + AuthLog.maskBody(json.toString()));
             return AuthResponse.password(response.code(), json);
