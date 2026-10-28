@@ -50,10 +50,33 @@ public class AuthLog {
         if (url == null) {
             return null;
         }
-        String masked = url.replaceAll("password=[^&]*", "password=***")
-                .replaceAll("client_secret=[^&]*", "client_secret=***");
+        String masked = url
+                .replaceAll("password=[^&]*", "password=***")
+                .replaceAll("username=[^&]*", "username=***")
+                .replaceAll("client_secret=[^&]*", "client_secret=***")
+                .replaceAll("trusted_hash=[^&]*", "trusted_hash=***")
+                .replaceAll("captcha_key=[^&]*", "captcha_key=***")
+                .replaceAll("vk1\\.a\\.[A-Za-z0-9_\\-]+", "vk1.a.***")
+                .replaceAll("vk2\\.a\\.[A-Za-z0-9_\\-]+", "vk2.a.***");
         if (masked.length() > 1400) {
             return masked.substring(0, 1400) + "...";
+        }
+        return masked;
+    }
+
+    public static String maskBody(String body) {
+        if (body == null) {
+            return "";
+        }
+        String masked = body
+                .replaceAll("\"access_token\":\"[^\"]+\"", "\"access_token\":\"***\"")
+                .replaceAll("\"secret\":\"[^\"]+\"", "\"secret\":\"***\"")
+                .replaceAll("\"trusted_hash\":\"[^\"]+\"", "\"trusted_hash\":\"***\"")
+                .replaceAll("\"refresh_token\":\"[^\"]+\"", "\"refresh_token\":\"***\"")
+                .replaceAll("vk1\\.a\\.[A-Za-z0-9_\\-]+", "vk1.a.***")
+                .replaceAll("vk2\\.a\\.[A-Za-z0-9_\\-]+", "vk2.a.***");
+        if (masked.length() > 500) {
+            return masked.substring(0, 500) + "...";
         }
         return masked;
     }

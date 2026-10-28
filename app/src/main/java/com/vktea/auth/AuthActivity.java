@@ -65,6 +65,7 @@ public class AuthActivity extends AppCompatActivity {
         });
         findViewById(R.id.auth_forgot).setOnClickListener(v ->
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://m.vk.com/restore"))));
+        AuthHttpClient.installCookieJar(getApplicationContext());
         requests.getBusy().observe(this, busy -> setBusy(Boolean.TRUE.equals(busy)));
         requests.getResponse().observe(this, response -> {
             if (response != null && !isFinishing()) {
