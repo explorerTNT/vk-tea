@@ -65,7 +65,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         toolbarBadge = findViewById(R.id.toolbar_badge);
         miniPlayer = findViewById(R.id.audio_mini_player);
 
-        burger.setOnClickListener(v -> drawer.openDrawer(menuView));
+        burger.setOnClickListener(v -> drawer.openDrawer(findViewById(R.id.left_menu_drawer)));
 
         View titleBtn = findViewById(R.id.toolbar_title_btn);
         titleBtn.setOnClickListener(this::showSectionDropdown);
@@ -303,7 +303,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
     @Override
     public void onMenuClick(MenuEntry entry) {
-        drawer.closeDrawer(menuView);
+        drawer.closeDrawers();
         showSection(entry.id);
     }
 
@@ -346,7 +346,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 .addToBackStack(null)
                 .commit();
         toolbarTitle.setText(titleRes);
-        drawer.closeDrawer(menuView);
+        drawer.closeDrawers();
     }
 
     public void onMenuHeaderClick() {
