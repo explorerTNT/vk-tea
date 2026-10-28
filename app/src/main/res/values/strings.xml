@@ -91,5 +91,17 @@
     <string name="photos_count_fmt">%1$d фотографий</string>
     <string name="videos_count_fmt">%1$d видеозаписей</string>
     <string name="followers_count_fmt">%1$d подписчиков</string>
+    <string name="auth_settings_title">Настройки входа</string>
+    <string name="auth_settings_debug">Диагностика</string>
+    <string name="send_bug_report">Отправить отчёт об ошибке</string>
+    <string name="show_auth_log">Лог авторизации</string>
+    <string name="auth_settings_proxy">Прокси</string>
+    <string name="proxy_use">Использовать прокси</string>
+    <string name="proxy_host_hint">Адрес (например 192.168.1.1)</string>
+    <string name="proxy_port_hint">Порт (например 8080)</string>
+    <string name="save">Сохранить</string>
+    <string name="saved">Сохранено</string>
+    <string name="copied">Скопировано</string>
+    <string name="proxy_note">Прокси применяется к запросам входа и API. Используйте при блокировках провайдера.</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>

@@ -41,10 +41,23 @@ class AuthHttpClient {
             .build();
 
     AuthResponse password(HttpUrl url) throws IOException {
+        AuthLog.log("req", AuthLog.maskUrl(url.toString()));
         try (Response response = HTTP.newCall(new Request.Builder().url(url)
                 .header("User-Agent", PASSWORD_USER_AGENT).get().build()).execute()) {
-            return AuthResponse.password(response.code(), readJson(response));
+            JSONObject json = readJson(response);
+            AuthLog.log("resp", response.code() + " " + truncate(json.toString(), 500));
+            return AuthResponse.password(response.code(), json);
+        } catch (IOException e) {
+            AuthLog.log("iofail", e.getClass().getSimpleName() + ": " + e.getMessage());
+            throw e;
         }
+    }
+
+    private static String truncate(String s, int max) {
+        if (s == null) {
+            return "";
+        }
+        return s.length() > max ? s.substring(0, max) + "..." : s;
     }
 
     AuthResponse token(String token, String secret) throws Exception {

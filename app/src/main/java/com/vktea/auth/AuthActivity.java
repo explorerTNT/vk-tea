@@ -57,6 +57,12 @@ public class AuthActivity extends AppCompatActivity {
         requests = new ViewModelProvider(this).get(AuthAttemptViewModel.class);
         loginButton.setOnClickListener(v -> doAuth());
         tokenButton.setOnClickListener(v -> showTokenLogin());
+                        findViewById(R.id.auth_settings_btn).setOnClickListener(v ->
+                startActivity(new Intent(this, AuthSettingsActivity.class)));
+        loginButton.setOnLongClickListener(v -> {
+            showAuthLog();
+            return true;
+        });
         findViewById(R.id.auth_forgot).setOnClickListener(v ->
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://m.vk.com/restore"))));
         requests.getBusy().observe(this, busy -> setBusy(Boolean.TRUE.equals(busy)));
@@ -85,6 +91,28 @@ public class AuthActivity extends AppCompatActivity {
         }
     }
 
+    private void showAuthLog() {
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        android.widget.TextView text = new android.widget.TextView(this);
+        text.setTypeface(android.graphics.Typeface.MONOSPACE);
+        text.setTextSize(11);
+        text.setTextIsSelectable(true);
+        text.setText(AuthLog.dump());
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        text.setPadding(pad, pad, pad, pad);
+        scroll.addView(text);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Auth log")
+                .setView(scroll)
+                .setPositiveButton("OK", null)
+                .setNeutralButton(android.R.string.copy, (d, w) -> {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                            getSystemService(CLIPBOARD_SERVICE);
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("authlog", AuthLog.dump()));
+                    android.widget.Toast.makeText(this, "copied", android.widget.Toast.LENGTH_SHORT).show();
+                })
+                .show();
+    }
     private void doAuth() {
         if (requests.isBusy()) {
             showStatus(R.string.auth_request_in_progress);
@@ -122,16 +150,19 @@ public class AuthActivity extends AppCompatActivity {
             captchaSid = null;
             captchaKey = "";
         } else {
+            AuthLog.log("skip", "submit rejected: request already in progress");
             showStatus(R.string.auth_request_in_progress);
         }
     }
 
     private void handleResponse(AuthResponse response) {
         if (response.networkFailure) {
+            AuthLog.log("branch", "networkFailure");
             showStatus(R.string.auth_network_failed);
             return;
         }
         if (AuthErrors.isRateLimited(response)) {
+            AuthLog.log("branch", "rate_limited http=" + response.httpStatus);
             showStatus(R.string.auth_rate_limited);
             return;
         }
@@ -158,20 +189,25 @@ public class AuthActivity extends AppCompatActivity {
                         .putString("trusted_hash", trustedHash).apply();
             }
             Session.save(this, token, userId, json.optString("secret", null));
+            AuthLog.log("branch", "SUCCESS user=" + userId + " secret=" + (json.optString("secret", "").isEmpty() ? "no" : "yes"));
             passField.setText("");
             TokenRevealDialog.show(this, token);
         } else if (json.has("captcha_sid") && json.has("captcha_img")) {
             captchaSid = json.optString("captcha_sid");
+            AuthLog.log("branch", "captcha sid=" + captchaSid + " img=" + json.optString("captcha_img", ""));
             showCaptcha(json.optString("captcha_img"));
         } else if ("need_validation".equals(json.optString("error")) && json.has("validation_sid")) {
+            AuthLog.log("branch", "need_validation sid=" + json.optString("validation_sid", ""));
             String redirect = json.optString("redirect_uri",
                     "https://m.vk.com/login?act=authcheck&sid=" + json.optString("validation_sid"));
             Intent intent = new Intent(this, AuthWebViewActivity.class);
             intent.setData(Uri.parse(redirect));
             startActivityForResult(intent, VALIDATION_REQUEST);
         } else {
+            AuthLog.log("branch", "rejected http=" + response.httpStatus + " error=" + json.optString("error", "") + " desc=" + json.optString("error_description", ""));
             showStatus(R.string.auth_rejected);
         }
+        AuthLog.persist(this);
     }
 
     private void setBusy(boolean busy) {

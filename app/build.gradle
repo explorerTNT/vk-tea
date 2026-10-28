@@ -11,6 +11,7 @@ if (vkPropsFile.exists()) {
 }
 def vkClientId = System.getenv('VK_CLIENT_ID') ?: vkProps.getProperty('vk.clientId', '54843071')
 def vkClientSecret = System.getenv('VK_CLIENT_SECRET') ?: vkProps.getProperty('vk.clientSecret', '')
+def ghToken = System.getenv('GH_TOKEN') ?: vkProps.getProperty('gh.token', '')
 
 android {
     namespace 'com.vktea'
@@ -23,6 +24,7 @@ android {
         versionCode 4
         versionName '0.4.0'
         buildConfigField 'String', 'VK_CLIENT_ID', "\"${vkClientId}\""
+        buildConfigField 'String', 'GH_TOKEN', "\"${ghToken}\""
     }
 
     if (keystoreFile != null) {
