@@ -13,6 +13,16 @@ def vkClientId = System.getenv('VK_CLIENT_ID') ?: vkProps.getProperty('vk.client
 def vkClientSecret = System.getenv('VK_CLIENT_SECRET') ?: vkProps.getProperty('vk.clientSecret', '')
 def ghToken = System.getenv('GH_TOKEN') ?: vkProps.getProperty('gh.token', '')
 
+// Версионирование: versionCode = число коммитов (монотонно растёт),
+// versionName = базовая версия из gradle/env + номер коммита.
+// Релизный workflow передаёт VERSION_NAME из тега (v0.5.0 -> 0.5.0).
+def gitCommitCount = 1
+try {
+    gitCommitCount = ('git rev-list --count HEAD'.execute([], rootProject.rootDir).text.trim() ?: '1').toInteger()
+} catch (ignored) {
+}
+def baseVersionName = System.getenv('VERSION_NAME') ?: project.property('vkTea.baseVersion')
+
 android {
     namespace 'com.vktea'
     compileSdk 35
@@ -21,10 +31,33 @@ android {
         applicationId 'com.vktea'
         minSdk 24
         targetSdk 35
-        versionCode 4
-        versionName '0.4.0'
+        versionCode gitCommitCount
+        versionName "${baseVersionName}.${gitCommitCount}"
         buildConfigField 'String', 'VK_CLIENT_ID', "\"${vkClientId}\""
         buildConfigField 'String', 'GH_TOKEN', "\"${ghToken}\""
+    }
+
+    flavorDimensions 'env'
+    productFlavors {
+        stage {
+            dimension 'env'
+            applicationIdSuffix '.stage'
+            versionNameSuffix '-stage'
+            resValue 'string', 'app_name', 'VK Tea Stage'
+        }
+        prod {
+            dimension 'env'
+            resValue 'string', 'app_name', 'VK Tea'
+        }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            // version уже содержит flavor-суффикс (0.4.97-stage), остаётся только buildType
+            def buildType = variant.buildType.name
+            def version = variant.versionName
+            outputFileName = "vk-tea-${version}-${buildType}.apk"
+        }
     }
 
     if (keystoreFile != null) {
