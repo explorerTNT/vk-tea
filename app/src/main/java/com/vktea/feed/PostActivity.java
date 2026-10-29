@@ -100,15 +100,15 @@ public class PostActivity extends AppCompatActivity {
             sendComment(text);
         });
 
-        loadComments();
+        if (post != null) loadComments();
     }
 
     private String listMethod() {
-        return post.likeType == Post.TYPE_PHOTO ? "photos.getComments" : "wall.getComments";
+        return post != null && post.likeType == Post.TYPE_PHOTO ? "photos.getComments" : "wall.getComments";
     }
 
     private String idParam() {
-        return post.likeType == Post.TYPE_PHOTO ? "photo_id" : "post_id";
+        return post != null && post.likeType == Post.TYPE_PHOTO ? "photo_id" : "post_id";
     }
 
     private void loadPost(long ownerId, long postId) {
@@ -118,15 +118,38 @@ public class PostActivity extends AppCompatActivity {
                     @Override
                     public void success(org.json.JSONObject response) {
                         try {
-                            org.json.JSONArray items = response.getJSONObject("response").getJSONArray("items");
-                            if (items.length() == 0) {
-                                runOnUiThread(() -> { finish(); });
+                            // 5.82: {"response":[...]} или {"response":{"items":[...],"profiles":[],"groups":[]}}
+                            org.json.JSONArray items;
+                            org.json.JSONArray profiles;
+                            org.json.JSONArray groups;
+                            Object resp = response == null ? null : response.opt("response");
+                            if (resp instanceof org.json.JSONArray) {
+                                items = (org.json.JSONArray) resp;
+                                profiles = response.optJSONArray("profiles");
+                                groups = response.optJSONArray("groups");
+                            } else if (resp instanceof org.json.JSONObject) {
+                                org.json.JSONObject obj = (org.json.JSONObject) resp;
+                                items = obj.optJSONArray("items");
+                                if (items == null) items = obj.optJSONArray("wall");
+                                profiles = obj.optJSONArray("profiles");
+                                groups = obj.optJSONArray("groups");
+                            } else {
+                                items = null;
+                                profiles = null;
+                                groups = null;
+                            }
+                            android.util.Log.d("VKTea", "wall.getById items="
+                                    + (items == null ? "null" : String.valueOf(items.length())));
+                            if (items == null || items.length() == 0) {
+                                runOnUiThread(() -> {
+                                    android.widget.Toast.makeText(PostActivity.this,
+                                            "Запись недоступна", android.widget.Toast.LENGTH_SHORT).show();
+                                    finish();
+                                });
                                 return;
                             }
                             org.json.JSONObject item = items.getJSONObject(0);
-                            org.json.JSONObject profilesWrap = response.getJSONObject("response");
                             java.util.Map<Long, String[]> sources = new java.util.HashMap<>();
-                            org.json.JSONArray profiles = profilesWrap.optJSONArray("profiles");
                             if (profiles != null) {
                                 for (int i = 0; i < profiles.length(); i++) {
                                     org.json.JSONObject p = profiles.getJSONObject(i);
@@ -135,7 +158,6 @@ public class PostActivity extends AppCompatActivity {
                                             p.optString("photo_100", "")});
                                 }
                             }
-                            org.json.JSONArray groups = profilesWrap.optJSONArray("groups");
                             if (groups != null) {
                                 for (int i = 0; i < groups.length(); i++) {
                                     org.json.JSONObject g = groups.getJSONObject(i);
@@ -202,16 +224,26 @@ public class PostActivity extends AppCompatActivity {
                                 if (adapter != null) {
                                     adapter.notifyDataSetChanged();
                                 }
+                                loadComments();
                             });
                         } catch (Exception e) {
                             android.util.Log.e("VKTea", "loadPost failed", e);
-                            runOnUiThread(() -> { finish(); });
+                            runOnUiThread(() -> {
+                                android.widget.Toast.makeText(PostActivity.this,
+                                        "Не удалось загрузить запись", android.widget.Toast.LENGTH_SHORT).show();
+                                finish();
+                            });
                         }
                     }
 
                     @Override
                     public void error(Exception e) {
-                        runOnUiThread(() -> { finish(); });
+                        android.util.Log.e("VKTea", "wall.getById request failed", e);
+                        runOnUiThread(() -> {
+                            android.widget.Toast.makeText(PostActivity.this,
+                                    "Не удалось загрузить запись", android.widget.Toast.LENGTH_SHORT).show();
+                            finish();
+                        });
                     }
                 });
     }
@@ -241,15 +273,17 @@ public class PostActivity extends AppCompatActivity {
             JSONObject data = response.getJSONObject("response");
             Map<Long, String[]> profiles = new HashMap<>();
             JSONArray parr = data.optJSONArray("profiles");
+            if (parr == null) parr = response.optJSONArray("profiles");
             if (parr != null) {
                 for (int i = 0; i < parr.length(); i++) {
                     JSONObject p = parr.getJSONObject(i);
                     profiles.put(p.getLong("id"), new String[]{
                             p.optString("first_name") + " " + p.optString("last_name"),
-                            p.optString("photo_100", "")});
+                            p.optString("photo_100", p.optString("photo_50", ""))});
                 }
             }
             JSONArray garr = data.optJSONArray("groups");
+            if (garr == null) garr = response.optJSONArray("groups");
             if (garr != null) {
                 for (int i = 0; i < garr.length(); i++) {
                     JSONObject g = garr.getJSONObject(i);
@@ -501,7 +535,7 @@ public class PostActivity extends AppCompatActivity {
 
         @Override
         public int getItemCount() {
-            return comments.size() + 1;
+            return post == null ? 0 : comments.size() + 1;
         }
 
         @Override

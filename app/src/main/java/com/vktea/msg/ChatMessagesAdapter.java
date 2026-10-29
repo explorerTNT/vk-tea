@@ -79,6 +79,16 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         ChatMessage message = messages.get(position);
         int group = groupAt(position);
         holder.bubble.setBackgroundResource((message.out ? OUT_BACKGROUNDS : IN_BACKGROUNDS)[group]);
+        boolean night = (holder.itemView.getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        if (night && !message.out) {
+            holder.bubble.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF2C2D2E));
+            holder.text.setTextColor(0xFFE7E8EA);
+        } else {
+            holder.bubble.setBackgroundTintList(null);
+            holder.text.setTextColor(0xFF20252B);
+        }
         holder.bubble.setPaddingRelative(dp(holder.bubble, message.out ? 12 : 22), dp(holder.bubble, 7),
                 dp(holder.bubble, message.out ? 22 : 12), dp(holder.bubble, 6));
         holder.row.setPaddingRelative(holder.row.getPaddingStart(),

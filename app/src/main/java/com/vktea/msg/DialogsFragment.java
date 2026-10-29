@@ -89,7 +89,9 @@ public class DialogsFragment extends Fragment {
     private void loadAvatars(int request, DialogsAdapter target) {
         Set<String> users = new LinkedHashSet<>();
         Set<String> groups = new LinkedHashSet<>();
+        long self = DialogsParser.selfId();
         for (Dialog dialog : target.items()) {
+            if (dialog.peerId == self) continue; // «Избранное» — имя не перезаписываем
             if (dialog.peerId > 0 && dialog.peerId < 2_000_000_000L) {
                 users.add(String.valueOf(dialog.peerId));
             } else if (dialog.peerId < 0 && dialog.peerId != Long.MIN_VALUE) {

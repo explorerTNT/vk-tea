@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_window">#FF19191A</color>
+    <color name="bg_card">#FF232324</color>
+    <color name="almost_black">#FFE7E8EA</color>
+    <color name="section_header">#FFA0A4A8</color>
+    <color name="counter_text">#FF71AAEB</color>
+    <color name="menu_bg">#FF19191A</color>
+    <color name="menu_icon_normal">#B3FFFFFF</color>
+    <color name="menu_selected_bg">#FF2C2D2E</color>
+    <color name="menu_header_bg">#FF2E3033</color>
+    <color name="menu_header_status">#BFFFFFFF</color>
+    <color name="avatar_placeholder">#FF2C2D2E</color>
+    <color name="toolbar_bg">#FF19191A</color>
+    <color name="post_name">#FF71AAEB</color>
+    <color name="post_time">#FF76787A</color>
+    <color name="post_icons">#FF76787A</color>
+    <color name="post_divider">#26FFFFFF</color>
+    <color name="msg_in_bg">#FF2C2D2E</color>
+    <color name="chat_bg">#FF19191A</color>
+    <color name="chat_input_text">#FFE7E8EA</color>
+    <color name="chat_hint">#FF76787A</color>
+</resources>

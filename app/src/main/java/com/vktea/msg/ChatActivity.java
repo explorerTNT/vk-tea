@@ -44,6 +44,7 @@ public class ChatActivity extends AppCompatActivity {
     public static final String EXTRA_PHOTO = "photo";
 
     private long peerId;
+    private boolean isSelfChat;
     private ChatMessagesAdapter adapter;
     private RecyclerView list;
     private View loadingView;
@@ -77,6 +78,7 @@ public class ChatActivity extends AppCompatActivity {
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
 
         peerId = getIntent().getLongExtra(EXTRA_PEER_ID, 0);
+        isSelfChat = peerId != 0 && peerId == DialogsParser.selfId();
         Toolbar toolbar = findViewById(R.id.chat_toolbar);
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
@@ -88,8 +90,18 @@ public class ChatActivity extends AppCompatActivity {
         peerName = findViewById(R.id.chat_peer_name);
         peerStatus = findViewById(R.id.chat_peer_status);
         String title = getIntent().getStringExtra(EXTRA_TITLE);
-        peerName.setText(title == null || title.isEmpty() ? getString(R.string.section_messages) : title);
-        bindPeerPhoto(getIntent().getStringExtra(EXTRA_PHOTO));
+        if (isSelfChat) {
+            peerName.setText(R.string.favorites);
+            peerStatus.setVisibility(View.GONE);
+            peerAvatar.setImageResource(R.drawable.ic_favorites);
+            peerAvatar.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+            int pad = (int) android.util.TypedValue.applyDimension(
+                    android.util.TypedValue.COMPLEX_UNIT_DIP, 6, getResources().getDisplayMetrics());
+            peerAvatar.setPadding(pad, pad, pad, pad);
+        } else {
+            peerName.setText(title == null || title.isEmpty() ? getString(R.string.section_messages) : title);
+            bindPeerPhoto(getIntent().getStringExtra(EXTRA_PHOTO));
+        }
 
         list = findViewById(R.id.chat_list);
         LinearLayoutManager layout = new LinearLayoutManager(this);
@@ -196,7 +208,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void updatePeer(JSONObject data) {
-        if (data == null) return;
+        if (data == null || isSelfChat) return;
         JSONArray peers = data.optJSONArray(peerId < 0 ? "groups" : "profiles");
         if (peers == null) return;
         for (int i = 0; i < peers.length(); i++) {

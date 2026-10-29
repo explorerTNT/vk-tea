@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/white"
+    android:background="@color/bg_card"
     android:fitsSystemWindows="true"
     android:orientation="vertical">
 
@@ -14,7 +14,7 @@
         android:layout_height="?attr/actionBarSize"
         android:background="@color/vk_blue"
         android:theme="@style/ThemeOverlay.VKTea.Toolbar"
-        app:titleTextColor="@android:color/white" />
+        app:titleTextColor="@color/text_on_color" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -115,7 +115,7 @@
                 android:background="@drawable/blue_button"
                 android:gravity="center"
                 android:text="@string/save"
-                android:textColor="@android:color/white"
+                android:textColor="@color/text_on_color"
                 android:textSize="15sp" />
 
             <TextView

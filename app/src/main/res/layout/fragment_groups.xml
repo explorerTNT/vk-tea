@@ -1,13 +1,13 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="@android:color/white" android:orientation="vertical"
+    android:background="@color/bg_card" android:orientation="vertical"
     android:focusable="true" android:focusableInTouchMode="true">
 
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/groups_tabs" android:layout_width="match_parent" android:layout_height="48dp"
         android:background="@color/vk_blue" app:tabMode="fixed" app:tabGravity="fill"
-        app:tabIndicatorColor="@android:color/white" app:tabSelectedTextColor="@android:color/white"
+        app:tabIndicatorColor="@color/text_on_color" app:tabSelectedTextColor="@color/text_on_color"
         app:tabTextColor="#CCFFFFFF" />
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"

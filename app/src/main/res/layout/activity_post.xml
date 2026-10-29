@@ -13,21 +13,21 @@
         android:layout_height="?attr/actionBarSize"
         android:background="@color/vk_blue"
         android:theme="@style/ThemeOverlay.VKTea.Toolbar"
-        app:titleTextColor="@android:color/white" />
+        app:titleTextColor="@color/text_on_color" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/post_list"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#FFF5F6F7"
+        android:background="@color/bg_window"
         android:clipToPadding="false"
         android:padding="8dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@android:color/white"
+        android:background="@color/bg_card"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 

@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="vk_blue">#FF5181B8</color>
+    <color name="bg_window">#FFFFFFFF</color>
+    <color name="bg_card">#FFFFFFFF</color>
+    <color name="text_on_color">#FFFFFFFF</color>
+    <color name="chat_bg">#FFEAF0F4</color>
+    <color name="chat_input_text">#FF2E3033</color>
+    <color name="chat_hint">#FF6D7885</color>
     <color name="almost_black">#FF2E3033</color>
     <color name="section_header">#FF78797A</color>
     <color name="counter_text">#FF5A7CA3</color>

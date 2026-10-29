@@ -1,0 +1,8 @@
+<resources>
+    <color name="audio_surface">#FF232324</color>
+    <color name="audio_text">#FFE7E8EA</color>
+    <color name="audio_secondary">#FF8A8A8A</color>
+    <color name="audio_accent">#FF71AAEB</color>
+    <color name="audio_artwork">#FF232324</color>
+    <color name="audio_divider">#FF2C2D2E</color>
+</resources>

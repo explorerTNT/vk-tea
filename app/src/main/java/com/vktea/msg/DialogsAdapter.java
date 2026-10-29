@@ -72,8 +72,19 @@ public class DialogsAdapter extends RecyclerView.Adapter<DialogsAdapter.DialogVi
                 System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS));
         holder.unread.setVisibility(dialog.unread ? View.VISIBLE : View.GONE);
         boolean group = dialog.peerId < 0 || dialog.peerId >= 2000000000L;
-        if (images == null) MessageAvatars.bind(holder.avatar, dialog.photo, group);
-        else MessageAvatars.bind(holder.avatar, dialog.photo, group, images);
+        if (dialog.peerId != 0 && dialog.peerId == DialogsParser.selfId()) {
+            int pad = (int) android.util.TypedValue.applyDimension(
+                    android.util.TypedValue.COMPLEX_UNIT_DIP, 7,
+                    holder.itemView.getResources().getDisplayMetrics());
+            holder.avatar.setPadding(pad, pad, pad, pad);
+            holder.avatar.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+            holder.avatar.setImageResource(R.drawable.ic_favorites);
+        } else {
+            holder.avatar.setPadding(0, 0, 0, 0);
+            holder.avatar.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+            if (images == null) MessageAvatars.bind(holder.avatar, dialog.photo, group);
+            else MessageAvatars.bind(holder.avatar, dialog.photo, group, images);
+        }
         holder.itemView.setOnClickListener(v ->
                 holder.itemView.getContext().startActivity(
                         new Intent(holder.itemView.getContext(), ChatActivity.class)

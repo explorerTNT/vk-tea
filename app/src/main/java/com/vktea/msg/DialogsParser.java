@@ -66,6 +66,10 @@ public final class DialogsParser {
         selfId = id;
     }
 
+    public static long selfId() {
+        return selfId;
+    }
+
     private static long peerId(JSONObject message, JSONObject conversation) {
         // A legacy chat message also contains the sender's user_id. It must not
         // turn the conversation into that sender's personal dialog/avatar.

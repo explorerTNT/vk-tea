@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/feed_refresh"
     android:layout_width="match_parent"
@@ -15,7 +15,7 @@
             android:layout_height="40dp"
             android:background="@color/vk_blue"
             android:gravity="center"
-            android:textColor="@android:color/white"
+            android:textColor="@color/text_on_color"
             android:textSize="14sp"
             android:fontFamily="sans-serif-medium"
             android:visibility="gone" />
@@ -24,7 +24,7 @@
             android:id="@+id/stories_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@android:color/white"
+            android:background="@color/bg_card"
             android:clipToPadding="false"
             android:paddingLeft="8dp"
             android:paddingRight="8dp"
@@ -36,7 +36,7 @@
             android:id="@+id/feed_list"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#FFE5E7EA"
+            android:background="@color/bg_window"
             android:clipToPadding="false" />
     </LinearLayout>
 
