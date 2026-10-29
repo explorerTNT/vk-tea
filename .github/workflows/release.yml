@@ -47,8 +47,11 @@ jobs:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > signing.keystore
           else
-            echo "KEYSTORE_BASE64 not set, falling back to debug keystore"
+            echo "KEYSTORE_BASE64 not set, using debug keystore with debug credentials"
             cp debug.keystore signing.keystore
+            echo "KEYSTORE_PASSWORD=android" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=androiddebugkey" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=android" >> "$GITHUB_ENV"
           fi
 
       - name: Build signed prod release APK

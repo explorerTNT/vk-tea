@@ -3,6 +3,10 @@ plugins {
 }
 
 def keystoreFile = System.getenv('KEYSTORE_FILE')
+def keystorePassword = System.getenv('KEYSTORE_PASSWORD')
+// Подпись release включаем только при полном наборе секретов,
+// иначе собираем с debug-подписью (фолбэк для тестовых сборок).
+def useReleaseSigning = keystoreFile != null && keystorePassword != null && !keystorePassword.isEmpty()
 
 def vkProps = new Properties()
 def vkPropsFile = rootProject.file('local.properties')
@@ -60,11 +64,11 @@ android {
         }
     }
 
-    if (keystoreFile != null) {
+    if (useReleaseSigning) {
         signingConfigs {
             release {
                 storeFile file(keystoreFile)
-                storePassword System.getenv('KEYSTORE_PASSWORD')
+                storePassword keystorePassword
                 keyAlias System.getenv('KEY_ALIAS')
                 keyPassword System.getenv('KEY_PASSWORD')
             }
@@ -84,7 +88,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig keystoreFile != null ? signingConfigs.release : signingConfigs.debug
+            signingConfig useReleaseSigning ? signingConfigs.release : signingConfigs.debug
         }
     }
 
