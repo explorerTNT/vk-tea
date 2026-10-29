@@ -1,6 +1,6 @@
 # VK Tea
 
-[![Android CI](https://github.com/explorerTNT/vk-tea/actions/workflows/build.yml/badge.svg)](https://github.com/explorerTNT/vk-tea/actions/workflows/android.yml)
+[![Build](https://github.com/explorerTNT/vk-tea/actions/workflows/build.yml/badge.svg)](https://github.com/explorerTNT/vk-tea/actions/workflows/build.yml)
 
 Чай вместо кофе - современный неофициальный клиент ВКонтакте, вдохновлённый легендарным **VK Coffee**.
 
@@ -51,19 +51,28 @@
   - [ ] Сетевой поиск, плейлисты, изменение библиотеки VK, прокси и управляемый кеш
 - [ ] LongPoll: сообщения и счётчики в реальном времени
 - [ ] Полноценный просмотрщик stories и видео-раздел
-- [ ] Тёмная тема Coffee
-- [ ] Подписанные релизы
+- [x] Тёмная тема (values-night: лента, чат, комментарии, аудио, меню)
+- [x] Само-обновление из GitHub Releases (диалог при запуске + кнопка в настройках)
 
 ## Сборка
 
 Требования: JDK 17-21, Android Studio (Ladybug или новее) либо чистый Gradle.
 
-```bash
-./gradlew assembleDebug        # debug APK
-./gradlew assembleRelease      # release APK (см. подпись ниже)
-```
+Сборочные варианты (flavor `env`): `stage` и `prod`.
 
-Debug APK кладётся в `app/build/outputs/apk/debug/`.
+| Задача | Что собирает | Пакет / имя |
+| --- | --- | --- |
+| `./gradlew assembleProdDebug` | повседневная debug-сборка | `com.vktea` («VK Tea») |
+| `./gradlew assembleStageDebug` | экспериментальная debug | `com.vktea.stage` («VK Tea Stage»), ставится рядом |
+| `./gradlew assembleProdRelease` | релиз (подпись - см. CI/CD) | `com.vktea` |
+
+APK кладутся в `app/build/outputs/apk/<flavor>/<buildType>/`, имя вида `vk-tea-0.4.100-debug.apk`.
+
+### Версионирование
+
+- `versionCode` = число коммитов git (`git rev-list --count HEAD`) - монотонно растёт сам, руками не правится.
+- `versionName` = база из `gradle.properties` (`vkTea.baseVersion`) + номер коммита, например `0.4.100`; у stage добавляется суффикс `-stage`.
+- При релизе из тега база берётся из имени тега (`v0.5.0` -> `0.5.0`).
 
 ## Авторизация
 
@@ -78,12 +87,29 @@ Debug APK кладётся в `app/build/outputs/apk/debug/`.
 
 Примечание: VK ID (OAuth 2.1 + PKCE) пробовали - VK выдаёт таким токенам доступ только к имени/фото (error 1051 на методы API), поэтому для полноценного клиента он не годится. Код остался в `AuthWebViewActivity` на случай изменений политики VK.
 
-## CI/CD
+## CI/CD и релизы
 
-GitHub Actions (`.github/workflows/build.yml` и `.github/workflows/release.yml`):
+Два workflow: `.github/workflows/build.yml` (CI) и `.github/workflows/release.yml` (релизы).
 
-- **push / PR в `main`** - сборка debug APK, артефакт `vk-tea-debug`.
-- **тег `v*`** - сборка release APK и публикация в GitHub Releases.
+**Пуш / PR в `main` ничего не релизит.** CI прогоняет юнит-тесты, собирает `stageDebug` и `prodRelease` и кладёт APK в артефакты Actions (вкладка Actions -> конкретный прогон -> Artifacts). Релизная версия при этом не создаётся - это осознанная конвенция:
+
+```
+коммитим в main  ->  CI: тесты + артефакты (без релиза)
+катаем тег v*    ->  Release: подписанный APK + GitHub Release с чейнджлогом
+```
+
+**Релиз катается тегом:**
+
+```bash
+git tag v0.5.0
+git push origin v0.5.0
+```
+
+Дальше `release.yml` сам: соберёт подписанный `prodRelease`, с версией из тега, сгенерирует чейнджлог по коммитам с прошлого тега (секции «Новое» / «Исправления» / «Прочее» по префиксам `feat` / `fix`) и опубликует GitHub Release с APK. Релиз можно вызвать и вручную: Actions -> Release -> Run workflow (указать версию).
+
+### Автообновление в приложении
+
+После релиза приложение при запуске проверяет `releases/latest`: если версия новее установленной - диалог «Обновить» / «Напомнить позже» (во втором случае плашка появится при следующем запуске). «Обновить» скачивает APK из релиза и открывает системный установщик - данные и авторизация сохраняются (тот же пакет и подпись). В настройках есть кнопка «Проверить обновления». Stage-сборка (`com.vktea.stage`) проверку обновлений пропускает.
 
 Подпись release-сборки настраивается секретами репозитория:
 
