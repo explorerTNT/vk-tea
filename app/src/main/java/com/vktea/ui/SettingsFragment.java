@@ -91,6 +91,12 @@ public class SettingsFragment extends Fragment {
             }).start();
         });
 
+        view.findViewById(R.id.settings_check_updates).setOnClickListener(v -> {
+            if (getActivity() instanceof com.vktea.MainActivity) {
+                ((com.vktea.MainActivity) getActivity()).checkForUpdatesPublic();
+            }
+        });
+
         TextView version = view.findViewById(R.id.settings_version);
         version.setText(getString(R.string.settings_version) + " " + BuildConfig.VERSION_NAME
                 + " (" + BuildConfig.VERSION_CODE + ")");

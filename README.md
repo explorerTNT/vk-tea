@@ -1,6 +1,6 @@
 # VK Tea
 
-[![Android CI](https://github.com/explorerTNT/vk-tea/actions/workflows/android.yml/badge.svg)](https://github.com/explorerTNT/vk-tea/actions/workflows/android.yml)
+[![Android CI](https://github.com/explorerTNT/vk-tea/actions/workflows/build.yml/badge.svg)](https://github.com/explorerTNT/vk-tea/actions/workflows/android.yml)
 
 Чай вместо кофе - современный неофициальный клиент ВКонтакте, вдохновлённый легендарным **VK Coffee**.
 
@@ -80,7 +80,7 @@ Debug APK кладётся в `app/build/outputs/apk/debug/`.
 
 ## CI/CD
 
-GitHub Actions (`.github/workflows/android.yml`):
+GitHub Actions (`.github/workflows/build.yml` и `.github/workflows/release.yml`):
 
 - **push / PR в `main`** - сборка debug APK, артефакт `vk-tea-debug`.
 - **тег `v*`** - сборка release APK и публикация в GitHub Releases.

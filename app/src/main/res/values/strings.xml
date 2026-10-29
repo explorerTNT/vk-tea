@@ -117,4 +117,11 @@
     <string name="settings_appearance">Оформление</string>
     <string name="settings_storage">Хранилище</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
-</resources>
+    <string name="update_available">Доступно обновление</string>
+    <string name="update_version_line">Версия %1$s уже вышла. Обновить сейчас или напомнить позже?</string>
+    <string name="update_now">Обновить</string>
+    <string name="update_later">Напомнить позже</string>
+    <string name="update_downloading">Загрузка обновления</string>
+    <string name="update_download_failed">Не удалось скачать обновление</string>    <string name="update_check">Проверить обновления</string>
+    <string name="update_up_to_date">У вас последняя версия</string>
+    <string name="update_check_failed">Не удалось проверить обновления</string></resources>

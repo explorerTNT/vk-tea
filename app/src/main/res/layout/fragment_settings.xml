@@ -157,6 +157,18 @@
             android:textSize="13sp" />
 
         <TextView
+            android:id="@+id/settings_check_updates"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:text="@string/update_check"
+            android:textColor="@color/post_name"
+            android:textSize="15sp" />
+
+        <TextView
             android:id="@+id/settings_version"
             android:layout_width="match_parent"
             android:layout_height="48dp"

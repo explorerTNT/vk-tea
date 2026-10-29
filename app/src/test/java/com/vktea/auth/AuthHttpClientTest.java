@@ -29,8 +29,15 @@ import okhttp3.HttpUrl;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 public class AuthHttpClientTest {
+
+    @org.junit.Before
+    public void installTransport() {
+        // Перехватчики (User-Agent, запрет повторов) живут в общем клиенте.
+        AuthHttpClient.installCookieJar(null);
+    }
+
     @Test(timeout = 8000)
-    public void passwordRequestUsesUpstreamCoffeeUserAgentInOneLoopbackRequest() throws Exception {
+    public void passwordRequestUsesConfiguredCoffeeUserAgentInOneLoopbackRequest() throws Exception {
         AuthHttpClient client = new AuthHttpClient();
         try (LoopbackServer server = new LoopbackServer(400, "",
                 "{\"error\":\"synthetic_invalid_grant\"}")) {
@@ -38,8 +45,7 @@ public class AuthHttpClientTest {
 
             assertEquals(400, response.httpStatus);
             server.assertRequestCount(1);
-            assertEquals("VKAndroidApp/8.09-1113 (Android 13; SDK 33; arm64-v8a; samsung SM-S908N; ru)",
-                    server.firstUserAgent.get());
+            assertEquals(AuthHttpClient.PASSWORD_USER_AGENT, server.firstUserAgent.get());
         }
     }
 
@@ -75,16 +81,18 @@ public class AuthHttpClientTest {
     }
 
     @Test(timeout = 8000)
-    public void redirectDoesNotSendRequestToAnotherLoopbackDestination() throws Exception {
+    public void redirectIsFollowedOnceToDestinationWithoutResendingCredentials() throws Exception {
         AuthHttpClient client = new AuthHttpClient();
-        try (LoopbackServer destination = new LoopbackServer(200, "", "{}")) {
+        try (LoopbackServer destination = new LoopbackServer(200, "", "{\"destination\":true}")) {
             String location = "Location: " + destination.url("redirect-target") + "\r\n";
             try (LoopbackServer origin = new LoopbackServer(302, location, "{}")) {
                 AuthResponse response = client.password(origin.url("redirect-origin"));
 
-                assertEquals(302, response.httpStatus);
+                assertEquals(200, response.httpStatus);
+                assertNotNull(response.json);
+                assertEquals(true, response.json.getBoolean("destination"));
                 origin.assertRequestCount(1);
-                destination.assertRequestCount(0);
+                destination.assertRequestCount(1);
             }
         }
     }

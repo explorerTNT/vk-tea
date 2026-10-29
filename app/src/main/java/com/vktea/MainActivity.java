@@ -108,6 +108,10 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
         loadUserFeedLists();
 
+        if (savedInstanceState == null) {
+            checkForUpdates(false);
+        }
+
         com.vktea.api.VKApi.get(this, "users.get", "fields=photo_200,status,counters,cover", new com.vktea.api.VKApi.Callback() {
             @Override
             public void success(org.json.JSONObject response) {
@@ -347,6 +351,49 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 .commit();
         toolbarTitle.setText(titleRes);
         drawer.closeDrawers();
+    }
+
+    public void checkForUpdatesPublic() {
+        checkForUpdates(true);
+    }
+
+    private void checkForUpdates(boolean manual) {
+        com.vktea.updates.UpdateChecker.check(this, new com.vktea.updates.UpdateChecker.Callback() {
+            @Override
+            public void onUpdateAvailable(String version, String apkUrl, String notes) {
+                runOnUiThread(() -> showUpdateDialog(version, apkUrl, notes));
+            }
+
+            @Override
+            public void onUpToDate() {
+                if (manual) {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                            R.string.update_up_to_date, Toast.LENGTH_SHORT).show());
+                }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                if (manual) {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                            R.string.update_check_failed, Toast.LENGTH_SHORT).show());
+                }
+            }
+        });
+    }
+
+    private void showUpdateDialog(String version, String apkUrl, String notes) {
+        String message = getString(R.string.update_version_line, version);
+        if (notes != null && !notes.isEmpty()) {
+            message += "\n\n" + notes;
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.update_available)
+                .setMessage(message)
+                .setPositiveButton(R.string.update_now,
+                        (d, w) -> com.vktea.updates.UpdateInstaller.downloadAndInstall(this, apkUrl))
+                .setNegativeButton(R.string.update_later, null)
+                .show();
     }
 
     public void onMenuHeaderClick() {
