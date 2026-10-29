@@ -114,5 +114,7 @@
     <string name="settings_about">О приложении</string>
     <string name="settings_version">Версия</string>
     <string name="cache_cleared">Кеш очищен</string>
+    <string name="settings_appearance">Оформление</string>
+    <string name="settings_storage">Хранилище</string>
     <string name="vk_id_not_configured">VK ID не настроен: добавьте id приложения в local.properties (vk.clientId)</string>
 </resources>

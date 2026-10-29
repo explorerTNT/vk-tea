@@ -55,7 +55,11 @@ public class DialogsFragment extends Fragment {
                 if (!current(request, target)) return;
                 JSONObject data = response == null ? null : response.optJSONObject("response");
                 if (data != null && data.optJSONArray("items") != null) {
-                    List<Dialog> dialogs = DialogsParser.parse(response);
+                    String selfId = com.vktea.auth.Session.getUserId(requireContext());
+        if (selfId != null && !selfId.isEmpty()) {
+            DialogsParser.setSelfId(Long.parseLong(selfId));
+        }
+        List<Dialog> dialogs = DialogsParser.parse(response);
                     target.clear();
                     for (Dialog dialog : dialogs) target.add(dialog);
                     loadAvatars(request, target);

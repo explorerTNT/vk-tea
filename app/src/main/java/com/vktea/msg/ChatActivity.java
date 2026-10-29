@@ -284,6 +284,13 @@ public class ChatActivity extends AppCompatActivity {
             startActivity(new Intent(this, VideoPlayerActivity.class)
                     .putExtra("owner_id", attachment.ownerId).putExtra("video_id", attachment.id)
                     .putExtra("access_key", attachment.accessKey));
+        } else if (("wall".equals(attachment.type) || "wall_reply".equals(attachment.type))
+                && attachment.ownerId != 0 && attachment.id != 0) {
+            com.vktea.feed.PostActivity.startById(this, attachment.ownerId, attachment.id);
+        } else if (!attachment.url.isEmpty()
+                && ("link".equals(attachment.type) || "story".equals(attachment.type))) {
+            startActivity(new Intent(this, com.vktea.auth.AuthWebViewActivity.class)
+                    .setData(android.net.Uri.parse(attachment.url)));
         } else if (!attachment.previewUrl.isEmpty()) {
             ArrayList<String> photos = new ArrayList<>();
             ViewerPhoto metadata = attachment.viewerPhoto;

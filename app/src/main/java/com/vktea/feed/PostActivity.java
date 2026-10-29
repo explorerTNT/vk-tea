@@ -45,6 +45,14 @@ public class PostActivity extends AppCompatActivity {
         ctx.startActivity(new Intent(ctx, PostActivity.class));
     }
 
+    public static void startById(android.content.Context ctx, long ownerId, long postId) {
+        currentPost = null;
+        Intent intent = new Intent(ctx, PostActivity.class);
+        intent.putExtra("owner_id", ownerId);
+        intent.putExtra("post_id", postId);
+        ctx.startActivity(intent);
+    }
+
     private Post post;
     private PostAdapter adapter;
     private RecyclerView list;
@@ -58,8 +66,14 @@ public class PostActivity extends AppCompatActivity {
 
         post = currentPost;
         if (post == null) {
-            finish();
-            return;
+            long ownerId = getIntent().getLongExtra("owner_id", 0);
+            long postId = getIntent().getLongExtra("post_id", 0);
+            if (ownerId != 0 && postId != 0) {
+                loadPost(ownerId, postId);
+            } else {
+                finish();
+                return;
+            }
         }
 
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.post_toolbar);
@@ -95,6 +109,111 @@ public class PostActivity extends AppCompatActivity {
 
     private String idParam() {
         return post.likeType == Post.TYPE_PHOTO ? "photo_id" : "post_id";
+    }
+
+    private void loadPost(long ownerId, long postId) {
+        VKApi.get(this, "wall.getById",
+                "posts=" + ownerId + "_" + postId + "&extended=1&copy_history_depth=1",
+                new VKApi.Callback() {
+                    @Override
+                    public void success(org.json.JSONObject response) {
+                        try {
+                            org.json.JSONArray items = response.getJSONObject("response").getJSONArray("items");
+                            if (items.length() == 0) {
+                                runOnUiThread(() -> { finish(); });
+                                return;
+                            }
+                            org.json.JSONObject item = items.getJSONObject(0);
+                            org.json.JSONObject profilesWrap = response.getJSONObject("response");
+                            java.util.Map<Long, String[]> sources = new java.util.HashMap<>();
+                            org.json.JSONArray profiles = profilesWrap.optJSONArray("profiles");
+                            if (profiles != null) {
+                                for (int i = 0; i < profiles.length(); i++) {
+                                    org.json.JSONObject p = profiles.getJSONObject(i);
+                                    sources.put(p.getLong("id"), new String[]{
+                                            p.optString("first_name") + " " + p.optString("last_name"),
+                                            p.optString("photo_100", "")});
+                                }
+                            }
+                            org.json.JSONArray groups = profilesWrap.optJSONArray("groups");
+                            if (groups != null) {
+                                for (int i = 0; i < groups.length(); i++) {
+                                    org.json.JSONObject g = groups.getJSONObject(i);
+                                    sources.put(-g.getLong("id"), new String[]{
+                                            g.optString("name"), g.optString("photo_100", "")});
+                                }
+                            }
+
+                            long fromId = item.optLong("from_id", ownerId);
+                            String[] src = sources.containsKey(fromId) ? sources.get(fromId)
+                                    : new String[]{"", ""};
+                            java.util.List<String> photoUrls = new java.util.ArrayList<>();
+                            org.json.JSONArray attachments = item.optJSONArray("attachments");
+                            if (attachments != null) {
+                                for (int a = 0; a < attachments.length() && photoUrls.size() < 10; a++) {
+                                    org.json.JSONObject att = attachments.getJSONObject(a);
+                                    if ("photo".equals(att.optString("type"))) {
+                                        String url = att.getJSONObject("photo").optString("photo_604", "");
+                                        if (url == null || url.isEmpty()) {
+                                            org.json.JSONArray sizes = att.getJSONObject("photo").optJSONArray("sizes");
+                                            if (sizes != null && sizes.length() > 0) {
+                                                url = sizes.optJSONObject(sizes.length() - 1).optString("url", "");
+                                            }
+                                        }
+                                        if (url != null) {
+                                            url = url.replaceAll("&cs=\\d+x\\d+", "");
+                                        }
+                                        if (url != null && !url.isEmpty()) {
+                                            photoUrls.add(url);
+                                        }
+                                    }
+                                }
+                            }
+                            org.json.JSONObject likes = item.optJSONObject("likes");
+                            org.json.JSONObject comments = item.optJSONObject("comments");
+                            org.json.JSONObject reposts = item.optJSONObject("reposts");
+                            org.json.JSONObject views = item.optJSONObject("views");
+
+                            Post loaded = new Post(fromId, src[0], src[1],
+                                    item.optString("text", ""), item.optLong("date", 0), photoUrls,
+                                    likes != null ? likes.optInt("count", 0) : 0,
+                                    comments != null ? comments.optInt("count", 0) : 0,
+                                    reposts != null ? reposts.optInt("count", 0) : 0,
+                                    views != null ? views.optInt("count", 0) : 0,
+                                    likes != null && likes.optInt("user_likes", 0) == 1,
+                                    Post.TYPE_POST, ownerId, postId);
+
+                            org.json.JSONArray copyHistory = item.optJSONArray("copy_history");
+                            if (copyHistory != null && copyHistory.length() > 0) {
+                                org.json.JSONObject orig = copyHistory.getJSONObject(0);
+                                long origFrom = orig.optLong("from_id", orig.optLong("owner_id", 0));
+                                String[] origSrc = sources.containsKey(origFrom) ? sources.get(origFrom)
+                                        : new String[]{"", ""};
+                                loaded.repostAuthorName = origSrc[0];
+                                loaded.repostAuthorPhoto = origSrc[1];
+                                loaded.repostDate = orig.optLong("date", 0);
+                                loaded.repostText = orig.optString("text", "");
+                                loaded.repostOwnerId = orig.optLong("owner_id", origFrom);
+                                loaded.repostPostId = orig.optLong("id", 0);
+                            }
+
+                            runOnUiThread(() -> {
+                                post = loaded;
+                                if (adapter != null) {
+                                    adapter.notifyDataSetChanged();
+                                }
+                            });
+                        } catch (Exception e) {
+                            android.util.Log.e("VKTea", "loadPost failed", e);
+                            runOnUiThread(() -> { finish(); });
+                        }
+                    }
+
+                    @Override
+                    public void error(Exception e) {
+                        runOnUiThread(() -> { finish(); });
+                    }
+                });
     }
 
     private void loadComments() {

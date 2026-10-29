@@ -42,6 +42,7 @@ public final class DialogsParser {
             boolean chat = peerId > CHAT_BASE;
             JSONObject settings = conversation == null ? null : conversation.optJSONObject("chat_settings");
             String title = chat ? first(text(settings, "title"), text(message, "title"), "Беседа")
+                    : isSelf(peerId) ? "Избранное"
                     : first(name(profile), text(message, "title"), peerId < 0 ? "Сообщество" : "...");
             String photo = chat ? first(MessageAvatars.photoUrl(settings), MessageAvatars.photoUrl(message))
                     : first(MessageAvatars.photoUrl(profile), MessageAvatars.photoUrl(message));
@@ -53,6 +54,16 @@ public final class DialogsParser {
                     Math.max(0, message.optLong("date", 0)), unread));
         }
         return dialogs;
+    }
+
+    private static boolean isSelf(long peerId) {
+        return selfId != 0 && peerId == selfId;
+    }
+
+    private static long selfId;
+
+    public static void setSelfId(long id) {
+        selfId = id;
     }
 
     private static long peerId(JSONObject message, JSONObject conversation) {

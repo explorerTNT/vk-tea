@@ -137,7 +137,10 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
             subtitle.setVisibility(detail.isEmpty() ? View.GONE : View.VISIBLE);
         }
         boolean canOpen = hasPreview || (attachment.id != 0
-                && (attachment.type.equals("video") || attachment.type.equals("clip")));
+                && (attachment.type.equals("video") || attachment.type.equals("clip")))
+                || (attachment.url != null && !attachment.url.isEmpty()
+                && (attachment.type.equals("wall") || attachment.type.equals("wall_reply")
+                    || attachment.type.equals("link") || attachment.type.equals("story")));
         if (callback != null && canOpen) {
             child.setOnClickListener(v -> callback.onAttachmentClicked(attachment));
         }
@@ -161,7 +164,8 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
             case "audio": label = R.string.chat_attachment_audio; break;
             case "audio_message": label = R.string.chat_attachment_voice; break;
             case "link": label = R.string.chat_attachment_link; break;
-            case "wall": case "wall_reply": label = R.string.chat_attachment_wall; break;
+            case "wall": case "wall_reply": return attachment.subtitle.isEmpty()
+                    ? view.getContext().getString(R.string.chat_attachment_wall) : attachment.subtitle;
             case "gift": label = R.string.chat_attachment_gift; break;
             case "poll": label = R.string.chat_attachment_poll; break;
             case "market": label = R.string.chat_attachment_market; break;

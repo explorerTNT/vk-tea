@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import androidx.core.content.ContextCompat;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.vktea.R;
@@ -286,9 +287,60 @@ public class ProfileFragment extends Fragment {
             } else if (holder instanceof PostHolder) {
                 Post post = wall.get(position - (profile != null ? 1 : 0));
                 PostHolder h = (PostHolder) holder;
-                h.name.setText(post.sourceName);
+                String name = post.sourceName;
+                String avatarUrl = post.sourcePhoto;
+                if ((name == null || name.isEmpty()) && profile != null) {
+                    name = profile.optString("first_name", "") + " " + profile.optString("last_name", "");
+                    avatarUrl = profile.optString("photo_100", profile.optString("photo_200", ""));
+                }
+                h.name.setText(name != null ? name : "");
                 h.time.setText(com.vktea.util.RuDate.format(post.date));
                 h.text.setText(post.text);
+                if (h.avatar != null) {
+                    if (avatarUrl != null && !avatarUrl.isEmpty()) {
+                        Glide.with(h.avatar).load(avatarUrl)
+                                .apply(RequestOptions.circleCropTransform())
+                                .into(h.avatar);
+                    }
+                }
+                if (h.likes != null) {
+                    h.likes.setText(post.likes > 0 ? FeedAdapter.formatCount(post.likes) : "");
+                    int color = ContextCompat.getColor(h.likes.getContext(),
+                            post.userLikes ? R.color.vk_blue : R.color.post_icons);
+                    h.likes.setTextColor(color);
+                    h.likes.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(color));
+                    h.likes.setOnClickListener(v -> {
+                        String method = post.userLikes ? "likes.delete" : "likes.add";
+                        post.userLikes = !post.userLikes;
+                        post.likes += post.userLikes ? 1 : -1;
+                        notifyItemChanged(holder.getAdapterPosition());
+                        VKApi.get(requireContext(), method,
+                                "type=post&owner_id=" + post.likeOwnerId + "&item_id=" + post.likeItemId,
+                                new VKApi.Callback() {
+                                    @Override public void success(JSONObject response) {}
+                                    @Override public void error(Exception e) {
+                                        post.userLikes = !post.userLikes;
+                                        post.likes += post.userLikes ? 1 : -1;
+                                        requireActivity().runOnUiThread(() -> notifyItemChanged(holder.getAdapterPosition()));
+                                    }
+                                });
+                    });
+                }
+                if (h.comments != null) {
+                    h.comments.setText(post.comments > 0 ? FeedAdapter.formatCount(post.comments) : "");
+                    h.comments.setOnClickListener(v -> PostActivity.start(v.getContext(), post));
+                }
+                if (h.views != null) {
+                    h.views.setText(post.views > 0 ? FeedAdapter.formatCount(post.views) : "");
+                }
+                if (post.isRepost() && h.repostBlock != null) {
+                    h.repostBlock.setVisibility(View.VISIBLE);
+                    if (h.repostName != null) h.repostName.setText(post.repostAuthorName);
+                    if (h.repostTime != null) h.repostTime.setText(com.vktea.util.RuDate.format(post.repostDate));
+                    if (h.repostText != null) h.repostText.setText(post.repostText);
+                } else if (h.repostBlock != null) {
+                    h.repostBlock.setVisibility(View.GONE);
+                }
                 PostPhotosRenderer.render(h.photoContainer, post.photoUrls, post.photoDetails);
                 h.reposts.setText(post.reposts > 0 ? FeedAdapter.formatCount(post.reposts) : "");
                 h.reposts.setEnabled(PostSharing.attachment(post).hasIdentity());
@@ -488,19 +540,35 @@ public class ProfileFragment extends Fragment {
     }
 
     static class PostHolder extends RecyclerView.ViewHolder {
+        final ImageView avatar;
         final TextView name;
         final TextView time;
         final TextView text;
         final LinearLayout photoContainer;
+        final TextView likes;
+        final TextView comments;
         final TextView reposts;
+        final TextView views;
+        final View repostBlock;
+        final TextView repostName;
+        final TextView repostTime;
+        final TextView repostText;
 
         PostHolder(@NonNull View itemView) {
             super(itemView);
+            avatar = itemView.findViewById(R.id.post_avatar);
             name = itemView.findViewById(R.id.post_name);
             time = itemView.findViewById(R.id.post_time);
             text = itemView.findViewById(R.id.post_text);
             photoContainer = itemView.findViewById(R.id.post_photos);
+            likes = itemView.findViewById(R.id.post_likes);
+            comments = itemView.findViewById(R.id.post_comments);
             reposts = itemView.findViewById(R.id.post_reposts);
+            views = itemView.findViewById(R.id.post_views);
+            repostBlock = itemView.findViewById(R.id.post_repost);
+            repostName = itemView.findViewById(R.id.repost_name);
+            repostTime = itemView.findViewById(R.id.repost_time);
+            repostText = itemView.findViewById(R.id.repost_text);
         }
     }
 }
