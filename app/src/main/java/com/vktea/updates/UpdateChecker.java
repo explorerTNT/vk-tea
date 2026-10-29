@@ -52,6 +52,11 @@ public class UpdateChecker {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 try {
+                    if (response.code() == 404) {
+                        // Релизов ещё не публиковали - это не ошибка
+                        post(() -> callback.onUpToDate());
+                        return;
+                    }
                     if (!response.isSuccessful() || response.body() == null) {
                         throw new IOException("GitHub API HTTP " + response.code());
                     }
