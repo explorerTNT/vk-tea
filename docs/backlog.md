@@ -57,7 +57,7 @@
 - [x] P1 **Сообщества: основной список** — вкладки «Все» / «Управление», поиск по названию / короткому адресу, аватарки, тип и число участников, обновление свайпом; `GroupsViewModel` удерживает полный снимок при повороте, строка открывает нативную страницу сообщества со стеной. Референс — `fragments/groups/GroupsFragment`, `AllGroupsFragment`, `data/Groups`, `api/groups/GroupsGet`. Приглашения, отдельный календарь мероприятий, вступление / выход, создание и дисковый кеш остаются отдельными задачами.
 - [ ] P1 **Фото** — `fragments/photos/*`, `ImagePickerActivity`, `PostPhotoActivity`
 - [ ] P1 **Видео** — `activities/VideoPlayerActivity`, `YouTubeVideoPlayerActivity`, `VideoEmbedPlayerActivity`, `fragments/videos/VideosFragment`
-- [ ] P1 **Ответы/уведомления** — `fragments/feedback/FeedbackFragment`, `NotificationActivity`
+- [x] P1 **Ответы/уведомления: основной список** — `notifications.get`, обновление, страницы и переходы к распознанным объектам; права токена и полнота истории зависят от VK. Фильтры, фоновая доставка и сброс счётчика остаются отдельными задачами. Референс — `fragments/feedback/NotificationsFragment`, `api/notifications/NotificationsGet`.
 - [ ] P1 **Закладки** — `fragments/fave/FaveFragment`
 - [ ] P2 **Документы** — `fragments/documents/DocumentsViewFragment`
 - [ ] P2 **Игры** — `fragments/GamesFragment`, `GameCardActivity` (часть роутов мертва → WebView)

@@ -1,0 +1,24 @@
+<resources>
+    <string name="notifications_loading">Загружаем события…</string>
+    <string name="notifications_empty">Пока нет событий</string>
+    <string name="notifications_load_failed">Не удалось загрузить события</string>
+    <string name="notifications_retry">Повторить</string>
+    <string name="notifications_refresh">Обновить</string>
+    <string name="notifications_more">Показать ещё</string>
+    <string name="notifications_loading_more">Загружаем ещё…</string>
+    <string name="notifications_error_network">Не удалось загрузить события. Проверьте подключение к интернету.</string>
+    <string name="notifications_error_auth">Сессия ВКонтакте недоступна. Проверьте авторизацию.</string>
+    <string name="notifications_error_access">ВКонтакте не разрешил доступ к уведомлениям.</string>
+    <string name="notifications_error_rate">ВКонтакте ограничил запросы. Повторите позже.</string>
+    <string name="notifications_error_generic">Не удалось загрузить события. Попробуйте ещё раз.</string>
+    <string name="notifications_no_browser">Не удалось открыть ссылку. Установите браузер.</string>
+    <string name="notifications_unknown_actor">Пользователь ВКонтакте</string>
+    <string name="notifications_action_mention">Упоминание</string>
+    <string name="notifications_action_comment">Комментарий или ответ</string>
+    <string name="notifications_action_like">Отметка «Нравится»</string>
+    <string name="notifications_action_copy">Поделились записью</string>
+    <string name="notifications_action_follow">Новый подписчик</string>
+    <string name="notifications_action_friend">Заявка в друзья принята</string>
+    <string name="notifications_action_wall">Запись на стене</string>
+    <string name="notifications_action_other">Событие</string>
+</resources>

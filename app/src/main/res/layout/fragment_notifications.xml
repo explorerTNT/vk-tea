@@ -1,0 +1,37 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/menu_bg" android:orientation="vertical">
+    <LinearLayout android:id="@+id/notifications_notice_row" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:paddingStart="16dp" android:paddingEnd="8dp"
+        android:gravity="center_vertical" android:orientation="horizontal" android:visibility="gone">
+        <TextView android:id="@+id/notifications_notice" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:paddingTop="8dp"
+            android:paddingBottom="8dp" android:textColor="@color/post_time" android:textSize="14sp"
+            android:accessibilityLiveRegion="polite" />
+        <TextView android:id="@+id/notifications_retry" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:minHeight="48dp" android:paddingStart="12dp"
+            android:paddingEnd="12dp" android:gravity="center" android:text="@string/notifications_retry"
+            android:textColor="@color/vk_blue" android:textSize="14sp" android:fontFamily="sans-serif-medium"
+            android:background="?attr/selectableItemBackground" android:focusable="true" />
+    </LinearLayout>
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout android:id="@+id/notifications_refresh"
+            android:layout_width="match_parent" android:layout_height="match_parent">
+            <androidx.recyclerview.widget.RecyclerView android:id="@+id/notifications_list"
+                android:layout_width="match_parent" android:layout_height="match_parent" android:clipToPadding="false" />
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+        <LinearLayout android:id="@+id/notifications_empty_state" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_gravity="center" android:padding="24dp"
+            android:gravity="center" android:orientation="vertical">
+            <ProgressBar android:id="@+id/notifications_loading" android:layout_width="40dp" android:layout_height="40dp"
+                android:layout_marginBottom="16dp" android:visibility="gone" />
+            <TextView android:id="@+id/notifications_empty" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:gravity="center" android:textColor="@color/post_time"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </FrameLayout>
+    <TextView android:id="@+id/notifications_more" android:layout_width="match_parent" android:layout_height="48dp"
+        android:gravity="center" android:text="@string/notifications_more" android:textColor="@color/vk_blue"
+        android:fontFamily="sans-serif-medium" android:background="?attr/selectableItemBackground"
+        android:visibility="gone" android:focusable="true" />
+</LinearLayout>
