@@ -78,6 +78,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 ((com.vktea.friends.FriendsFragment) current).showFriendsSearch();
             } else if (current instanceof com.vktea.groups.GroupsFragment) {
                 ((com.vktea.groups.GroupsFragment) current).showGroupsSearch();
+            } else if (current instanceof com.vktea.documents.DocumentsFragment) {
+                ((com.vktea.documents.DocumentsFragment) current).showDocumentsSearch();
             } else Toast.makeText(this, R.string.section_search, Toast.LENGTH_SHORT).show();
         });
         getSupportFragmentManager().addOnBackStackChangedListener(this::updateContentTitle);
@@ -331,6 +333,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.friends.FriendsFragment();
                 } else if (menuId == R.id.menu_groups) {
                     fragment = new com.vktea.groups.GroupsFragment();
+                } else if (menuId == R.id.menu_docs) {
+                    fragment = new com.vktea.documents.DocumentsFragment();
                 } else {
                     fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
                 }
