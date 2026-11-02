@@ -10,6 +10,7 @@ import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.os.Looper;
+import android.content.Context;
 
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -36,10 +37,15 @@ import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 
 import java.io.IOException;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -100,6 +106,56 @@ public class VkAudioMediaSourceFactoryTest {
         assertEquals("Synthetic public title", window.mediaItem.mediaMetadata.title);
         assertNull(window.mediaItem.mediaMetadata.extras);
         assertEquals(60_000, window.getDurationMs());
+    }
+
+    @Test
+    public void privateAccessIdentityGoesOnlyToRepository() {
+        VkAudioMediaSourceFactory withAccess = new VkAudioMediaSourceFactory(delegate, repository,
+                authorized::get, null, id -> "42_73_synthetic-private-key");
+        MediaSource source = withAccess.createMediaSource(publicTrack());
+        Binding binding = prepare(source);
+        assertEquals(Collections.singletonList("42_73_synthetic-private-key"), repository.pending.get(0).ids);
+        repository.succeed(0, Collections.singletonList(
+                resolved(73, 42, "https://cdn.example.invalid/track.mp3", true)));
+        shadowOf(Looper.getMainLooper()).idle();
+        Timeline.Window window = binding.timeline.getWindow(0, new Timeline.Window());
+        assertEquals("vk-audio:42_73", window.mediaItem.mediaId);
+        assertNull(window.mediaItem.localConfiguration);
+        assertNull(window.mediaItem.mediaMetadata.extras);
+    }
+
+    @Test
+    public void offlineFileIsPreparedWithoutRepositoryAndPublicItemStaysUnchanged() throws Exception {
+        Context context = RuntimeEnvironment.getApplication();
+        com.vktea.auth.Session.save(context, "synthetic-test-token", "42");
+        File directory = new File(new File(context.getNoBackupFilesDir(), "offline_audio"), hash("42"));
+        assertTrue(directory.mkdirs() || directory.isDirectory());
+        File audio = new File(directory, hash("vk-audio:42_73") + ".audio");
+        File metadata = new File(directory, hash("vk-audio:42_73") + ".json");
+        try {
+            try (FileOutputStream out = new FileOutputStream(audio)) { out.write(new byte[]{1, 2, 3}); }
+            try (FileOutputStream out = new FileOutputStream(metadata)) { out.write("{}".getBytes(StandardCharsets.UTF_8)); }
+            VkAudioMediaSourceFactory withCache = new VkAudioMediaSourceFactory(delegate, repository,
+                    authorized::get, context, VkAudioIds::apiId);
+            MediaSource source = withCache.createMediaSource(publicTrack());
+            Binding binding = prepare(source);
+            assertTrue(repository.pending.isEmpty());
+            assertEquals("file", delegate.items.get(0).localConfiguration.uri.getScheme());
+            Timeline.Window window = binding.timeline.getWindow(0, new Timeline.Window());
+            assertEquals("vk-audio:42_73", window.mediaItem.mediaId);
+            assertNull(window.mediaItem.localConfiguration);
+        } finally {
+            audio.delete();
+            metadata.delete();
+            context.getSharedPreferences("session", Context.MODE_PRIVATE).edit().clear().commit();
+        }
+    }
+
+    private static String hash(String value) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+        StringBuilder out = new StringBuilder();
+        for (byte b : digest) out.append(String.format(java.util.Locale.ROOT, "%02x", b & 255));
+        return out.toString();
     }
 
     @Test

@@ -1,0 +1,17 @@
+<resources>
+    <string name="audio_sleep_timer">Таймер сна</string>
+    <string name="audio_sleep_title">Таймер сна · %1$s</string>
+    <string name="audio_sleep_end_active">до конца трека</string>
+    <string name="audio_sleep_minutes_active">осталось %1$d мин.</string>
+    <string name="audio_sleep_off_active">выключен</string>
+    <string name="audio_sleep_started">Таймер сна включён</string>
+    <string name="audio_sleep_cancelled">Таймер сна выключен</string>
+    <string-array name="audio_sleep_options">
+        <item>Через 15 минут</item>
+        <item>Через 30 минут</item>
+        <item>Через 45 минут</item>
+        <item>Через 1 час</item>
+        <item>После текущего трека</item>
+        <item>Выключить таймер</item>
+    </string-array>
+</resources>

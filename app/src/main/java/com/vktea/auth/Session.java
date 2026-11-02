@@ -17,6 +17,7 @@ public class Session {
     }
 
     public static synchronized void save(Context context, String token, String userId, String secret) {
+        String previousUser = getUserId(context);
         prefs(context).edit()
                 .putString(KEY_TOKEN, token)
                 .putString(KEY_USER_ID, userId)
@@ -24,6 +25,8 @@ public class Session {
                 .apply();
         GENERATION.incrementAndGet();
         com.vktea.msg.MessageLongPoll.sessionChanged();
+        if (previousUser != null && !previousUser.equals(userId)) clearAudioData(context);
+        com.vktea.audio.AudioSources.clearPrivateAccess();
     }
 
     public static boolean isAuthorized(Context context) {
@@ -46,7 +49,15 @@ public class Session {
         prefs(context).edit().clear().apply();
         GENERATION.incrementAndGet();
         com.vktea.msg.MessageLongPoll.sessionChanged();
+        clearAudioData(context);
+        com.vktea.audio.AudioSources.clearPrivateAccess();
+    }
+
+    @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
+    private static void clearAudioData(Context context) {
         com.vktea.audio.AudioPlayback.stop(context);
+        context.getSharedPreferences("audio_queue", Context.MODE_PRIVATE).edit().clear().apply();
+        com.vktea.audio.AudioOfflineCache.clearAll(context);
     }
 
     private static SharedPreferences prefs(Context context) {

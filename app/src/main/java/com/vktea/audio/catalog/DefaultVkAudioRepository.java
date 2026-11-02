@@ -133,6 +133,236 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
                 response -> Collections.unmodifiableList(parseTracks(response.getJSONArray("response"))));
     }
 
+    @Override
+    public Request search(String query, int offset, int count, Callback<VkAudioPage> callback) {
+        Credentials current = credentials.get();
+        if (query == null || query.trim().isEmpty() || query.length() > 256 || !validPage(offset, count))
+            return fail(callback, current, new VkAudioError(VkAudioError.Kind.INVALID_REQUEST));
+        LinkedHashMap<String, String> params = new LinkedHashMap<>();
+        params.put("q", query.trim());
+        params.put("offset", Integer.toString(offset));
+        params.put("count", Integer.toString(count));
+        return execute("audio.search", params, current, callback, DefaultVkAudioRepository::parsePage);
+    }
+
+    @Override
+    public Request getPlaylists(int offset, int count, Callback<List<VkAudioPlaylist>> callback) {
+        Credentials current = credentials.get();
+        if (!validPage(offset, count) || !validOwner(current.userId))
+            return fail(callback, current, new VkAudioError(validPage(offset, count) ? VkAudioError.Kind.AUTH_REQUIRED : VkAudioError.Kind.INVALID_REQUEST));
+        LinkedHashMap<String, String> params = new LinkedHashMap<>();
+        params.put("owner_id", current.userId);
+        params.put("offset", Integer.toString(offset));
+        params.put("count", Integer.toString(count));
+        return execute("audio.getPlaylists", params, current, callback, response -> {
+            JSONArray items = response.getJSONObject("response").getJSONArray("items");
+            List<VkAudioPlaylist> playlists = new ArrayList<>();
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject row = items.optJSONObject(i);
+                if (row == null) continue;
+                long owner = row.optLong("owner_id", 0), id = row.optLong("id", 0);
+                Object description = row.opt("description");
+                JSONObject permissions = row.optJSONObject("permissions");
+                if (owner != 0 && id > 0) playlists.add(new VkAudioPlaylist(owner, id,
+                        row.optString("title", ""), row.optString("access_key", ""),
+                        description instanceof String ? (String) description : null,
+                        optionalBoolean(permissions, "edit"), optionalBoolean(permissions, "delete"),
+                        optionalBoolean(row, "no_discover")));
+            }
+            return Collections.unmodifiableList(playlists);
+        });
+    }
+
+    @Override
+    public Request getPlaylistAudio(VkAudioPlaylist playlist, int offset, int count, Callback<VkAudioPage> callback) {
+        Credentials current = credentials.get();
+        if (playlist == null || !validPage(offset, count))
+            return fail(callback, current, new VkAudioError(VkAudioError.Kind.INVALID_REQUEST));
+        LinkedHashMap<String, String> params = new LinkedHashMap<>();
+        params.put("owner_id", Long.toString(playlist.ownerId));
+        params.put("playlist_id", Long.toString(playlist.id));
+        if (!playlist.accessKey.isEmpty()) params.put("access_key", playlist.accessKey);
+        params.put("offset", Integer.toString(offset));
+        params.put("count", Integer.toString(count));
+        return execute("audio.get", params, current, callback, DefaultVkAudioRepository::parsePage);
+    }
+
+    @Override
+    public Request createPlaylist(String title, Callback<Boolean> callback) {
+        Credentials current = credentials.get();
+        if (title == null || title.trim().isEmpty() || title.length() > 1024 || !validOwner(current.userId))
+            return fail(callback, current, new VkAudioError(VkAudioError.Kind.INVALID_REQUEST));
+        LinkedHashMap<String, String> params = new LinkedHashMap<>();
+        params.put("owner_id", current.userId);
+        params.put("title", title.trim());
+        return execute("audio.createPlaylist", params, current, callback, response -> {
+            Object value = response.get("response");
+            if (value instanceof JSONObject && ((JSONObject) value).optLong("id", 0) > 0) return true;
+            throw new JSONException("Unexpected response");
+        });
+    }
+
+    @Override
+    public Request deletePlaylist(VkAudioPlaylist playlist, Callback<Boolean> callback) {
+        Credentials current = credentials.get();
+        if (!validOwner(current.userId) || current.token.isEmpty())
+            return fail(callback, current, new VkAudioError(VkAudioError.Kind.AUTH_REQUIRED));
+        if (playlist == null || !current.userId.equals(Long.toString(playlist.ownerId)))
+            return fail(callback, current, new VkAudioError(VkAudioError.Kind.INVALID_REQUEST));
+        if (Boolean.FALSE.equals(playlist.canDelete))
+            return fail(callback, current, new VkAudioError(VkAudioError.Kind.ACCESS_DENIED));
+        LinkedHashMap<String, String> params = new LinkedHashMap<>();
+        params.put("playlist_id", Long.toString(playlist.id));
+        params.put("owner_id", Long.toString(playlist.ownerId));
+        return execute("audio.deletePlaylist", params, current, callback, DefaultVkAudioRepository::parseOk);
+    }
+
+    @Override
+    public Request renamePlaylist(VkAudioPlaylist playlist, String title, Callback<Boolean> callback) {
+        Credentials current = credentials.get();
+        if (!validOwner(current.userId) || current.token.isEmpty())
+            return fail(callback, current, new VkAudioError(VkAudioError.Kind.AUTH_REQUIRED));
+        if (playlist == null || !current.userId.equals(Long.toString(playlist.ownerId))
+                || title == null || title.trim().isEmpty() || title.trim().length() >= 256)
+            return fail(callback, current, new VkAudioError(VkAudioError.Kind.INVALID_REQUEST));
+        if (Boolean.FALSE.equals(playlist.canEdit))
+            return fail(callback, current, new VkAudioError(VkAudioError.Kind.ACCESS_DENIED));
+        LinkedHashMap<String, String> details = new LinkedHashMap<>();
+        details.put("owner_id", Long.toString(playlist.ownerId));
+        details.put("playlist_id", Long.toString(playlist.id));
+        details.put("extended", "1");
+        if (!playlist.accessKey.isEmpty()) details.put("access_key", playlist.accessKey);
+        ChainedRequest chain = new ChainedRequest();
+        chain.set(execute("audio.getPlaylistById", details, current, new Callback<PlaylistDetails>() {
+            @Override public void onSuccess(PlaylistDetails detail) {
+                if (chain.isCanceled() || closed) return;
+                if (!current.sameSession(credentials.get())) {
+                    callback.onError(new VkAudioError(VkAudioError.Kind.AUTH_REQUIRED));
+                    return;
+                }
+                if (Boolean.FALSE.equals(detail.canEdit)) {
+                    callback.onError(new VkAudioError(VkAudioError.Kind.ACCESS_DENIED));
+                    return;
+                }
+                if (detail.noDiscover == null) {
+                    callback.onError(new VkAudioError(VkAudioError.Kind.PLAYLIST_VISIBILITY_UNKNOWN));
+                    return;
+                }
+                LinkedHashMap<String, String> params = new LinkedHashMap<>();
+                params.put("owner_id", Long.toString(playlist.ownerId));
+                params.put("playlist_id", Long.toString(playlist.id));
+                params.put("title", title.trim());
+                params.put("no_discover", detail.noDiscover ? "1" : "0");
+                chain.set(execute("audio.editPlaylist", params, current, callback,
+                        DefaultVkAudioRepository::parseOk));
+            }
+            @Override public void onError(VkAudioError error) {
+                if (!chain.isCanceled()) callback.onError(error);
+            }
+        }, response -> {
+            JSONObject row = response.getJSONObject("response");
+            if (row.optLong("owner_id", 0) != playlist.ownerId || row.optLong("id", 0) != playlist.id)
+                throw new JSONException("Unexpected playlist");
+            Object visibility = row.opt("no_discover");
+            // Do not infer visibility from an absent field: an incomplete response
+            // must not change a hidden playlist's setting during a rename.
+            Boolean noDiscover;
+            if (visibility == null || visibility == JSONObject.NULL) noDiscover = null;
+            else if (visibility instanceof Boolean) noDiscover = (Boolean) visibility;
+            else if (visibility instanceof Number && (((Number) visibility).doubleValue() == 0d
+                    || ((Number) visibility).doubleValue() == 1d)) noDiscover = ((Number) visibility).doubleValue() == 1d;
+            else throw new JSONException("Invalid playlist visibility");
+            return new PlaylistDetails(noDiscover, optionalBoolean(row.optJSONObject("permissions"), "edit"));
+        }));
+        return chain;
+    }
+
+    private static final class PlaylistDetails {
+        final Boolean noDiscover;
+        final Boolean canEdit;
+        PlaylistDetails(Boolean noDiscover, Boolean canEdit) {
+            this.noDiscover = noDiscover;
+            this.canEdit = canEdit;
+        }
+    }
+
+    private static final class ChainedRequest implements Request {
+        private Request current;
+        private boolean canceled;
+        synchronized void set(Request request) {
+            if (canceled) request.cancel(); else current = request;
+        }
+        @Override public synchronized void cancel() {
+            canceled = true;
+            if (current != null) current.cancel();
+        }
+        @Override public synchronized boolean isCanceled() { return canceled; }
+    }
+
+    @Override
+    public Request changeLibrary(VkAudioTrack track, boolean add, Callback<Boolean> callback) {
+        Credentials current = credentials.get();
+        if (track == null) return fail(callback, current, new VkAudioError(VkAudioError.Kind.INVALID_REQUEST));
+        LinkedHashMap<String, String> params = new LinkedHashMap<>();
+        params.put("owner_id", Long.toString(track.ownerId));
+        params.put("audio_id", Long.toString(track.id));
+        if (add && !track.accessKey.isEmpty()) params.put("access_key", track.accessKey);
+        return execute(add ? "audio.add" : "audio.delete", params, current, callback, DefaultVkAudioRepository::parseMutation);
+    }
+
+    @Override
+    public Request changePlaylist(VkAudioPlaylist playlist, VkAudioTrack track, boolean add, Callback<Boolean> callback) {
+        Credentials current = credentials.get();
+        if (playlist == null || track == null || !validOwner(current.userId)
+                || !current.userId.equals(Long.toString(playlist.ownerId)))
+            return fail(callback, current, new VkAudioError(VkAudioError.Kind.INVALID_REQUEST));
+        LinkedHashMap<String, String> params = new LinkedHashMap<>();
+        params.put("owner_id", Long.toString(playlist.ownerId));
+        params.put("playlist_id", Long.toString(playlist.id));
+        params.put("audio_ids", track.ownerId + "_" + track.id);
+        return execute(add ? "audio.addToPlaylist" : "audio.removeFromPlaylist", params, current, callback,
+                response -> {
+                    if (!add) {
+                        if (response.getInt("response") == 1) return true;
+                    } else {
+                        JSONArray added = response.getJSONArray("response");
+                        if (added.length() > 0 && added.getJSONObject(0).optLong("audio_id", 0) > 0) return true;
+                    }
+                    throw new JSONException("Unsuccessful mutation");
+                });
+    }
+
+    private static boolean validPage(int offset, int count) { return offset >= 0 && count > 0 && count <= 1000; }
+    private static Boolean optionalBoolean(JSONObject object, String key) {
+        Object value = object == null ? null : object.opt(key);
+        if (value instanceof Boolean) return (Boolean) value;
+        if (value instanceof Number) {
+            double number = ((Number) value).doubleValue();
+            if (number == 0d) return false;
+            if (number == 1d) return true;
+        }
+        return null;
+    }
+    private static boolean validOwner(String id) {
+        try { return Long.parseLong(id) > 0; } catch (NumberFormatException ignored) { return false; }
+    }
+    private static VkAudioPage parsePage(JSONObject response) throws JSONException {
+        JSONObject page = response.getJSONObject("response");
+        JSONArray items = page.getJSONArray("items");
+        return new VkAudioPage(page.getInt("count"), parseTracks(items), items.length());
+    }
+    private static Boolean parseMutation(JSONObject response) throws JSONException {
+        Object value = response.get("response");
+        if (value instanceof Number && ((Number) value).longValue() > 0) return true;
+        throw new JSONException("Unsuccessful mutation");
+    }
+
+    private static Boolean parseOk(JSONObject response) throws JSONException {
+        Object result = response.get("response");
+        if (result instanceof Number && ((Number) result).doubleValue() == 1d) return true;
+        throw new JSONException("Unsuccessful operation");
+    }
+
     private static boolean validApiId(String identity) {
         if (identity == null || !identity.matches("-?[0-9]+_[0-9]+(?:_[A-Za-z0-9_-]{1,256})?")) return false;
         String[] parts = identity.split("_", 3);
@@ -159,7 +389,10 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
             return operation;
         }
         LinkedHashMap<String, String> query = new LinkedHashMap<>();
-        query.put("v", "5.82");
+        boolean playlistManagement = method.equals("audio.getPlaylistById")
+                || method.equals("audio.editPlaylist") || method.equals("audio.deletePlaylist");
+        // VK 8.201's InternalApiMethodCall uses 5.290 for these methods.
+        query.put("v", playlistManagement ? "5.290" : "5.82");
         query.put("lang", Locale.getDefault().getLanguage());
         query.put("https", "1");
         query.put("access_token", current.token);
@@ -170,8 +403,15 @@ final class DefaultVkAudioRepository implements VkAudioRepository {
         }
         if (!current.secret.isEmpty()) url.addQueryParameter("sig", signature(method, query, current.secret));
         // Reuse only the existing client identity, never VKApi's request or logging path.
-        okhttp3.Request request = new okhttp3.Request.Builder().url(url.build())
-                .header("User-Agent", VKApi.USER_AGENT).get().build();
+        okhttp3.Request.Builder requestBuilder = new okhttp3.Request.Builder().url(url.build())
+                .header("User-Agent", VKApi.USER_AGENT);
+        boolean mutation = method.equals("audio.add") || method.equals("audio.delete")
+                || method.equals("audio.createPlaylist") || method.equals("audio.addToPlaylist")
+                || method.equals("audio.removeFromPlaylist") || method.equals("audio.deletePlaylist")
+                || method.equals("audio.editPlaylist");
+        if (mutation) requestBuilder.post(okhttp3.RequestBody.create(new byte[0], null));
+        else requestBuilder.get();
+        okhttp3.Request request = requestBuilder.build();
         operation.call = client.newCall(request);
         if (operation.isCanceled() || closed) {
             operation.cancel();

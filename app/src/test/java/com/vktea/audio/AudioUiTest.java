@@ -245,6 +245,27 @@ public class AudioUiTest {
         assertEquals(last.mediaId, player.getMediaItemAt(0).mediaId);
     }
 
+    @Test
+    public void playerMenuOffersSleepTimerAndDispatchesExplicitSelection() {
+        RecordingPlayer player = newPlayer();
+        player.setMediaItem(track("sleep", "Synthetic track"));
+        AppCompatActivity activity = activity();
+        View anchor = new View(activity);
+        activity.setContentView(anchor);
+        activityController.visible();
+        AudioUi.showActions(activity, anchor, player);
+        PopupMenu popup = ShadowPopupMenu.getLatestPopupMenu();
+        assertTrue(shadowOf(popup).getOnMenuItemClickListener()
+                .onMenuItemClick(popup.getMenu().findItem(9)));
+        AlertDialog dialog = latestQueueDialog();
+        assertEquals(6, dialog.getListView().getCount());
+        dialog.getListView().performItemClick(null, 0, 0);
+        List<android.content.Intent> intents = shadowOf((android.app.Application) context).getBroadcastIntents();
+        android.content.Intent last = intents.get(intents.size() - 1);
+        assertEquals(AudioSleepTimer.ACTION_SET, last.getAction());
+        assertEquals(15 * 60_000L, last.getLongExtra(AudioSleepTimer.EXTRA_DURATION, 0));
+    }
+
     private AppCompatActivity activity() {
         if (activityController == null) {
             activityController = Robolectric.buildActivity(AppCompatActivity.class);
