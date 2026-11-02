@@ -116,6 +116,7 @@ public final class ChatHistoryParser {
         String subtitle = "";
         String url = string(value, "url", "");
         int[] waveform = null;
+        boolean nestedVoiceRestricted = false;
         switch (type) {
             case "photo": case "posted_photo":
                 image = photo(value);
@@ -147,6 +148,10 @@ public final class ChatHistoryParser {
                     if (image == null) image = legacy(preview.optJSONObject("graffiti"), new String[]{"src", "url"});
                     JSONObject voice = preview.optJSONObject("audio_msg");
                     if (voice != null) {
+                        nestedVoiceRestricted = flag(voice, "is_deleted", false)
+                                || flag(voice, "deleted", false)
+                                || voice.optInt("content_restricted", 0) != 0
+                                || flag(voice, "content_restricted", false);
                         type = "audio_message";
                         duration = positiveInt(voice, "duration");
                         waveform = voiceWaveform(voice.optJSONArray("waveform"));
@@ -221,7 +226,8 @@ public final class ChatHistoryParser {
                 break;
         }
         boolean restricted = flag(value, "is_deleted", false) || flag(value, "deleted", false)
-                || value.optInt("content_restricted", 0) != 0;
+                || value.optInt("content_restricted", 0) != 0
+                || flag(value, "content_restricted", false) || nestedVoiceRestricted;
         if (restricted) {
             title = nonempty(title, label(type)) + " · недоступно";
             url = "";

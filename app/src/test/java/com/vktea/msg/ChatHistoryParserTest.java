@@ -22,6 +22,31 @@ import java.util.List;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 public class ChatHistoryParserTest {
+    @Test public void restrictedLegacyVoiceNeverRetainsAPlayableLinkOrIdentity() throws Exception {
+        JSONArray attachments = new JSONArray();
+        for (String key : new String[]{"is_deleted", "deleted", "content_restricted"}) {
+            JSONObject voice = object(key, true, "duration", 17,
+                    "link_ogg", "https://example.invalid/private.ogg", "waveform", array(1, 2));
+            JSONObject document = object("id", 23, "owner_id", 91, "access_key", "synthetic",
+                    "preview", object("audio_msg", voice));
+            attachments.put(attachment("doc", document));
+        }
+        JSONObject outerRestricted = object("id", 24, "owner_id", 91, "content_restricted", true,
+                "preview", object("audio_msg", object("link_ogg", "https://example.invalid/private.ogg")));
+        attachments.put(attachment("doc", outerRestricted));
+        List<ChatAttachment> parts = only(message(1, 100, 91).put("attachments", attachments)).attachments;
+        for (ChatAttachment part : parts) {
+            assertEquals("audio_message", part.type);
+            assertTrue(part.title.contains("недоступно"));
+            assertEquals("", part.url);
+            assertEquals("", part.previewUrl);
+            assertEquals("", part.accessKey);
+            assertEquals(0, part.id);
+            assertEquals(0, part.ownerId);
+            assertArrayEquals(new int[0], part.waveform());
+        }
+    }
+
     @Test public void voiceWaveformsAreSnapshotsForBothVkAttachmentShapes() throws Exception {
         JSONArray directWave = array(0, 7, 31, 12);
         JSONObject direct = object("id", 22, "owner_id", 91, "duration", 9,

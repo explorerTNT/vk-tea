@@ -45,6 +45,9 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private TextView toolbarBadge;
     private com.vktea.ui.AudioMiniPlayerView miniPlayer;
     private boolean countersStarted, countersLoading, countersPending;
+    private long countersSessionGeneration = -1;
+    private long countersLifecycleGeneration;
+    private boolean authoritativeCountersLoaded;
     private final com.vktea.msg.MessageLongPoll.Listener messageUpdates = this::refreshCounters;
 
     @Override
@@ -114,6 +117,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             checkForUpdates(false);
         }
 
+        final long profileSessionGeneration = Session.generation();
         com.vktea.api.VKApi.get(this, "users.get", "fields=photo_200,status,counters,cover", new com.vktea.api.VKApi.Callback() {
             @Override
             public void success(org.json.JSONObject response) {
@@ -153,7 +157,14 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                             counters,
                             coverUrl);
                     runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed() || profileSessionGeneration != Session.generation()) return;
+                        synchronizeCounterSession();
                         menuAdapter.setHeaderUser(user);
+                        // Preserve the original badge if the dedicated counter request fails,
+                        // without letting an older profile response replace fresher counters.
+                        if (!authoritativeCountersLoaded && user.counters != null) {
+                            updateCounterBadge(user.counters.messages, user.counters.notifications);
+                        }
                     });
                 } catch (Exception ignored) {
                 }
@@ -196,6 +207,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         super.onStart();
         if (miniPlayer != null) miniPlayer.start();
         if (Session.isAuthorized(this) && toolbarBadge != null) {
+            countersLifecycleGeneration++;
             countersStarted = true;
             subscribeCounterUpdates();
             refreshCounters();
@@ -205,6 +217,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     @Override protected void onStop() {
         if (miniPlayer != null) miniPlayer.stop();
         countersStarted = false;
+        countersLifecycleGeneration++;
+        countersPending = false;
         unsubscribeCounterUpdates();
         super.onStop();
     }
@@ -218,20 +232,40 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
     private void refreshCounters() {
         if (!countersStarted) return;
+        synchronizeCounterSession();
         if (countersLoading) { countersPending = true; return; }
         countersLoading = true;
+        countersPending = false;
+        final long requestSessionGeneration = countersSessionGeneration;
+        final long requestLifecycleGeneration = countersLifecycleGeneration;
         requestCounters(new com.vktea.api.VKApi.Callback() {
             @Override public void success(org.json.JSONObject response) {
                 org.json.JSONObject data = response == null ? null : response.optJSONObject("response");
-                if (countersStarted && data != null) {
-                    int count = Math.max(0, data.optInt("messages")) + Math.max(0, data.optInt("notifications"));
-                    toolbarBadge.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
-                    toolbarBadge.setText(String.valueOf(count));
+                if (countersStarted && data != null && requestSessionGeneration == Session.generation()
+                        && requestLifecycleGeneration == countersLifecycleGeneration) {
+                    synchronizeCounterSession();
+                    authoritativeCountersLoaded = true;
+                    updateCounterBadge(data.optInt("messages"), data.optInt("notifications"));
                 }
                 finishCounters();
             }
             @Override public void error(Exception ignored) { finishCounters(); }
         });
+    }
+
+    private void synchronizeCounterSession() {
+        long currentGeneration = Session.generation();
+        if (countersSessionGeneration == currentGeneration) return;
+        countersSessionGeneration = currentGeneration;
+        authoritativeCountersLoaded = false;
+        toolbarBadge.setVisibility(View.GONE);
+        toolbarBadge.setText("");
+    }
+
+    private void updateCounterBadge(int messages, int notifications) {
+        long count = (long) Math.max(0, messages) + Math.max(0, notifications);
+        toolbarBadge.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+        toolbarBadge.setText(String.valueOf(count));
     }
 
     private void finishCounters() {
