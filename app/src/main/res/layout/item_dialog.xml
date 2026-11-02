@@ -67,11 +67,18 @@
                 android:textColor="@color/post_time"
                 android:textSize="14sp" />
 
-            <View
+            <TextView
                 android:id="@+id/dialog_unread"
-                android:layout_width="10dp"
-                android:layout_height="10dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="18dp"
+                android:minHeight="18dp"
                 android:layout_marginLeft="8dp"
+                android:gravity="center"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:textColor="@android:color/white"
+                android:textSize="11sp"
                 android:background="@drawable/bg_unread" />
         </LinearLayout>
     </LinearLayout>

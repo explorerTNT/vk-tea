@@ -44,6 +44,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private TextView toolbarTitle;
     private TextView toolbarBadge;
     private com.vktea.ui.AudioMiniPlayerView miniPlayer;
+    private boolean countersStarted, countersLoading, countersPending;
+    private final com.vktea.msg.MessageLongPoll.Listener messageUpdates = this::refreshCounters;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -152,13 +154,6 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                             coverUrl);
                     runOnUiThread(() -> {
                         menuAdapter.setHeaderUser(user);
-                        if (user.counters != null) {
-                            int red = user.counters.messages + user.counters.notifications;
-                            if (red > 0) {
-                                toolbarBadge.setVisibility(View.VISIBLE);
-                                toolbarBadge.setText(String.valueOf(red));
-                            }
-                        }
                     });
                 } catch (Exception ignored) {
                 }
@@ -200,11 +195,48 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     @Override protected void onStart() {
         super.onStart();
         if (miniPlayer != null) miniPlayer.start();
+        if (Session.isAuthorized(this) && toolbarBadge != null) {
+            countersStarted = true;
+            subscribeCounterUpdates();
+            refreshCounters();
+        }
     }
 
     @Override protected void onStop() {
         if (miniPlayer != null) miniPlayer.stop();
+        countersStarted = false;
+        unsubscribeCounterUpdates();
         super.onStop();
+    }
+
+    protected void subscribeCounterUpdates() { com.vktea.msg.MessageLongPoll.get(this).addListener(messageUpdates); }
+    protected void unsubscribeCounterUpdates() { com.vktea.msg.MessageLongPoll.get(this).removeListener(messageUpdates); }
+    protected void onCounterEvent() { refreshCounters(); }
+    protected void requestCounters(com.vktea.api.VKApi.Callback callback) {
+        com.vktea.api.VKApi.get(this, "account.getCounters", "filter=messages,notifications", callback);
+    }
+
+    private void refreshCounters() {
+        if (!countersStarted) return;
+        if (countersLoading) { countersPending = true; return; }
+        countersLoading = true;
+        requestCounters(new com.vktea.api.VKApi.Callback() {
+            @Override public void success(org.json.JSONObject response) {
+                org.json.JSONObject data = response == null ? null : response.optJSONObject("response");
+                if (countersStarted && data != null) {
+                    int count = Math.max(0, data.optInt("messages")) + Math.max(0, data.optInt("notifications"));
+                    toolbarBadge.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+                    toolbarBadge.setText(String.valueOf(count));
+                }
+                finishCounters();
+            }
+            @Override public void error(Exception ignored) { finishCounters(); }
+        });
+    }
+
+    private void finishCounters() {
+        countersLoading = false;
+        if (countersPending && countersStarted) { countersPending = false; refreshCounters(); }
     }
 
     @Override
