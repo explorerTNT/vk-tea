@@ -1,0 +1,10 @@
+<resources>
+    <string name="audio_offline_download">Сохранить для прослушивания офлайн</string>
+    <string name="audio_offline_remove">Удалить из офлайн-кеша</string>
+    <string name="audio_offline_cancel">Отменить загрузку</string>
+    <string name="audio_offline_remove_confirm">Удалить сохранённую аудиозапись с устройства?</string>
+    <string name="audio_offline_started">Загрузка аудиозаписи начата</string>
+    <string name="audio_offline_saved">Аудиозапись сохранена для прослушивания офлайн</string>
+    <string name="audio_offline_removed">Аудиозапись удалена из офлайн-кеша</string>
+    <string name="audio_offline_cancelled">Загрузка отменена</string>
+</resources>

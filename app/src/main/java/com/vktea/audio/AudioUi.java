@@ -25,6 +25,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Locale;
 
 /** Shared presentation and user initiated queue actions, independent of a controller connection. */
+@androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
 public final class AudioUi {
     public static final String EXTRA_DURATION_MS = "audio.duration_ms";
     public static final String EXTRA_BITRATE = "audio.bitrate_bps";
@@ -91,6 +92,46 @@ public final class AudioUi {
                 && "content".equals(original.localConfiguration.uri.getScheme());
     }
 
+    public static boolean canManageOffline(MediaItem item) {
+        return item != null && VkAudioIds.isVk(item);
+    }
+
+    public static int offlineActionLabel(Context context, MediaItem item) {
+        if (!canManageOffline(item)) return R.string.audio_player_download;
+        if (AudioOfflineCache.isDownloading(item.mediaId)) return R.string.audio_offline_cancel;
+        return AudioOfflineCache.isSaved(context, item.mediaId)
+                ? R.string.audio_offline_remove : R.string.audio_offline_download;
+    }
+
+    public static void manageOffline(Activity activity, MediaItem item) {
+        manageOffline(activity, item, null);
+    }
+
+    private static void manageOffline(Activity activity, MediaItem item, Runnable onChanged) {
+        if (!canManageOffline(item)) {
+            export(activity, item);
+            return;
+        }
+        Context application = activity.getApplicationContext();
+        String id = item.mediaId;
+        if (AudioOfflineCache.isDownloading(id)) {
+            AudioOfflineCache.cancel(id);
+        } else if (AudioOfflineCache.isSaved(application, id)) {
+            new AlertDialog.Builder(activity).setMessage(R.string.audio_offline_remove_confirm)
+                    .setPositiveButton(R.string.audio_offline_remove, (dialog, which) -> {
+                        AudioOfflineCache.remove(application, id);
+                        Toast.makeText(application, R.string.audio_offline_removed, Toast.LENGTH_SHORT).show();
+                        if (onChanged != null) onChanged.run();
+                    }).setNegativeButton(android.R.string.cancel, null).show();
+        } else {
+            AudioOfflineCache.download(application, item, (success, error) -> {
+                    Toast.makeText(application, success ? application.getString(R.string.audio_offline_saved)
+                            : error, Toast.LENGTH_LONG).show();
+                    if (success && onChanged != null) onChanged.run();
+            });
+        }
+    }
+
     public static boolean isSaved(Context context, MediaItem item) {
         return VkAudioIds.isVk(item) || item != null && context.getSharedPreferences("audio_marks", Context.MODE_PRIVATE)
                 .getBoolean(item.mediaId, false);
@@ -143,14 +184,25 @@ public final class AudioUi {
     }
 
     public static void showCatalogActions(Activity activity, View anchor, MediaItem item) {
-        showItemActions(activity, anchor, null, item);
+        showCatalogActions(activity, anchor, item, null);
+    }
+
+    public static void showCatalogActions(Activity activity, View anchor, MediaItem item, Runnable onChanged) {
+        showItemActions(activity, anchor, null, item, onChanged);
     }
 
     private static void showItemActions(Activity activity, View anchor, Player player, MediaItem selected) {
+        showItemActions(activity, anchor, player, selected, null);
+    }
+
+    private static void showItemActions(Activity activity, View anchor, Player player, MediaItem selected,
+                                        Runnable onChanged) {
         PopupMenu popup = new PopupMenu(new ContextThemeWrapper(activity, R.style.Theme_VKTea_AudioPlayer), anchor);
         popup.getMenu().add(0, 1, 0, R.string.audio_save).setCheckable(true)
                 .setChecked(isSaved(activity, selected)).setEnabled(canToggleSaved(selected));
-        popup.getMenu().add(0, 2, 1, R.string.audio_download).setEnabled(canExport(selected));
+        int offlineAction = canManageOffline(selected) ? offlineActionLabel(activity, selected) : R.string.audio_download;
+        popup.getMenu().add(0, 2, 1, offlineAction)
+                .setEnabled(canManageOffline(selected) || canExport(selected));
         popup.getMenu().add(0, 3, 2, R.string.audio_lyrics).setEnabled(false);
         popup.getMenu().add(0, 4, 3, R.string.audio_similar).setEnabled(false);
         popup.getMenu().add(0, 5, 4, R.string.audio_copy_title);
@@ -161,7 +213,7 @@ public final class AudioUi {
         popup.setOnMenuItemClickListener(action -> {
             switch (action.getItemId()) {
                 case 1: toggleSaved(activity, selected); return true;
-                case 2: export(activity, selected); return true;
+                case 2: manageOffline(activity, selected, onChanged); return true;
                 case 5:
                     ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
                     clipboard.setPrimaryClip(ClipData.newPlainText(activity.getString(R.string.audio_copy_title),

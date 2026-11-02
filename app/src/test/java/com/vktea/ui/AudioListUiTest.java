@@ -18,6 +18,7 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
@@ -30,6 +31,7 @@ import com.vktea.R;
 import com.vktea.audio.AudioPlaybackService;
 import com.vktea.audio.catalog.VkAudioError;
 import com.vktea.audio.catalog.VkAudioPage;
+import com.vktea.audio.catalog.VkAudioPlaylist;
 import com.vktea.audio.catalog.VkAudioRepository;
 import com.vktea.audio.catalog.VkAudioTrack;
 import com.vktea.audio.catalog.VkAudioViewModel;
@@ -46,6 +48,7 @@ import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 import org.robolectric.shadows.ShadowDialog;
+import org.robolectric.shadows.ShadowToast;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -161,6 +164,155 @@ public class AudioListUiTest {
         assertNull(shadowOf(activity).getNextStartedActivity());
         int obsoleteImportId = activity.getResources().getIdentifier("audio_list_import", "id", activity.getPackageName());
         assertTrue(obsoleteImportId == 0 || root().findViewById(obsoleteImportId) == null);
+    }
+
+    @Test
+    public void playlistDialogsValidateAndConfirmWithoutChangingPlayback() throws Exception {
+        VkAudioPlaylist selected = new VkAudioPlaylist(1, 7, "Before", "", "Description", true, true);
+        model.showPlaylist(selected);
+        repository.success(new VkAudioPage(0, Collections.emptyList(), 0));
+        invokePlaylistDialog("renamePlaylist", selected);
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        EditText input = findInput(dialog.getWindow().getDecorView());
+        char[] longTitle = new char[256];
+        Arrays.fill(longTitle, 'x');
+        input.setText(new String(longTitle));
+        assertEquals(255, input.length());
+        input.setText("   ");
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        assertTrue(dialog.isShowing());
+        assertNotNull(input.getError());
+        assertEquals(0, repository.mutations);
+        input.setText("After");
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        assertEquals(1, repository.mutations);
+        assertEquals("Before", model.getPlaylist().title);
+        repository.mutation.onSuccess(true);
+        assertEquals("After", model.getPlaylist().title);
+        assertEquals(0, playback.replacements);
+
+        invokePlaylistDialog("confirmDeletePlaylist", model.getPlaylist());
+        dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(1, repository.mutations);
+        invokePlaylistDialog("confirmDeletePlaylist", model.getPlaylist());
+        dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(2, repository.mutations);
+        assertNotNull(model.getPlaylist());
+        repository.mutation.onSuccess(true);
+        assertNull(model.getPlaylist());
+        assertEquals(0, playback.replacements);
+    }
+
+    @Test
+    public void foreignPlaylistCannotOpenMutationDialog() throws Exception {
+        VkAudioPlaylist other = new VkAudioPlaylist(2, 7, "Other", "", "Description", true, true);
+        model.showPlaylist(other);
+        android.app.Dialog previous = ShadowDialog.getLatestDialog();
+        invokePlaylistDialog("renamePlaylist", other);
+        invokePlaylistDialog("confirmDeletePlaylist", other);
+        assertEquals(0, repository.mutations);
+        assertTrue(previous == ShadowDialog.getLatestDialog());
+    }
+
+    @Test
+    public void missingPermissionsAllowOwnerAndExplicitPermissionsRemainSeparate() throws Exception {
+        VkAudioPlaylist missing = new VkAudioPlaylist(1, 7, "Missing", "");
+        model.showPlaylist(missing);
+        android.app.Dialog previous = ShadowDialog.getLatestDialog();
+        invokePlaylistDialog("renamePlaylist", missing);
+        assertTrue(ShadowDialog.getLatestDialog().isShowing());
+        ShadowDialog.getLatestDialog().dismiss();
+        invokePlaylistDialog("confirmDeletePlaylist", missing);
+        assertTrue(ShadowDialog.getLatestDialog().isShowing());
+        ShadowDialog.getLatestDialog().dismiss();
+        assertEquals(0, repository.mutations);
+        previous = ShadowDialog.getLatestDialog();
+
+        VkAudioPlaylist editOnly = new VkAudioPlaylist(1, 8, "Edit", "", "", true, false);
+        model.showPlaylist(editOnly);
+        invokePlaylistDialog("confirmDeletePlaylist", editOnly);
+        assertTrue(previous == ShadowDialog.getLatestDialog());
+        invokePlaylistDialog("renamePlaylist", editOnly);
+        assertTrue(ShadowDialog.getLatestDialog().isShowing());
+        ShadowDialog.getLatestDialog().dismiss();
+        VkAudioPlaylist deleteOnly = new VkAudioPlaylist(1, 9, "Delete", "", "", false, true);
+        model.showPlaylist(deleteOnly);
+        previous = ShadowDialog.getLatestDialog();
+        invokePlaylistDialog("renamePlaylist", deleteOnly);
+        assertTrue(previous == ShadowDialog.getLatestDialog());
+        invokePlaylistDialog("confirmDeletePlaylist", deleteOnly);
+        assertTrue(ShadowDialog.getLatestDialog().isShowing());
+    }
+
+    @Test
+    public void rotationDoesNotPermitDuplicateMutationAndKeepsConfirmedResult() throws Exception {
+        VkAudioPlaylist selected = new VkAudioPlaylist(1, 7, "Old", "", "Description", true, true);
+        model.showPlaylist(selected);
+        invokePlaylistDialog("renamePlaylist", selected);
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        findInput(dialog.getWindow().getDecorView()).setText("New");
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        assertEquals(1, repository.mutations);
+        controller.recreate();
+        activity = controller.get();
+        fragment = (CatalogFragment) activity.getSupportFragmentManager().findFragmentById(R.id.content);
+        android.app.Dialog previous = ShadowDialog.getLatestDialog();
+        invokePlaylistDialog("confirmDeletePlaylist", selected);
+        assertTrue(previous == ShadowDialog.getLatestDialog());
+        assertEquals(1, repository.mutations);
+        repository.mutation.onSuccess(true);
+        assertEquals("New", model.getPlaylist().title);
+        assertEquals(0, playback.replacements);
+    }
+
+    @Test
+    public void mutationResultAfterRotationIsShownOnceByNewScreen() throws Exception {
+        ShadowToast.reset();
+        VkAudioPlaylist selected = new VkAudioPlaylist(1, 7, "Old", "", "", true, true);
+        model.showPlaylist(selected);
+        invokePlaylistDialog("renamePlaylist", selected);
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        findInput(dialog.getWindow().getDecorView()).setText("New");
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+
+        controller.recreate();
+        activity = controller.get();
+        fragment = (CatalogFragment) activity.getSupportFragmentManager().findFragmentById(R.id.content);
+        repository.mutation.onError(new VkAudioError(VkAudioError.Kind.AUTH_REQUIRED));
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(1, ShadowToast.shownToastCount());
+        assertEquals(activity.getString(R.string.audio_playlist_auth_unconfirmed), ShadowToast.getTextOfLatestToast());
+        assertEquals("Old", model.getPlaylist().title);
+        assertFalse(model.isPlaylistMutationPending());
+
+        controller.recreate();
+        activity = controller.get();
+        fragment = (CatalogFragment) activity.getSupportFragmentManager().findFragmentById(R.id.content);
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(1, ShadowToast.shownToastCount());
+    }
+
+    @Test
+    public void staleDeleteDialogCannotMutateAnotherSelection() throws Exception {
+        VkAudioPlaylist selected = new VkAudioPlaylist(1, 7, "Old", "", "", true, true);
+        model.showPlaylist(selected);
+        invokePlaylistDialog("confirmDeletePlaylist", selected);
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        model.showPlaylist(new VkAudioPlaylist(1, 8, "New", "", "", true, true));
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(0, repository.mutations);
+    }
+
+    private void invokePlaylistDialog(String method, VkAudioPlaylist playlist) throws Exception {
+        java.lang.reflect.Method target = AudioFragment.class.getDeclaredMethod(method, VkAudioPlaylist.class);
+        target.setAccessible(true);
+        target.invoke(fragment, playlist);
+        shadowOf(Looper.getMainLooper()).idle();
     }
 
     @Test
@@ -365,6 +517,21 @@ public class AudioListUiTest {
 
     static class FakeRepository implements VkAudioRepository {
         final List<Call> calls = new ArrayList<>();
+        int mutations;
+        Callback<Boolean> mutation;
+        @Override public Request getPlaylistAudio(VkAudioPlaylist playlist, int offset, int count, Callback<VkAudioPage> callback) {
+            return getMyAudio(offset, count, callback);
+        }
+        @Override public Request renamePlaylist(VkAudioPlaylist playlist, String title, Callback<Boolean> callback) {
+            mutations++;
+            mutation = callback;
+            return new Call(0, null);
+        }
+        @Override public Request deletePlaylist(VkAudioPlaylist playlist, Callback<Boolean> callback) {
+            mutations++;
+            mutation = callback;
+            return new Call(0, null);
+        }
         @Override public Request getMyAudio(int offset, int count, Callback<VkAudioPage> callback) {
             Call call = new Call(offset, callback);
             calls.add(call);

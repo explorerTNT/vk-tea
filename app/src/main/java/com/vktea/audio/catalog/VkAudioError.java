@@ -4,7 +4,7 @@ package com.vktea.audio.catalog;
 public final class VkAudioError extends Exception {
     public enum Kind {
         AUTH_REQUIRED, ACCESS_DENIED, RATE_LIMITED, NETWORK, HTTP,
-        MALFORMED_RESPONSE, API, INVALID_REQUEST
+        MALFORMED_RESPONSE, API, INVALID_REQUEST, PLAYLIST_VISIBILITY_UNKNOWN
     }
 
     public final Kind kind;
