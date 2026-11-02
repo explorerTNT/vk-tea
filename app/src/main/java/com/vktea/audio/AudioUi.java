@@ -210,6 +210,7 @@ public final class AudioUi {
                 ? R.string.audio_remove_from_queue : R.string.audio_remove).setEnabled(player != null);
         popup.getMenu().add(0, 7, 6, R.string.audio_search_artist).setEnabled(false);
         popup.getMenu().add(0, 8, 7, R.string.audio_share);
+        if (player != null) popup.getMenu().add(0, 9, 8, R.string.audio_sleep_timer);
         popup.setOnMenuItemClickListener(action -> {
             switch (action.getItemId()) {
                 case 1: toggleSaved(activity, selected); return true;
@@ -234,10 +235,33 @@ public final class AudioUi {
                             .putExtra(Intent.EXTRA_TEXT, artist(activity, selected) + " — " + title(activity, selected));
                     activity.startActivity(Intent.createChooser(share, activity.getString(R.string.audio_share)));
                     return true;
+                case 9:
+                    showSleepTimer(activity);
+                    return true;
                 default: return false;
             }
         });
         popup.show();
+    }
+
+    private static void showSleepTimer(Activity activity) {
+        long remaining = AudioSleepTimer.remaining(activity);
+        String status = remaining == AudioSleepTimer.END_OF_TRACK
+                ? activity.getString(R.string.audio_sleep_end_active)
+                : remaining > 0 ? activity.getString(R.string.audio_sleep_minutes_active,
+                        Math.max(1L, (remaining + 59_999) / 60_000))
+                : activity.getString(R.string.audio_sleep_off_active);
+        new AlertDialog.Builder(activity)
+                .setTitle(activity.getString(R.string.audio_sleep_title, status))
+                .setItems(R.array.audio_sleep_options, (dialog, index) -> {
+                    long[] values = {15 * 60_000L, 30 * 60_000L, 45 * 60_000L,
+                            60 * 60_000L, AudioSleepTimer.END_OF_TRACK, AudioSleepTimer.OFF};
+                    if (index < 0 || index >= values.length) return;
+                    AudioSleepTimer.request(activity, values[index]);
+                    Toast.makeText(activity, values[index] == AudioSleepTimer.OFF
+                            ? R.string.audio_sleep_cancelled : R.string.audio_sleep_started,
+                            Toast.LENGTH_SHORT).show();
+                }).setNegativeButton(android.R.string.cancel, null).show();
     }
 
     public static void showQueue(Activity activity, Player player) {

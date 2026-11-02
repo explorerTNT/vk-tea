@@ -32,6 +32,7 @@ public class AudioPlaybackService extends MediaSessionService {
     @Nullable private SharedPreferences sessionPreferences;
     @Nullable private VkAudioRepository audioRepository;
     @Nullable private AudioQueueStore queueStore;
+    @Nullable private AudioSleepTimer sleepTimer;
     @Nullable private String accountId;
     private final Handler checkpointHandler = new Handler(Looper.getMainLooper());
     private final Runnable checkpoint = new Runnable() {
@@ -51,6 +52,8 @@ public class AudioPlaybackService extends MediaSessionService {
         public void onReceive(Context context, Intent intent) {
             if (AudioPlayback.ACTION_STOP.equals(intent.getAction())) {
                 stopPlayback();
+            } else if (sleepTimer != null) {
+                sleepTimer.handle(intent);
             }
         }
     };
@@ -81,8 +84,10 @@ public class AudioPlaybackService extends MediaSessionService {
         // all, so Session.clear must keep calling AudioPlayback.stop.
         sessionPreferences = getSharedPreferences("session", MODE_PRIVATE);
         sessionPreferences.registerOnSharedPreferenceChangeListener(authListener);
-        ContextCompat.registerReceiver(this, stopReceiver,
-                new IntentFilter(AudioPlayback.ACTION_STOP), ContextCompat.RECEIVER_NOT_EXPORTED);
+        IntentFilter commands = new IntentFilter(AudioPlayback.ACTION_STOP);
+        commands.addAction(AudioSleepTimer.ACTION_SET);
+        commands.addAction(AudioSleepTimer.ACTION_EXPIRE);
+        ContextCompat.registerReceiver(this, stopReceiver, commands, ContextCompat.RECEIVER_NOT_EXPORTED);
         stopReceiverRegistered = true;
 
         accountId = Session.getUserId(this);
@@ -98,6 +103,7 @@ public class AudioPlaybackService extends MediaSessionService {
                 .setHandleAudioBecomingNoisy(true)
                 .setWakeMode(C.WAKE_MODE_LOCAL)
                 .build();
+        sleepTimer = new AudioSleepTimer(this, player);
         queueStore.restore(player, accountId);
         // Prepare without playing so external transport controls can resume after restoration.
         if (player.getMediaItemCount() > 0) player.prepare();
@@ -155,6 +161,10 @@ public class AudioPlaybackService extends MediaSessionService {
         persistQueue();
         stopping = true;
         checkpointHandler.removeCallbacks(checkpoint);
+        if (sleepTimer != null) {
+            sleepTimer.close();
+            sleepTimer = null;
+        }
         if (player != null) player.removeListener(queueListener);
         AudioSources.clear();
         if (audioRepository != null) {
