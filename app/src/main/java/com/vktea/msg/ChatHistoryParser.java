@@ -54,7 +54,8 @@ public final class ChatHistoryParser {
                         || flag(row, "deleted", false) ? "Сообщение удалено" : "Сообщение недоступно";
             }
             messages.add(new ChatMessage(row.optLong("id", row.optLong("mid", 0)), out, from,
-                    person.name, person.avatar, body, Math.max(0, row.optLong("date", 0)), attachments));
+                    person.name, person.avatar, body, Math.max(0, row.optLong("date", 0)), attachments,
+                    out && row.has("read_state") ? row.optInt("read_state", -1) : -1));
         }
         Collections.reverse(messages);
         // Stable sort preserves the reversed API order for messages with the same second.
@@ -114,6 +115,8 @@ public final class ChatHistoryParser {
         String title = string(value, "title", "");
         String subtitle = "";
         String url = string(value, "url", "");
+        int[] waveform = null;
+        boolean nestedVoiceRestricted = false;
         switch (type) {
             case "photo": case "posted_photo":
                 image = photo(value);
@@ -145,15 +148,26 @@ public final class ChatHistoryParser {
                     if (image == null) image = legacy(preview.optJSONObject("graffiti"), new String[]{"src", "url"});
                     JSONObject voice = preview.optJSONObject("audio_msg");
                     if (voice != null) {
+                        nestedVoiceRestricted = flag(voice, "is_deleted", false)
+                                || flag(voice, "deleted", false)
+                                || voice.optInt("content_restricted", 0) != 0
+                                || flag(voice, "content_restricted", false);
+                        type = "audio_message";
                         duration = positiveInt(voice, "duration");
-                        title = nonempty(title, "Голосовое сообщение");
+                        waveform = voiceWaveform(voice.optJSONArray("waveform"));
+                        title = "Голосовое сообщение";
                         url = first(string(voice, "link_mp3", ""), string(voice, "link_ogg", ""), url);
+                        image = null;
                     }
                 }
                 title = nonempty(title, "Документ");
-                String ext = string(value, "ext", "").toUpperCase(Locale.ROOT);
-                subtitle = join(ext, fileSize(value.optLong("size", 0)));
-                if (duration > 0) subtitle = join(subtitle, time(duration));
+                if ("audio_message".equals(type)) {
+                    subtitle = duration > 0 ? time(duration) : "";
+                } else {
+                    String ext = string(value, "ext", "").toUpperCase(Locale.ROOT);
+                    subtitle = join(ext, fileSize(value.optLong("size", 0)));
+                    if (duration > 0) subtitle = join(subtitle, time(duration));
+                }
                 break;
             case "audio":
                 title = nonempty(title, "Аудиозапись");
@@ -163,6 +177,7 @@ public final class ChatHistoryParser {
                 title = "Голосовое сообщение";
                 subtitle = duration > 0 ? time(duration) : "";
                 url = first(string(value, "link_mp3", ""), string(value, "link_ogg", ""), url);
+                waveform = voiceWaveform(value.optJSONArray("waveform"));
                 break;
             case "link":
                 image = photo(value.optJSONObject("photo"));
@@ -211,16 +226,38 @@ public final class ChatHistoryParser {
                 break;
         }
         boolean restricted = flag(value, "is_deleted", false) || flag(value, "deleted", false)
-                || value.optInt("content_restricted", 0) != 0;
+                || value.optInt("content_restricted", 0) != 0
+                || flag(value, "content_restricted", false) || nestedVoiceRestricted;
         if (restricted) {
             title = nonempty(title, label(type)) + " · недоступно";
             url = "";
+            image = null;
+            id = 0;
+            owner = 0;
+            key = "";
+            waveform = null;
         }
         int width = image != null && image.width > 0 && image.height > 0 ? image.width : positiveInt(value, "width");
         int height = image != null && image.width > 0 && image.height > 0 ? image.height : positiveInt(value, "height");
         if (width == 0 || height == 0) { width = 0; height = 0; }
         return new ChatAttachment(type, title, subtitle, image == null ? "" : image.url,
-                url, width, height, duration, id, owner, key, viewerPhoto(type, value));
+                url, width, height, duration, id, owner, key, restricted ? null : viewerPhoto(type, value), waveform);
+    }
+
+    /** VK supplies per-sample heights from 0 to 31. Preserve the recording's full time span. */
+    private static int[] voiceWaveform(JSONArray input) {
+        if (input == null || input.length() == 0) return new int[0];
+        int count = Math.min(input.length(), 512);
+        int[] result = new int[count];
+        for (int index = 0; index < count; index++) {
+            int source = count == 1 ? 0 : (int) ((long) index * (input.length() - 1) / (count - 1));
+            Object item = input.opt(source);
+            if (!(item instanceof Number)) return new int[0];
+            double value = ((Number) item).doubleValue();
+            if (!Double.isFinite(value) || value < 0 || value > 31 || value != Math.floor(value)) return new int[0];
+            result[index] = (int) value;
+        }
+        return result;
     }
 
     private static ViewerPhoto viewerPhoto(String type, JSONObject value) {

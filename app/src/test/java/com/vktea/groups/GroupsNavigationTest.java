@@ -167,7 +167,8 @@ public class GroupsNavigationTest {
                     org.json.JSONArray rows = new org.json.JSONArray().put(group);
                     callback.success(new JSONObject().put("response", modern ? new JSONObject().put("groups", rows) : rows));
                 } else if (method.equals("wall.get")) callback.success(new JSONObject("{response:{items:[{id:7,owner_id:-42,from_id:-42,text:'Синтетическая запись'}],groups:[{id:42,name:'Данные сообщества'}]}}"));
-                else if (method.equals("users.get") || method.equals("newsfeed.get") || method.equals("stories.get") || method.equals("newsfeed.getLists"))
+                else if (method.equals("users.get") || method.equals("newsfeed.get") || method.equals("stories.get") || method.equals("newsfeed.getLists")
+                        || method.equals("messages.getLongPollServer") || method.equals("account.getCounters"))
                     callback.error(new Exception("Synthetic offline host"));
                 else throw new AssertionError("Unexpected account operation: " + method);
             } catch (org.json.JSONException failure) { throw new AssertionError(failure); }

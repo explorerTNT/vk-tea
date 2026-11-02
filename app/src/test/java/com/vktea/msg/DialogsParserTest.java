@@ -73,6 +73,7 @@ public class DialogsParserTest {
 
         assertEquals(41, dialogs.get(0).peerId);
         assertTrue(dialogs.get(0).unread);
+        assertEquals(3, dialogs.get(0).unreadCount);
         assertEquals("https://images.invalid/person", dialogs.get(0).photo);
         assertEquals(2_000_000_010L, dialogs.get(1).peerId);
         assertEquals("Synthetic modern chat", dialogs.get(1).title);

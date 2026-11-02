@@ -1,0 +1,8 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp" android:height="40dp"
+    android:viewportWidth="40" android:viewportHeight="40">
+    <path android:fillColor="@color/vk_blue"
+        android:pathData="M20,0 A20,20 0,1 1,20,40 A20,20 0,1 1,20,0" />
+    <path android:fillColor="@color/chat_voice_play_foreground"
+        android:pathData="M14,11 L19,11 L19,29 L14,29 Z M22,11 L27,11 L27,29 L22,29 Z" />
+</vector>

@@ -13,6 +13,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -30,7 +31,6 @@ import com.vktea.feed.VideoPlayerActivity;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -54,7 +54,22 @@ public class ChatActivity extends AppCompatActivity {
     private ImageView peerAvatar;
     private TextView peerName;
     private TextView peerStatus;
+    private MessageForwarder forwarder;
+    private final Set<MessageForwarder> textSends = new HashSet<>();
+    private boolean forwardBusy;
+    private VoiceMessagePlayer voicePlayer;
+    private VoiceMessageRecorder voiceRecorder;
+    private ChatFileSender fileSender;
     private boolean loading;
+    private boolean livePending;
+    private boolean liveStarted;
+    private boolean startedOnce;
+    private final MessageLongPoll.Listener liveUpdates = this::onLiveMessagesChanged;
+
+    protected void onLiveMessagesChanged() {
+        if (loading) livePending = true;
+        else loadHistory(true);
+    }
     private long localId = -100;
     private final List<ChatMessage> historyMessages = new ArrayList<>();
     private final List<LocalMessage> localMessages = new ArrayList<>();
@@ -107,7 +122,17 @@ public class ChatActivity extends AppCompatActivity {
         LinearLayoutManager layout = new LinearLayoutManager(this);
         layout.setStackFromEnd(true);
         list.setLayoutManager(layout);
-        adapter = new ChatMessagesAdapter(this::openAttachment);
+        voicePlayer = createVoicePlayer();
+        voicePlayer.setObserver((attachment, playing, position, duration) -> {
+            if (adapter != null) adapter.setVoicePlayback(attachment, playing, position, duration);
+        });
+        adapter = new ChatMessagesAdapter(new ChatMessagesAdapter.Callback() {
+            @Override public void onAttachmentClicked(ChatAttachment attachment) { openAttachment(attachment); }
+            @Override public void onVoiceSeek(ChatAttachment attachment, float fraction) {
+                voicePlayer.seek(attachment, fraction);
+            }
+            @Override public void onMessageLongClicked(ChatMessage message) { showMessageActions(message); }
+        });
         list.setAdapter(adapter);
         loadingView = findViewById(R.id.chat_loading);
         stateView = findViewById(R.id.chat_state);
@@ -117,6 +142,14 @@ public class ChatActivity extends AppCompatActivity {
 
         View send = findViewById(R.id.chat_send);
         EditText input = findViewById(R.id.chat_input);
+        voiceRecorder = createVoiceRecorder(peerId, this::onLiveMessagesChanged);
+        fileSender = createFileSender(peerId, this::onLiveMessagesChanged);
+        View attach = findViewById(R.id.chat_attach);
+        attach.setEnabled(peerId != 0);
+        attach.setOnClickListener(v -> fileSender.choose());
+        View voice = findViewById(R.id.chat_voice);
+        voice.setEnabled(peerId != 0);
+        voice.setOnClickListener(v -> voiceRecorder.start());
         input.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -144,6 +177,12 @@ public class ChatActivity extends AppCompatActivity {
         ViewCompat.requestApplyInsets(root);
     }
 
+    // Factories let the isolated QA build use synthetic transports without altering user sessions.
+    protected VoiceMessagePlayer createVoicePlayer() { return new VoiceMessagePlayer(this); }
+    protected VoiceMessageRecorder createVoiceRecorder(long peer, Runnable sent) { return new VoiceMessageRecorder(this, peer, sent); }
+    protected ChatFileSender createFileSender(long peer, Runnable sent) { return new ChatFileSender(this, peer, sent); }
+    MessageForwarder createMessageForwarder() { return new MessageForwarder(this); }
+
     /** Separate transport boundary lets offline UI tests use synthetic history only. */
     protected void requestHistory(VKApi.Callback callback) {
         VKApi.get(this, "messages.getHistory", "peer_id=" + peerId
@@ -158,18 +197,51 @@ public class ChatActivity extends AppCompatActivity {
         });
     }
 
-    private void loadHistory() {
+    @Override protected void onStart() {
+        super.onStart();
+        if (peerId != 0) {
+            liveStarted = true;
+            subscribeLiveUpdates();
+            if (startedOnce) liveUpdates.onMessagesChanged();
+            startedOnce = true;
+        }
+    }
+
+    @Override protected void onStop() {
+        liveStarted = false;
+        unsubscribeLiveUpdates();
+        if (voicePlayer != null) voicePlayer.close();
+        if (voiceRecorder != null) voiceRecorder.close();
+        super.onStop();
+    }
+
+    protected void subscribeLiveUpdates() { MessageLongPoll.get(this).addListener(liveUpdates); }
+    protected void unsubscribeLiveUpdates() { MessageLongPoll.get(this).removeListener(liveUpdates); }
+
+    @Override protected void onDestroy() {
+        if (forwarder != null) forwarder.close();
+        for (MessageForwarder send : textSends) send.close();
+        textSends.clear();
+        if (fileSender != null) fileSender.close();
+        super.onDestroy();
+    }
+
+    private void loadHistory() { loadHistory(false); }
+
+    private void loadHistory(boolean silent) {
         if (loading || peerId == 0) return;
         loading = true;
-        loadingView.setVisibility(View.VISIBLE);
-        stateView.setVisibility(View.GONE);
+        if (!silent) {
+            loadingView.setVisibility(View.VISIBLE);
+            stateView.setVisibility(View.GONE);
+        }
         requestHistory(new VKApi.Callback() {
             @Override
             public void success(JSONObject response) {
                 try {
                     JSONObject data = response == null ? null : response.optJSONObject("response");
                     if (data == null || data.optJSONArray("items") == null) {
-                        showHistoryError();
+                        showHistoryError(silent);
                         return;
                     }
                     List<ChatMessage> messages = ChatHistoryParser.parse(response, peerId);
@@ -177,26 +249,43 @@ public class ChatActivity extends AppCompatActivity {
                         if (isFinishing() || isDestroyed()) return;
                         loading = false;
                         loadingView.setVisibility(View.GONE);
+                        boolean atEnd = adapter.getItemCount() == 0 ||
+                                ((LinearLayoutManager) list.getLayoutManager()).findLastVisibleItemPosition()
+                                        >= adapter.getItemCount() - 2;
+                        Set<Long> previousIds = new HashSet<>();
+                        for (ChatMessage old : historyMessages) previousIds.add(old.id);
+                        boolean newIncoming = false;
+                        if (silent) for (ChatMessage message : messages) {
+                            if (!message.out && !previousIds.contains(message.id)) { newIncoming = true; break; }
+                        }
                         historyMessages.clear();
                         historyMessages.addAll(messages);
                         renderMessages();
                         updatePeer(data);
                         if (adapter.getItemCount() == 0) showState(R.string.chat_empty, false);
-                        else list.scrollToPosition(adapter.getItemCount() - 1);
+                        else {
+                            stateView.setVisibility(View.GONE);
+                            if (!silent || atEnd) list.scrollToPosition(adapter.getItemCount() - 1);
+                        }
+                        if (newIncoming && liveStarted) markRead();
+                        if (livePending && liveStarted) { livePending = false; loadHistory(true); }
                     });
                 } catch (Exception ignored) {
-                    showHistoryError();
+                        showHistoryError(silent);
                 }
             }
-            @Override public void error(Exception e) { showHistoryError(); }
+            @Override public void error(Exception e) { showHistoryError(silent); }
         });
     }
 
-    private void showHistoryError() {
+    private void showHistoryError() { showHistoryError(false); }
+
+    private void showHistoryError(boolean silent) {
         runOnUiThread(() -> {
             if (isFinishing() || isDestroyed()) return;
             loading = false;
-            showState(R.string.chat_load_failed, true);
+            if (!silent || adapter.getItemCount() == 0) showState(R.string.chat_load_failed, true);
+            if (livePending && liveStarted) { livePending = false; loadHistory(true); }
         });
     }
 
@@ -240,7 +329,8 @@ public class ChatActivity extends AppCompatActivity {
     protected void sendMessage(String text) {
         stateView.setVisibility(View.GONE);
         ChatMessage message = new ChatMessage(--localId, true, 0, "", "", text,
-                System.currentTimeMillis() / 1000L, Collections.emptyList());
+                System.currentTimeMillis() / 1000L, Collections.emptyList())
+                .withSendStatus(ChatMessage.SendStatus.SENDING);
         LocalMessage local = new LocalMessage(message);
         localMessages.add(local);
         adapter.add(message);
@@ -249,28 +339,38 @@ public class ChatActivity extends AppCompatActivity {
                     @Override public void success(JSONObject response) {
                         runOnUiThread(() -> {
                             if (isFinishing() || isDestroyed()) return;
-                            local.serverId = response.optLong("response", 0);
-                            if (local.serverId > 0) {
-                                for (ChatMessage loaded : historyMessages) {
-                                    if (loaded.id == local.serverId) {
-                                        renderMessages();
-                                        break;
-                                    }
-                                }
-                            }
+                            local.serverId = response == null ? 0 : response.optLong("response", 0);
+                            local.message = local.message.withSendStatus(local.serverId > 0
+                                    ? ChatMessage.SendStatus.NONE : ChatMessage.SendStatus.UNCONFIRMED);
+                            renderMessages();
                         });
                     }
                     @Override public void error(Exception e) {
                         runOnUiThread(() -> {
-                            if (!isFinishing() && !isDestroyed()) Toast.makeText(ChatActivity.this,
-                                    R.string.send_failed, Toast.LENGTH_SHORT).show();
+                            if (isFinishing() || isDestroyed()) return;
+                            local.message = local.message.withSendStatus(ChatMessage.SendStatus.UNCONFIRMED);
+                            renderMessages();
+                            Toast.makeText(ChatActivity.this, R.string.send_failed, Toast.LENGTH_SHORT).show();
                         });
                     }
                 });
     }
 
     protected void requestSend(String text, VKApi.Callback callback) {
-        VKApi.get(this, "messages.send", "peer_id=" + peerId + "&message=" + urlEncode(text), callback);
+        MessageForwarder send = createMessageForwarder();
+        textSends.add(send);
+        send.sendText(peerId, text, new MessageForwarder.Callback() {
+            @Override public void complete(JSONObject response) {
+                textSends.remove(send);
+                callback.success(response);
+                send.close();
+            }
+            @Override public void failed() {
+                textSends.remove(send);
+                callback.error(new Exception("Send could not be confirmed"));
+                send.close();
+            }
+        });
     }
 
     /** History may arrive after an explicit send; keep local rows until their server IDs appear. */
@@ -286,12 +386,16 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private static final class LocalMessage {
-        final ChatMessage message;
+        ChatMessage message;
         long serverId;
         LocalMessage(ChatMessage message) { this.message = message; }
     }
 
     private void openAttachment(ChatAttachment attachment) {
+        if ("audio_message".equals(attachment.type)) {
+            voicePlayer.toggle(attachment);
+            return;
+        }
         if (("video".equals(attachment.type) || "clip".equals(attachment.type)) && attachment.id != 0) {
             startActivity(new Intent(this, VideoPlayerActivity.class)
                     .putExtra("owner_id", attachment.ownerId).putExtra("video_id", attachment.id)
@@ -303,6 +407,8 @@ public class ChatActivity extends AppCompatActivity {
                 && ("link".equals(attachment.type) || "story".equals(attachment.type))) {
             startActivity(new Intent(this, com.vktea.auth.AuthWebViewActivity.class)
                     .setData(android.net.Uri.parse(attachment.url)));
+        } else if (ChatAttachmentActions.open(this, attachment)) {
+            return;
         } else if (!attachment.previewUrl.isEmpty()) {
             ArrayList<String> photos = new ArrayList<>();
             ViewerPhoto metadata = attachment.viewerPhoto;
@@ -313,8 +419,57 @@ public class ChatActivity extends AppCompatActivity {
         }
     }
 
-    private static String urlEncode(String value) {
-        try { return URLEncoder.encode(value, "UTF-8"); }
-        catch (Exception ignored) { return value; }
+    private void showMessageActions(ChatMessage message) {
+        if (message.id <= 0) return;
+        new AlertDialog.Builder(this).setItems(new String[]{getString(R.string.chat_forward_action)},
+                (dialog, which) -> chooseForwardRecipient(message.id)).show();
     }
+
+    private void chooseForwardRecipient(long messageId) {
+        if (forwardBusy) return;
+        forwardBusy = true;
+        if (forwarder != null) forwarder.close();
+        MessageForwarder operation = createMessageForwarder();
+        forwarder = operation;
+        operation.recipients(new MessageForwarder.Callback() {
+            @Override public void complete(JSONObject response) {
+                if (isFinishing() || isDestroyed() || forwarder != operation) return;
+                JSONObject data = response.optJSONObject("response");
+                if (data == null || data.optJSONArray("items") == null) { failed(); return; }
+                List<Dialog> dialogs = DialogsParser.parse(response);
+                if (dialogs.isEmpty()) {
+                    forwardBusy = false;
+                    Toast.makeText(ChatActivity.this, R.string.chat_forward_no_recipients, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String[] titles = new String[dialogs.size()];
+                for (int i = 0; i < dialogs.size(); i++) titles[i] = dialogs.get(i).title;
+                new AlertDialog.Builder(ChatActivity.this).setTitle(R.string.chat_forward_choose)
+                        .setItems(titles, (dialog, which) -> sendForward(operation, dialogs.get(which).peerId, messageId))
+                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> forwardBusy = false)
+                        .setOnCancelListener(dialog -> forwardBusy = false).show();
+            }
+            @Override public void failed() {
+                forwardBusy = false;
+                if (!isFinishing() && !isDestroyed() && forwarder == operation)
+                    Toast.makeText(ChatActivity.this, R.string.chat_forward_load_failed, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void sendForward(MessageForwarder operation, long destination, long messageId) {
+        operation.send(destination, messageId, new MessageForwarder.Callback() {
+            @Override public void complete(JSONObject response) {
+                forwardBusy = false;
+                if (!isFinishing() && !isDestroyed()) Toast.makeText(ChatActivity.this,
+                        R.string.chat_forward_sent, Toast.LENGTH_SHORT).show();
+            }
+            @Override public void failed() {
+                forwardBusy = false;
+                if (!isFinishing() && !isDestroyed()) Toast.makeText(ChatActivity.this,
+                        R.string.chat_forward_send_failed, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
 }

@@ -9,6 +9,7 @@ import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
@@ -37,6 +38,27 @@ public class ChatMessagesAdapterTest {
     private final FakeImages images = new FakeImages();
     private final List<ChatAttachment> clicked = new ArrayList<>();
     private final ChatMessagesAdapter adapter = new ChatMessagesAdapter(clicked::add, images);
+
+    @Test public void readIndicatorAppearsOnlyForKnownOutgoingStateAndRecyclingClearsIt() {
+        ChatMessage unread = new ChatMessage(1, true, 0, "", "", "Text", 100,
+                Collections.emptyList(), 0);
+        ChatMessage read = new ChatMessage(2, true, 0, "", "", "Text", 100,
+                Collections.emptyList(), 1);
+        ChatMessage unknown = new ChatMessage(3, true, 0, "", "", "Text", 100,
+                Collections.emptyList());
+        adapter.replaceAll(Collections.singletonList(unread));
+        ChatMessagesAdapter.Holder holder = bind(0, 320, 1f);
+        assertTrue(holder.time.getText().toString().endsWith("✓"));
+        assertTrue(holder.time.getContentDescription().toString().contains("не прочитано"));
+        adapter.replaceAll(Collections.singletonList(read));
+        adapter.onBindViewHolder(holder, 0);
+        assertTrue(holder.time.getText().toString().endsWith("✓✓"));
+        assertTrue(holder.time.getContentDescription().toString().contains("Прочитано"));
+        adapter.replaceAll(Collections.singletonList(unknown));
+        adapter.onBindViewHolder(holder, 0);
+        assertFalse(holder.time.getText().toString().contains("✓"));
+        assertFalse(holder.time.getContentDescription().toString().contains("прочитано"));
+    }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     public void outgoingLongUnbrokenTextFitsNarrowLargeFontAndLandscape() {
@@ -140,11 +162,67 @@ public class ChatMessagesAdapterTest {
             View child = holder.attachments.getChildAt(i);
             assertTrue(child.getHeight() > 0);
             if (i > 0) assertTrue(((TextView) child.findViewById(R.id.chat_attachment_title)).length() > 0);
-            assertEquals(i == 0, child.performClick());
+            assertEquals(i == 0 || i == 2, child.performClick());
         }
-        assertEquals(Collections.singletonList(video), clicked);
+        assertEquals(Arrays.asList(video, audio), clicked);
         assertEquals(View.GONE, holder.text.getVisibility());
         assertInsideRow(holder, 280);
+    }
+
+    @Test public void voiceIsDisplayedAsPlayableAudioAndRecyclingRestoresDocumentAppearance() {
+        ChatAttachment voice = new ChatAttachment("audio_message", "Голосовое сообщение", "0:17", "",
+                "https://example.invalid/voice.ogg", 0, 0, 17, 1, 42, "");
+        ChatAttachment document = new ChatAttachment("doc", "ordinary.ogg", "OGG", "",
+                "https://example.invalid/ordinary.ogg", 0, 0, 0, 2, 42, "");
+        for (boolean outgoing : new boolean[]{false, true}) {
+            adapter.replaceAll(Collections.singletonList(message(outgoing, 1, "", voice)));
+            ChatMessagesAdapter.Holder holder = bind(0, 280, 1.5f);
+            View voiceRow = holder.attachments.getChildAt(0);
+            assertNotNull(voiceRow.findViewById(R.id.chat_voice_play_icon));
+            assertEquals("Голосовое сообщение", ((TextView) voiceRow.findViewById(R.id.chat_attachment_title)).getText().toString());
+            assertEquals("0:17", ((TextView) voiceRow.findViewById(R.id.chat_attachment_subtitle)).getText().toString());
+            assertTrue(voiceRow.getContentDescription().toString().contains("0:17"));
+            assertTrue(voiceRow.performClick());
+            assertEquals(voice, clicked.get(clicked.size() - 1));
+            assertInsideRow(holder, 280);
+            adapter.replaceAll(Collections.singletonList(message(outgoing, 2, "", document)));
+            adapter.onBindViewHolder(holder, 0);
+            measure(holder.itemView, 280);
+            assertNull(holder.itemView.findViewById(R.id.chat_voice_play_icon));
+            assertTrue(((TextView) holder.itemView.findViewById(R.id.chat_attachment_title)).getText().toString().contains("ordinary.ogg"));
+            assertInsideRow(holder, 280);
+        }
+    }
+
+    @Test public void voiceProgressUpdatesInPlaceAndSurvivesRebindingWithSameIdentity() {
+        ChatAttachment voice = new ChatAttachment("audio_message", "Голосовое сообщение", "", "",
+                "", 0, 0, 20, 1, 42, "", null, new int[]{0, 5, 31, 10});
+        adapter.replaceAll(Collections.singletonList(message(true, 1, "", voice)));
+        ChatMessagesAdapter.Holder holder = bind(0, 320, 1f);
+        View original = holder.attachments.getChildAt(0);
+        SeekBar progress = original.findViewById(R.id.chat_voice_progress);
+        assertTrue(original.performClick()); // Refresh by document identity works without an old URL.
+        assertFalse(progress.isEnabled());
+        adapter.setVoicePlayback(voice, true, 5000, 20000);
+        assertSame(original, holder.attachments.getChildAt(0));
+        assertTrue(progress.isEnabled());
+        assertEquals(250, progress.getProgress());
+        assertEquals("0:05 / 0:20", ((TextView) original.findViewById(R.id.chat_attachment_subtitle)).getText().toString());
+        assertTrue(original.getContentDescription().toString().contains("Приостановить"));
+
+        ChatAttachment refreshed = new ChatAttachment("audio_message", "Голосовое сообщение", "", "",
+                "https://example.invalid/fresh.ogg", 0, 0, 20, 1, 42, "");
+        adapter.replaceAll(Collections.singletonList(message(true, 1, "", refreshed)));
+        adapter.onBindViewHolder(holder, 0);
+        View rebound = holder.attachments.getChildAt(0);
+        assertEquals(250, ((SeekBar) rebound.findViewById(R.id.chat_voice_progress)).getProgress());
+        adapter.setVoicePlayback(null, false, 0, 0);
+        assertEquals(0, ((SeekBar) rebound.findViewById(R.id.chat_voice_progress)).getProgress());
+        assertFalse(((SeekBar) rebound.findViewById(R.id.chat_voice_progress)).isEnabled());
+        assertEquals("0:20", ((TextView) rebound.findViewById(R.id.chat_attachment_subtitle)).getText().toString());
+        adapter.onViewRecycled(holder);
+        adapter.setVoicePlayback(refreshed, true, 5000, 20000);
+        assertEquals(0, holder.attachments.getChildCount());
     }
 
     @Test public void rebindingClearsOldAttachmentsAvatarAndPendingSizeCallback() {

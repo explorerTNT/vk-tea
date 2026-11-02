@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_attachment_open_failed">Не удалось открыть вложение</string>
+    <string name="chat_attach_file">Прикрепить файл или фотографию</string>
+</resources>
