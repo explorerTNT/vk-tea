@@ -1,0 +1,22 @@
+<resources>
+    <string name="documents_search_hint">Поиск по документам</string>
+    <string name="documents_clear_search">Очистить поиск</string>
+    <string name="documents_empty">Документов пока нет</string>
+    <string name="documents_search_empty">Ничего не найдено</string>
+    <string name="documents_empty_page">На этой странице нет доступных документов</string>
+    <string name="documents_more">Показать ещё</string>
+    <string name="documents_loading">Загрузка документов…</string>
+    <string name="documents_error_auth">Войдите в аккаунт, чтобы увидеть документы</string>
+    <string name="documents_error_access">Нет доступа к документам этого аккаунта</string>
+    <string name="documents_error_rate">Слишком много запросов. Попробуйте позже</string>
+    <string name="documents_error_network">Не удалось загрузить документы. Проверьте подключение</string>
+    <string name="documents_error_api">Не удалось получить документы ВКонтакте</string>
+    <string name="documents_retry">Повторить</string>
+    <string name="documents_unavailable">Документ недоступен для открытия</string>
+    <string name="documents_open_title">Открыть документ?</string>
+    <string name="documents_open_message">Документ откроется во внешнем приложении или браузере.</string>
+    <string name="documents_open">Открыть</string>
+    <string name="documents_no_handler">Нет приложения для открытия ссылки</string>
+    <string name="documents_file_info">%1$s · %2$s</string>
+    <string name="documents_no_extension">Файл</string>
+</resources>
