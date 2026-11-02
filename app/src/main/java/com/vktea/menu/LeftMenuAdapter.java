@@ -37,7 +37,12 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     public void setHeaderUser(com.vktea.api.User user) {
         this.user = user;
         notifyItemChanged(1);
-        if (user != null && user.counters != null) {
+        if (user == null) {
+            applyCounter(R.id.menu_friends, 0);
+            applyCounter(R.id.menu_messages, 0);
+            applyCounter(R.id.menu_feedback, 0);
+            applyCounter(R.id.menu_groups, 0);
+        } else if (user.counters != null) {
             applyCounter(R.id.menu_friends, user.counters.friends);
             applyCounter(R.id.menu_messages, user.counters.messages);
             applyCounter(R.id.menu_feedback, user.counters.notifications);
@@ -166,23 +171,29 @@ public class LeftMenuAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
         void bind(com.vktea.api.User user) {
             if (user == null) {
+                com.bumptech.glide.Glide.with(itemView).clear(avatar);
+                com.bumptech.glide.Glide.with(itemView).clear(cover);
+                avatar.setImageDrawable(null);
+                cover.setImageResource(R.drawable.bg_profile_cover);
+                name.setText(R.string.menu_user_name);
+                status.setText(R.string.menu_user_status);
                 return;
             }
             name.setText(user.fullName());
             if (user.status != null && !user.status.isEmpty()) {
                 status.setText(user.status);
-            }
+            } else status.setText(R.string.menu_user_status);
             if (user.photo200 != null && !user.photo200.isEmpty()) {
                 com.bumptech.glide.Glide.with(itemView)
                         .load(user.photo200)
                         .apply(com.bumptech.glide.request.RequestOptions.circleCropTransform())
                         .into(avatar);
-            }
+            } else { com.bumptech.glide.Glide.with(itemView).clear(avatar); avatar.setImageDrawable(null); }
             if (user.coverUrl != null && !user.coverUrl.isEmpty()) {
                 com.bumptech.glide.Glide.with(itemView)
                         .load(user.coverUrl)
                         .into(cover);
-            }
+            } else { com.bumptech.glide.Glide.with(itemView).clear(cover); cover.setImageResource(R.drawable.bg_profile_cover); }
         }
     }
 

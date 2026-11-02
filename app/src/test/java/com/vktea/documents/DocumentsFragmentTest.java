@@ -16,6 +16,7 @@ import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
 import com.vktea.R;
+import com.vktea.auth.Session;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -40,7 +41,11 @@ public class DocumentsFragmentTest {
         controller.get().getSupportFragmentManager().beginTransaction().add(R.id.content, new TestFragment()).commitNow();
         settle();
     }
-    @After public void close() { controller.close(); repository = null; }
+    @After public void close() {
+        controller.close();
+        controller.get().getSharedPreferences("session", android.content.Context.MODE_PRIVATE).edit().clear().commit();
+        repository = null;
+    }
     @Test public void emptyErrorsRetryAndSearchAreVisibleAndDebounced() {
         assertEquals(1, repository.calls);
         repository.callback.error(new DocumentsRepository.Error(DocumentsRepository.Error.Kind.ACCESS)); settle();
@@ -72,6 +77,19 @@ public class DocumentsFragmentTest {
         assertEquals(controller.get().getString(R.string.documents_empty_page), ((TextView) view(R.id.documents_empty)).getText().toString());
         assertEquals(View.VISIBLE, view(R.id.documents_more).getVisibility());
         assertTrue(view(R.id.documents_more).performClick()); assertEquals(2, repository.calls); assertEquals(50, repository.offset);
+    }
+    @Test public void confirmationCannotOpenPreviousAccountsDocument() {
+        Session.save(controller.get(), "synthetic-a", "101");
+        repository.callback.success(new DocumentsRepository.Page(Collections.singletonList(
+                new DocumentItem(1, 101, "Report.pdf", "pdf", 1024, "https://vk.com/doc1")), 1, 1));
+        settle(); RecyclerView list = (RecyclerView) view(R.id.documents_list);
+        RecyclerView.ViewHolder holder = list.findViewHolderForAdapterPosition(0);
+        assertNotNull(holder); holder.itemView.performClick();
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        Session.save(controller.get(), "synthetic-b", "202");
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertNull(shadowOf(controller.get()).getNextStartedActivity());
     }
     @Test public void recreationReleasesOldViewsAndKeepsLoadedSnapshot() {
         repository.callback.success(new DocumentsRepository.Page(Collections.singletonList(

@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.vktea.R;
 import com.vktea.api.VKApi;
+import com.vktea.auth.Session;
 import com.vktea.feed.PostPhotosRenderer;
 import com.vktea.feed.ViewerPhoto;
 import com.vktea.feed.VideoPlayerActivity;
@@ -37,6 +38,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Objects;
 
 public class ChatActivity extends AppCompatActivity {
     public static final String EXTRA_PEER_ID = "peer_id";
@@ -64,6 +66,11 @@ public class ChatActivity extends AppCompatActivity {
     private boolean livePending;
     private boolean liveStarted;
     private boolean startedOnce;
+    private long sessionGeneration;
+    @androidx.annotation.Nullable private String sessionUser;
+    private long historyGeneration;
+    private boolean sessionEnded;
+    private final Runnable sessionUpdates = this::synchronizeSession;
     private final MessageLongPoll.Listener liveUpdates = this::onLiveMessagesChanged;
 
     protected void onLiveMessagesChanged() {
@@ -93,6 +100,10 @@ public class ChatActivity extends AppCompatActivity {
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
 
         peerId = getIntent().getLongExtra(EXTRA_PEER_ID, 0);
+        Session.Snapshot initialSession = Session.snapshot(this);
+        sessionGeneration = initialSession.generation;
+        sessionUser = initialSession.userId;
+        Session.addChangeListener(sessionUpdates);
         isSelfChat = peerId != 0 && peerId == DialogsParser.selfId();
         Toolbar toolbar = findViewById(R.id.chat_toolbar);
         setSupportActionBar(toolbar);
@@ -146,10 +157,10 @@ public class ChatActivity extends AppCompatActivity {
         fileSender = createFileSender(peerId, this::onLiveMessagesChanged);
         View attach = findViewById(R.id.chat_attach);
         attach.setEnabled(peerId != 0);
-        attach.setOnClickListener(v -> fileSender.choose());
+        attach.setOnClickListener(v -> { if (synchronizeSession()) fileSender.choose(); });
         View voice = findViewById(R.id.chat_voice);
         voice.setEnabled(peerId != 0);
-        voice.setOnClickListener(v -> voiceRecorder.start());
+        voice.setOnClickListener(v -> { if (synchronizeSession()) voiceRecorder.start(); });
         input.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -161,6 +172,7 @@ public class ChatActivity extends AppCompatActivity {
         send.setEnabled(!input.getText().toString().trim().isEmpty());
         send.setAlpha(send.isEnabled() ? 1f : .4f);
         send.setOnClickListener(v -> {
+            if (!synchronizeSession()) return;
             String text = input.getText().toString().trim();
             if (text.isEmpty() || peerId == 0) return;
             input.setText("");
@@ -199,6 +211,7 @@ public class ChatActivity extends AppCompatActivity {
 
     @Override protected void onStart() {
         super.onStart();
+        if (!synchronizeSession()) return;
         if (peerId != 0) {
             liveStarted = true;
             subscribeLiveUpdates();
@@ -219,6 +232,8 @@ public class ChatActivity extends AppCompatActivity {
     protected void unsubscribeLiveUpdates() { MessageLongPoll.get(this).removeListener(liveUpdates); }
 
     @Override protected void onDestroy() {
+        Session.removeChangeListener(sessionUpdates);
+        historyGeneration++;
         if (forwarder != null) forwarder.close();
         for (MessageForwarder send : textSends) send.close();
         textSends.clear();
@@ -229,8 +244,11 @@ public class ChatActivity extends AppCompatActivity {
     private void loadHistory() { loadHistory(false); }
 
     private void loadHistory(boolean silent) {
+        if (!synchronizeSession()) return;
         if (loading || peerId == 0) return;
         loading = true;
+        final long requestGeneration = ++historyGeneration;
+        final long requestSession = sessionGeneration;
         if (!silent) {
             loadingView.setVisibility(View.VISIBLE);
             stateView.setVisibility(View.GONE);
@@ -238,15 +256,16 @@ public class ChatActivity extends AppCompatActivity {
         requestHistory(new VKApi.Callback() {
             @Override
             public void success(JSONObject response) {
+                if (!historyCurrent(requestGeneration, requestSession)) return;
                 try {
                     JSONObject data = response == null ? null : response.optJSONObject("response");
                     if (data == null || data.optJSONArray("items") == null) {
-                        showHistoryError(silent);
+                        showHistoryError(silent, requestGeneration, requestSession);
                         return;
                     }
                     List<ChatMessage> messages = ChatHistoryParser.parse(response, peerId);
                     runOnUiThread(() -> {
-                        if (isFinishing() || isDestroyed()) return;
+                        if (!historyCurrent(requestGeneration, requestSession)) return;
                         loading = false;
                         loadingView.setVisibility(View.GONE);
                         boolean atEnd = adapter.getItemCount() == 0 ||
@@ -271,18 +290,60 @@ public class ChatActivity extends AppCompatActivity {
                         if (livePending && liveStarted) { livePending = false; loadHistory(true); }
                     });
                 } catch (Exception ignored) {
-                        showHistoryError(silent);
+                        if (historyCurrent(requestGeneration, requestSession))
+                            showHistoryError(silent, requestGeneration, requestSession);
                 }
             }
-            @Override public void error(Exception e) { showHistoryError(silent); }
+            @Override public void error(Exception e) {
+                if (historyCurrent(requestGeneration, requestSession))
+                    showHistoryError(silent, requestGeneration, requestSession);
+            }
         });
     }
 
-    private void showHistoryError() { showHistoryError(false); }
+    private boolean historyCurrent(long requestGeneration, long requestSession) {
+        return synchronizeSession() && !isFinishing() && !isDestroyed()
+                && requestGeneration == historyGeneration && requestSession == sessionGeneration;
+    }
 
-    private void showHistoryError(boolean silent) {
+    /** A chat belongs to the account that opened it; never retain it after an account switch. */
+    private boolean synchronizeSession() {
+        if (sessionEnded || isFinishing() || isDestroyed()) return false;
+        Session.Snapshot current = Session.snapshot(this);
+        if (current.generation == sessionGeneration) return true;
+        boolean sameUser = sessionUser != null && Objects.equals(sessionUser, current.userId)
+                && current.token != null && !current.token.isEmpty();
+        sessionGeneration = current.generation;
+        historyGeneration++;
+        loading = false;
+        livePending = false;
+        if (sameUser) {
+            if (voiceRecorder != null) voiceRecorder.onSessionRefreshed();
+            if (liveStarted && peerId != 0) loadHistory(true);
+            return true;
+        }
+        sessionEnded = true;
+        if (voicePlayer != null) voicePlayer.close();
+        if (voiceRecorder != null) voiceRecorder.close();
+        if (fileSender != null) fileSender.close();
+        if (forwarder != null) { forwarder.close(); forwarder = null; }
+        for (MessageForwarder send : textSends) send.close();
+        textSends.clear();
+        historyMessages.clear();
+        localMessages.clear();
+        if (adapter != null) adapter.replaceAll(Collections.emptyList());
+        EditText input = findViewById(R.id.chat_input);
+        if (input != null) input.setText("");
+        if (peerName != null) peerName.setText("");
+        if (peerStatus != null) peerStatus.setVisibility(View.GONE);
+        if (peerAvatar != null) MessageAvatars.clear(peerAvatar);
+        finish();
+        return false;
+    }
+
+    private void showHistoryError(boolean silent, long requestGeneration, long requestSession) {
         runOnUiThread(() -> {
-            if (isFinishing() || isDestroyed()) return;
+            if (!historyCurrent(requestGeneration, requestSession)) return;
             loading = false;
             if (!silent || adapter.getItemCount() == 0) showState(R.string.chat_load_failed, true);
             if (livePending && liveStarted) { livePending = false; loadHistory(true); }
@@ -327,6 +388,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     protected void sendMessage(String text) {
+        if (!synchronizeSession()) return;
         stateView.setVisibility(View.GONE);
         ChatMessage message = new ChatMessage(--localId, true, 0, "", "", text,
                 System.currentTimeMillis() / 1000L, Collections.emptyList())
@@ -338,7 +400,7 @@ public class ChatActivity extends AppCompatActivity {
         requestSend(text, new VKApi.Callback() {
                     @Override public void success(JSONObject response) {
                         runOnUiThread(() -> {
-                            if (isFinishing() || isDestroyed()) return;
+                            if (!synchronizeSession()) return;
                             local.serverId = response == null ? 0 : response.optLong("response", 0);
                             local.message = local.message.withSendStatus(local.serverId > 0
                                     ? ChatMessage.SendStatus.NONE : ChatMessage.SendStatus.UNCONFIRMED);
@@ -347,7 +409,7 @@ public class ChatActivity extends AppCompatActivity {
                     }
                     @Override public void error(Exception e) {
                         runOnUiThread(() -> {
-                            if (isFinishing() || isDestroyed()) return;
+                            if (!synchronizeSession()) return;
                             local.message = local.message.withSendStatus(ChatMessage.SendStatus.UNCONFIRMED);
                             renderMessages();
                             Toast.makeText(ChatActivity.this, R.string.send_failed, Toast.LENGTH_SHORT).show();
@@ -392,6 +454,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void openAttachment(ChatAttachment attachment) {
+        if (!synchronizeSession()) return;
         if ("audio_message".equals(attachment.type)) {
             voicePlayer.toggle(attachment);
             return;

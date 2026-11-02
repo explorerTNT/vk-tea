@@ -8,12 +8,11 @@ import android.os.Looper;
 import com.vktea.auth.Session;
 
 import org.json.JSONObject;
+import org.json.JSONException;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.Locale;
-import java.util.Scanner;
 
 public class VKApi {
 
@@ -21,6 +20,11 @@ public class VKApi {
         void success(JSONObject response);
 
         void error(Exception e);
+    }
+
+    /** The request belonged to a session that is no longer current. */
+    public static final class SessionChangedException extends Exception {
+        public SessionChangedException() { super("Session changed"); }
     }
 
     private static final String API_HOST = "api.vk.com";
@@ -40,18 +44,31 @@ public class VKApi {
             Locale.getDefault().getLanguage());
 
     public static void get(Context context, String method, String params, Callback callback) {
-        String token = Session.getToken(context);
-        String secret = Session.getSecret(context);
+        get(context, method, params, callback, CLIENT);
+    }
+
+    /** Package-private transport injection is used only by offline synthetic tests. */
+    static void get(Context context, String method, String params, Callback callback,
+                    okhttp3.OkHttpClient client) {
+        Session.Snapshot snapshot = Session.snapshot(context);
+        if (snapshot.token == null || snapshot.token.isEmpty()) {
+            dispatch(snapshot.generation, callback, null, new Exception("Authentication required"));
+            return;
+        }
         new Thread(() -> {
             try {
+                if (snapshot.generation != Session.generation()) {
+                    dispatch(snapshot.generation, callback, null, new SessionChangedException());
+                    return;
+                }
                 String query = "v=" + API_VERSION
                         + "&lang=" + Locale.getDefault().getLanguage()
                         + "&https=1"
-                        + "&access_token=" + token
+                        + "&access_token=" + snapshot.token
                         + (params == null || params.isEmpty() ? "" : "&" + params);
                 String url;
-                if (secret != null && !secret.isEmpty()) {
-                    String sigSource = "/method/" + method + "?" + query + secret;
+                if (snapshot.secret != null && !snapshot.secret.isEmpty()) {
+                    String sigSource = "/method/" + method + "?" + query + snapshot.secret;
                     url = "https://" + API_HOST + "/method/" + method + "?" + query + "&sig=" + md5(sigSource);
                 } else {
                     url = "https://" + API_HOST + "/method/" + method + "?" + query;
@@ -60,24 +77,44 @@ public class VKApi {
                         .url(url)
                         .header("User-Agent", USER_AGENT)
                         .build();
-                okhttp3.Response response = CLIENT.newCall(request).execute();
-                String body = response.body() != null ? response.body().string() : "";
-                JSONObject root = new JSONObject(body);
-                if (root.has("response")) {
-                    MAIN.post(() -> callback.success(root));
-                } else {
-                    // API errors may contain request parameters including credentials.
-                    android.util.Log.e("VKTea", "api error " + method);
-                    com.vktea.util.AppLog.log("api", method + ": api error");
-                    MAIN.post(() -> callback.error(new Exception(root.optString("error_description", "api error"))));
+                if (snapshot.generation != Session.generation()) {
+                    dispatch(snapshot.generation, callback, null, new SessionChangedException());
+                    return;
+                }
+                try (okhttp3.Response response = client.newCall(request).execute()) {
+                    String body = response.body() != null ? response.body().string() : "";
+                    JSONObject root = new JSONObject(body);
+                    if (root.has("response")) {
+                        dispatch(snapshot.generation, callback, root, null);
+                    } else {
+                        // Responses may echo request parameters including credentials.
+                        android.util.Log.e("VKTea", "api error " + method);
+                        com.vktea.util.AppLog.log("api", method + ": api error");
+                        dispatch(snapshot.generation, callback, null, new Exception("VK API error"));
+                    }
                 }
             } catch (Exception e) {
                 // Transport exception text can include the complete authenticated URL.
                 android.util.Log.e("VKTea", "api fail " + method);
                 com.vktea.util.AppLog.log("api", method + " fail: " + e.getClass().getSimpleName());
-                MAIN.post(() -> callback.error(e));
+                dispatch(snapshot.generation, callback, null, safeFailure(e));
             }
         }).start();
+    }
+
+    private static Exception safeFailure(Exception error) {
+        // Preserve the category used by LongPoll's bounded retry, never transport details.
+        if (error instanceof IOException) return new IOException("Network request failed");
+        if (error instanceof JSONException) return new JSONException("Invalid VK response");
+        return new Exception("VK request failed");
+    }
+
+    private static void dispatch(long generation, Callback callback, JSONObject response, Exception error) {
+        MAIN.post(() -> {
+            if (generation != Session.generation()) callback.error(new SessionChangedException());
+            else if (error != null) callback.error(error);
+            else callback.success(response);
+        });
     }
 
     private static String md5(String s) throws Exception {

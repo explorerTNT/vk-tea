@@ -6,6 +6,8 @@ import android.content.SharedPreferences;
 public class Session {
 
     private static final java.util.concurrent.atomic.AtomicLong GENERATION = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.CopyOnWriteArraySet<Runnable> CHANGE_LISTENERS =
+            new java.util.concurrent.CopyOnWriteArraySet<>();
 
     private static final String PREFS = "session";
     private static final String KEY_TOKEN = "access_token";
@@ -27,6 +29,7 @@ public class Session {
         com.vktea.msg.MessageLongPoll.sessionChanged();
         if (previousUser != null && !previousUser.equals(userId)) clearAudioData(context);
         com.vktea.audio.AudioSources.clearPrivateAccess();
+        notifyChangeListeners();
     }
 
     public static boolean isAuthorized(Context context) {
@@ -51,6 +54,7 @@ public class Session {
         com.vktea.msg.MessageLongPoll.sessionChanged();
         clearAudioData(context);
         com.vktea.audio.AudioSources.clearPrivateAccess();
+        notifyChangeListeners();
     }
 
     @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
@@ -65,6 +69,27 @@ public class Session {
     }
 
     public static long generation() { return GENERATION.get(); }
+
+    /** Listeners must be removed by their owner when it is cleared. */
+    public static void addChangeListener(Runnable listener) {
+        if (listener != null) CHANGE_LISTENERS.add(listener);
+    }
+
+    public static void removeChangeListener(Runnable listener) {
+        if (listener != null) CHANGE_LISTENERS.remove(listener);
+    }
+
+    private static void notifyChangeListeners() {
+        if (CHANGE_LISTENERS.isEmpty()) return;
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            for (Runnable listener : CHANGE_LISTENERS) {
+                try { listener.run(); }
+                catch (RuntimeException ignored) {
+                    android.util.Log.e("VKTea", "Session listener failed");
+                }
+            }
+        });
+    }
 
     public static final class Snapshot {
         public final String token, secret, userId;

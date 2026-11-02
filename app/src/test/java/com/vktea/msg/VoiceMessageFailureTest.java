@@ -11,6 +11,7 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import com.vktea.auth.Session;
 
 import org.junit.After;
 import org.junit.Test;
@@ -27,6 +28,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import okhttp3.HttpUrl;
+import okhttp3.Call;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
@@ -53,6 +57,7 @@ public class VoiceMessageFailureTest {
         set("token", "synthetic-token");
         set("user", "42");
         set("secret", "");
+        set("sessionGeneration", Session.generation());
         set("generation", 7);
     }
 
@@ -119,6 +124,72 @@ public class VoiceMessageFailureTest {
         org.robolectric.Shadows.shadowOf(Looper.getMainLooper()).idle();
         assertFalse(recording.exists());
         assertTrue(ShadowToast.getTextOfLatestToast().contains("Аккаунт изменился"));
+    }
+
+    @Test public void tokenRefreshCancelsUploadAndRetainsRecordingForExplicitRetry() throws Exception {
+        prepareRecording();
+        Call pending = new OkHttpClient().newCall(new Request.Builder().url("https://vk.com/").build());
+        set("upload", pending);
+        set("sending", true);
+        set("sendingStage", VoiceMessageRecorder.SendStage.UPLOAD);
+        controller.get().getSharedPreferences("session", Context.MODE_PRIVATE).edit()
+                .putString("access_token", "new-synthetic-token").commit();
+        recorder.onSessionRefreshed();
+        assertTrue(pending.isCanceled());
+        assertTrue(recording.exists());
+        assertFalse((Boolean) get("sending"));
+        AlertDialog dialog = (AlertDialog) get("dialog");
+        assertEquals("Повторить", dialog.getButton(AlertDialog.BUTTON_POSITIVE).getText().toString());
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        org.robolectric.Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertFalse(recording.exists());
+    }
+
+    @Test public void tokenRefreshDuringUnconfirmedSendNeverOffersRetry() throws Exception {
+        prepareRecording();
+        Call pending = new OkHttpClient().newCall(new Request.Builder().url("https://vk.com/").build());
+        set("upload", pending);
+        set("sending", true);
+        set("sendingStage", VoiceMessageRecorder.SendStage.SEND);
+        controller.get().getSharedPreferences("session", Context.MODE_PRIVATE).edit()
+                .putString("access_token", "new-synthetic-token").commit();
+        recorder.onSessionRefreshed();
+        assertTrue(pending.isCanceled());
+        assertFalse(recording.exists());
+        AlertDialog dialog = (AlertDialog) get("dialog");
+        assertTrue(((TextView) dialog.findViewById(android.R.id.message)).getText().toString().contains("Проверьте чат"));
+        assertEquals("Понятно", dialog.getButton(AlertDialog.BUTTON_POSITIVE).getText().toString());
+        assertTrue(dialog.getButton(AlertDialog.BUTTON_NEGATIVE) == null
+                || dialog.getButton(AlertDialog.BUTTON_NEGATIVE).getVisibility() != android.view.View.VISIBLE);
+    }
+
+    @Test public void tokenRefreshPreservesUnsentRecordingWithoutStartingTransfer() throws Exception {
+        prepareRecording();
+        controller.get().getSharedPreferences("session", Context.MODE_PRIVATE).edit()
+                .putString("access_token", "new-synthetic-token").commit();
+        recorder.onSessionRefreshed();
+        assertTrue(recording.exists());
+        assertNull(get("dialog"));
+        assertNull(get("upload"));
+    }
+
+    @Test public void switchedAwayAndBackWithSameCredentialsInvalidatesOldTransfer() throws Exception {
+        prepareRecording();
+        Call pending = new OkHttpClient().newCall(new Request.Builder().url("https://vk.com/").build());
+        set("upload", pending);
+        set("sending", true);
+        set("sendingStage", VoiceMessageRecorder.SendStage.UPLOAD);
+        Session.save(controller.get(), "other-token", "99");
+        Session.save(controller.get(), "synthetic-token", "42", "");
+        Method active = VoiceMessageRecorder.class.getDeclaredMethod("active", int.class);
+        active.setAccessible(true);
+        assertFalse((Boolean) active.invoke(recorder, 7));
+        recorder.onSessionRefreshed();
+        assertTrue(pending.isCanceled());
+        assertTrue(recording.exists());
+        assertFalse((Boolean) get("sending"));
+        AlertDialog dialog = (AlertDialog) get("dialog");
+        assertEquals("Повторить", dialog.getButton(AlertDialog.BUTTON_POSITIVE).getText().toString());
     }
 
     @Test public void errorDetailsExposeOnlyBoundedNumericStatus() {

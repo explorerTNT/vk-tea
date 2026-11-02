@@ -120,6 +120,18 @@ public class MessageLongPollTest {
         poll.removeListener(replacement);
     }
 
+    @Test public void changedSessionDoesNotRetryTheObsoleteAcquisition() {
+        FakeTransport transport = new FakeTransport();
+        MessageLongPoll poll = MessageLongPoll.forTesting(RuntimeEnvironment.getApplication(), transport);
+        MessageLongPoll.Listener listener = () -> { };
+        poll.addListener(listener);
+        assertEquals(1, transport.acquisitions.size());
+        transport.acquisitions.get(0).error(new VKApi.SessionChangedException());
+        advance(120_000);
+        assertEquals(1, transport.acquisitions.size());
+        poll.removeListener(listener);
+    }
+
     private static JSONObject server(String ts) throws Exception {
         return new JSONObject("{\"response\":{\"server\":\"lp.vk.com\",\"key\":\"synthetic\",\"ts\":\"" + ts + "\"}}");
     }

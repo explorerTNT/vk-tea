@@ -6,9 +6,12 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
+import com.vktea.auth.Session;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BooleanSupplier;
+import java.util.function.LongSupplier;
 
 /** Keeps the visible snapshot when refresh or a subsequent page fails. */
 public final class NotificationsViewModel extends ViewModel {
@@ -29,7 +32,8 @@ public final class NotificationsViewModel extends ViewModel {
         public Factory(Context context) { this.context = context.getApplicationContext(); }
         @NonNull @Override public <T extends ViewModel> T create(@NonNull Class<T> type) {
             if (!type.isAssignableFrom(NotificationsViewModel.class)) throw new IllegalArgumentException("Unsupported ViewModel");
-            return type.cast(new NotificationsViewModel(NotificationsRepository.create(context)));
+            return type.cast(new NotificationsViewModel(NotificationsRepository.create(context), Session::generation,
+                    () -> { String token = Session.snapshot(context).token; return token != null && !token.isEmpty(); }));
         }
     }
     private final NotificationsRepository repository;
@@ -39,15 +43,49 @@ public final class NotificationsViewModel extends ViewModel {
     private boolean loaded, loading, pageRequest, failedPage, cleared;
     private NotificationsError error;
     private long generation;
+    private final LongSupplier sessionGeneration;
+    private final BooleanSupplier canLoad;
+    private long currentSessionGeneration;
     private NotificationsRepository.Request request;
+    private final Runnable sessionChangeListener = this::onSessionChanged;
+    private void onSessionChanged() {
+        synchronizeSession();
+        if (!cleared && state.hasActiveObservers() && canLoad.getAsBoolean()) ensureLoaded();
+    }
 
-    public NotificationsViewModel(NotificationsRepository repository) { this.repository = repository; publish(); }
+    public NotificationsViewModel(NotificationsRepository repository) { this(repository, Session::generation, () -> true); }
+    NotificationsViewModel(NotificationsRepository repository, LongSupplier sessionGeneration, BooleanSupplier canLoad) {
+        this.repository = repository;
+        this.sessionGeneration = sessionGeneration;
+        this.canLoad = canLoad;
+        this.currentSessionGeneration = sessionGeneration.getAsLong();
+        Session.addChangeListener(sessionChangeListener);
+        publish();
+    }
     public LiveData<State> state() { return state; }
     public State getCurrentState() { return state.getValue(); }
-    public void ensureLoaded() { if (!cleared && !loaded && !loading && error == null) load(false); }
-    public void refresh() { if (!cleared && !loading) load(false); }
-    public void loadMore() { if (!cleared && loaded && !loading && error == null && !nextFrom.isEmpty()) load(true); }
-    public void retry() { if (!cleared && !loading && error != null) load(failedPage); }
+    public void ensureLoaded() { synchronizeSession(); if (!cleared && canLoad.getAsBoolean() && !loaded && !loading && error == null) load(false); }
+    public void refresh() { synchronizeSession(); if (!cleared && canLoad.getAsBoolean() && !loading) load(false); }
+    public void loadMore() { synchronizeSession(); if (!cleared && canLoad.getAsBoolean() && loaded && !loading && error == null && !nextFrom.isEmpty()) load(true); }
+    public void retry() { synchronizeSession(); if (!cleared && canLoad.getAsBoolean() && !loading && error != null) load(failedPage); }
+
+    /** Clear the previous account before displaying or paging its retained snapshot. */
+    public boolean synchronizeSession() {
+        if (cleared) return false;
+        long current = sessionGeneration.getAsLong();
+        if (current == currentSessionGeneration) return false;
+        currentSessionGeneration = current;
+        generation++;
+        NotificationsRepository.Request previous = request;
+        request = null;
+        if (previous != null) previous.cancel();
+        items = Collections.emptyList();
+        nextFrom = "";
+        loaded = loading = pageRequest = failedPage = false;
+        error = null;
+        publish();
+        return true;
+    }
 
     private void load(boolean next) {
         final String cursor = next ? nextFrom : "";
@@ -76,10 +114,14 @@ public final class NotificationsViewModel extends ViewModel {
         });
         if (isCurrent(current)) request = started;
     }
-    private boolean isCurrent(long value) { return !cleared && loading && generation == value; }
+    private boolean isCurrent(long value) {
+        if (synchronizeSession()) return false;
+        return !cleared && loading && generation == value;
+    }
     private void publish() { if (!cleared) state.setValue(new State(this)); }
     @Override protected void onCleared() {
         cleared = true; generation++;
+        Session.removeChangeListener(sessionChangeListener);
         if (request != null) request.cancel();
         repository.close(); super.onCleared();
     }

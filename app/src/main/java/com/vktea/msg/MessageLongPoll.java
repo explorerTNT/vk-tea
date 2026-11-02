@@ -121,6 +121,9 @@ public final class MessageLongPoll {
                 poll(current);
             }
             @Override public void error(Exception error) {
+                // Session.save/clear resets the subscription; the obsolete acquisition
+                // must not schedule a retry on its own.
+                if (error instanceof VKApi.SessionChangedException) return;
                 retry(current, false, error instanceof IOException || error instanceof JSONException);
             }
         });

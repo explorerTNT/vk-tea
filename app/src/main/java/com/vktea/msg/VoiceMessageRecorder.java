@@ -12,6 +12,7 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -92,7 +93,9 @@ public final class VoiceMessageRecorder {
     private long started;
     private volatile int generation;
     private boolean sending;
+    @Nullable private SendStage sendingStage;
     private String token, secret, user;
+    private long sessionGeneration;
 
     /** Construct in onCreate, before the activity reaches STARTED. */
     public VoiceMessageRecorder(AppCompatActivity activity, long peerId, Runnable sent) {
@@ -208,12 +211,24 @@ public final class VoiceMessageRecorder {
     }
 
     private void send() {
+        send(null);
+    }
+
+    private void send(@Nullable String expectedUser) {
         dialog = null;
         final int operation = ++generation;
         sending = true;
-        token = Session.getToken(activity);
-        secret = Session.getSecret(activity);
-        user = Session.getUserId(activity);
+        Session.Snapshot session = Session.snapshot(activity);
+        token = session.token;
+        secret = session.secret;
+        user = session.userId;
+        sessionGeneration = session.generation;
+        if (expectedUser != null && !expectedUser.equals(user)) {
+            sending = false;
+            deleteFile();
+            toast("Аккаунт изменился. Запись удалена");
+            return;
+        }
         if (token == null || token.isEmpty()) {
             sending = false;
             if (file != null && file.isFile()) showRetryDialog("Требуется вход в аккаунт", null);
@@ -221,6 +236,7 @@ public final class VoiceMessageRecorder {
             return;
         }
         toast("Отправка голосового сообщения…");
+        sendingStage = SendStage.SERVER;
         LinkedHashMap<String, String> params = new LinkedHashMap<>();
         params.put("type", "audio_message"); params.put("peer_id", Long.toString(peerId));
         api(operation, SendStage.SERVER, "docs.getMessagesUploadServer", params, new VKApi.Callback() {
@@ -232,6 +248,7 @@ public final class VoiceMessageRecorder {
                 if (!allowedUpload(parsed)) { fail(operation, SendStage.SERVER); return; }
                 File recorded = file;
                 if (recorded == null) { fail(operation, SendStage.SERVER); return; }
+                sendingStage = SendStage.UPLOAD;
                 new Thread(() -> upload(operation, parsed, recorded), "voice-upload").start();
             }
             @Override public void error(Exception error) { fail(operation, SendStage.SERVER, error); }
@@ -302,6 +319,7 @@ public final class VoiceMessageRecorder {
 
     private void save(int operation, String uploaded) {
         if (!active(operation)) { fail(operation, SendStage.SAVE); return; }
+        sendingStage = SendStage.SAVE;
         LinkedHashMap<String, String> params = new LinkedHashMap<>();
         params.put("file", uploaded);
         api(operation, SendStage.SAVE, "docs.save", params, new VKApi.Callback() {
@@ -318,11 +336,13 @@ public final class VoiceMessageRecorder {
                 params.put("peer_id", Long.toString(peerId));
                 params.put("random_id", Integer.toString(random));
                 params.put("attachment", attachment);
+                sendingStage = SendStage.SEND;
                 api(operation, SendStage.SEND, "messages.send", params, new VKApi.Callback() {
                     @Override public void success(JSONObject sentResponse) {
                         if (!active(operation)) { fail(operation, SendStage.SEND); return; }
                         if (sentResponse.optLong("response") <= 0) { fail(operation, SendStage.SEND); return; }
                         sending = false;
+                        sendingStage = null;
                         deleteFile();
                         toast("Голосовое сообщение отправлено");
                         if (sent != null) sent.run();
@@ -335,10 +355,12 @@ public final class VoiceMessageRecorder {
     }
 
     private boolean active(int operation) {
+        Session.Snapshot session = Session.snapshot(activity);
         return operation == generation && !activity.isFinishing() && !activity.isDestroyed()
-                && token != null && token.equals(Session.getToken(activity))
-                && java.util.Objects.equals(secret, Session.getSecret(activity))
-                && java.util.Objects.equals(user, Session.getUserId(activity));
+                && sessionGeneration == session.generation
+                && token != null && token.equals(session.token)
+                && java.util.Objects.equals(secret, session.secret)
+                && java.util.Objects.equals(user, session.userId);
     }
 
     /** The older Coffee API also returned an array of document objects. */
@@ -408,22 +430,19 @@ public final class VoiceMessageRecorder {
 
     private void fail(int operation, SendStage stage, Exception failure) {
         if (operation != generation) return;
+        if (!active(operation) && canRecoverSameUser()) {
+            onSessionRefreshed();
+            return;
+        }
         sending = false;
+        sendingStage = null;
         if (!active(operation)) {
             deleteFile();
             return;
         }
         if (stage == SendStage.SEND) {
             deleteFile();
-            AlertDialog shown = new AlertDialog.Builder(activity)
-                    .setTitle("Голосовое сообщение")
-                    .setMessage("Не удалось подтвердить отправку" + safeStatus(failure)
-                            + ". Проверьте чат перед повтором.")
-                    .setPositiveButton("Понятно", null)
-                    .create();
-            dialog = shown;
-            shown.setOnDismissListener(ignored -> { if (dialog == shown) dialog = null; });
-            shown.show();
+            showUnconfirmed(failure);
             return;
         }
         if (file == null || !file.isFile()) {
@@ -442,25 +461,70 @@ public final class VoiceMessageRecorder {
     }
 
     private void showRetryDialog(String reason, Exception failure) {
-        final String originalUser = user, originalToken = token, originalSecret = secret;
+        final String originalUser = user;
         dialog = new AlertDialog.Builder(activity)
                 .setTitle("Голосовое сообщение")
                 .setMessage(reason + safeStatus(failure) + ". Запись сохранена до выхода из чата.")
                 .setPositiveButton("Повторить", (ignored, which) -> {
                     dialog = null;
-                    if (!java.util.Objects.equals(originalUser, Session.getUserId(activity))
-                            || !java.util.Objects.equals(originalToken, Session.getToken(activity))
-                            || !java.util.Objects.equals(originalSecret, Session.getSecret(activity))) {
+                    Session.Snapshot current = Session.snapshot(activity);
+                    if (originalUser == null || !originalUser.equals(current.userId)
+                            || current.token == null || current.token.isEmpty()) {
                         deleteFile();
                         toast("Аккаунт изменился. Запись удалена");
                         return;
                     }
-                    send();
+                    send(originalUser);
                 })
                 .setNegativeButton("Удалить", (ignored, which) -> { dialog = null; deleteFile(); })
                 .setOnCancelListener(ignored -> { dialog = null; deleteFile(); })
                 .create();
         dialog.show();
+    }
+
+    private boolean canRecoverSameUser() {
+        return canRecoverSameUser(Session.snapshot(activity));
+    }
+
+    private boolean canRecoverSameUser(Session.Snapshot current) {
+        return sending && !activity.isFinishing() && !activity.isDestroyed() && user != null
+                && user.equals(current.userId) && current.token != null && !current.token.isEmpty();
+    }
+
+    /** Cancel an in-flight upload on a same-account token refresh, without retrying it. */
+    void onSessionRefreshed() {
+        Session.Snapshot current = Session.snapshot(activity);
+        if (!canRecoverSameUser(current)) return;
+        if (sessionGeneration == current.generation && java.util.Objects.equals(token, current.token)
+                && java.util.Objects.equals(secret, current.secret)) return;
+        SendStage oldStage = sendingStage;
+        Call old;
+        synchronized (this) { generation++; old = upload; upload = null; }
+        sending = false;
+        sendingStage = null;
+        if (old != null) old.cancel();
+        token = current.token;
+        secret = current.secret;
+        user = current.userId;
+        sessionGeneration = current.generation;
+        if (oldStage == SendStage.SEND) {
+            deleteFile();
+            showUnconfirmed(null);
+        } else if (file != null && file.isFile()) {
+            showRetryDialog("Авторизация обновилась, отправка остановлена", null);
+        }
+    }
+
+    private void showUnconfirmed(Exception failure) {
+        AlertDialog shown = new AlertDialog.Builder(activity)
+                .setTitle("Голосовое сообщение")
+                .setMessage("Не удалось подтвердить отправку" + safeStatus(failure)
+                        + ". Проверьте чат перед повтором.")
+                .setPositiveButton("Понятно", null)
+                .create();
+        dialog = shown;
+        shown.setOnDismissListener(ignored -> { if (dialog == shown) dialog = null; });
+        shown.show();
     }
 
     private void cancelRecording() {
@@ -481,6 +545,7 @@ public final class VoiceMessageRecorder {
         Call call;
         synchronized (this) { generation++; call = upload; upload = null; }
         sending = false;
+        sendingStage = null;
         if (call != null) call.cancel();
         cancelRecording();
     }

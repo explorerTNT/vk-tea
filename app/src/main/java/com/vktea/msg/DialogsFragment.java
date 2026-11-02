@@ -8,12 +8,14 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Lifecycle;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.vktea.R;
 import com.vktea.api.VKApi;
+import com.vktea.auth.Session;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -21,6 +23,7 @@ import org.json.JSONObject;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Objects;
 
 public class DialogsFragment extends Fragment {
     private DialogsAdapter adapter;
@@ -30,6 +33,43 @@ public class DialogsFragment extends Fragment {
     private boolean loading;
     private boolean livePending;
     private final MessageLongPoll.Listener liveUpdates = this::onLiveMessagesChanged;
+    private final Runnable sessionUpdates = this::onSessionChanged;
+    private long sessionGeneration;
+    @Nullable private String sessionUser;
+    private boolean sessionRevoked;
+
+    @Override public void onCreate(@Nullable Bundle state) {
+        super.onCreate(state);
+        Session.Snapshot initial = Session.snapshot(requireContext());
+        sessionGeneration = initial.generation;
+        sessionUser = initial.userId;
+        Session.addChangeListener(sessionUpdates);
+    }
+
+    /** Discard rows only across accounts; token refresh may retain the same user's snapshot. */
+    private boolean synchronizeSession() {
+        Session.Snapshot current = Session.snapshot(requireContext());
+        if (current.generation == sessionGeneration) return false;
+        boolean changedUser = !Objects.equals(sessionUser, current.userId) || current.token == null || current.token.isEmpty();
+        sessionGeneration = current.generation;
+        sessionUser = current.userId;
+        sessionRevoked = current.token == null || current.token.isEmpty();
+        ++generation;
+        loading = false;
+        livePending = false;
+        if (refresh != null) refresh.setRefreshing(false);
+        if (changedUser) {
+            if (adapter != null) adapter.clear();
+            DialogsParser.setSelfId(0);
+        }
+        return true;
+    }
+
+    private void onSessionChanged() {
+        if (!isAdded() || !synchronizeSession()) return;
+        if (adapter != null && getView() != null && getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)
+                && !sessionRevoked) load();
+    }
 
     protected void onLiveMessagesChanged() {
         if (loading) livePending = true;
@@ -38,8 +78,9 @@ public class DialogsFragment extends Fragment {
 
     @Override public void onStart() {
         super.onStart();
+        boolean changedSession = synchronizeSession();
         subscribeLiveUpdates();
-        if (startedOnce) load();
+        if (!sessionRevoked && (startedOnce || changedSession)) load();
         startedOnce = true;
     }
 
@@ -72,6 +113,8 @@ public class DialogsFragment extends Fragment {
 
     protected void load() {
         if (adapter == null || refresh == null) return;
+        if (Session.generation() != sessionGeneration) { onSessionChanged(); return; }
+        if (sessionRevoked) return;
         final int request = ++generation;
         loading = true;
         final DialogsAdapter target = adapter;
@@ -81,7 +124,7 @@ public class DialogsFragment extends Fragment {
                 if (!current(request, target)) return;
                 JSONObject data = response == null ? null : response.optJSONObject("response");
                 if (data != null && data.optJSONArray("items") != null) {
-                    String selfId = com.vktea.auth.Session.getUserId(requireContext());
+                    String selfId = sessionUser;
         if (selfId != null && !selfId.isEmpty()) {
             DialogsParser.setSelfId(Long.parseLong(selfId));
         }
@@ -162,7 +205,9 @@ public class DialogsFragment extends Fragment {
     }
 
     private boolean current(int request, DialogsAdapter target) {
-        return request == generation && target == adapter && isAdded() && getView() != null;
+        if (!isAdded()) return false;
+        if (Session.generation() != sessionGeneration) { onSessionChanged(); return false; }
+        return request == generation && target == adapter && getView() != null;
     }
 
     @Override public void onDestroyView() {
@@ -172,5 +217,10 @@ public class DialogsFragment extends Fragment {
         adapter = null;
         refresh = null;
         super.onDestroyView();
+    }
+
+    @Override public void onDestroy() {
+        Session.removeChangeListener(sessionUpdates);
+        super.onDestroy();
     }
 }

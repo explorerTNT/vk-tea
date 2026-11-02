@@ -15,6 +15,7 @@ import org.robolectric.annotation.LooperMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
@@ -29,6 +30,54 @@ public class NotificationsViewModelTest {
     }).get(NotificationsViewModel.class);
 
     @After public void close() { store.clear(); }
+
+    @Test public void sessionChangeClearsOldPageCancelsRequestAndNeverMixesAccounts() {
+        AtomicLong account = new AtomicLong(1);
+        FakeRepository isolated = new FakeRepository();
+        NotificationsViewModel subject = new NotificationsViewModel(isolated, account::get, () -> true);
+        try {
+            subject.ensureLoaded();
+            isolated.requests.get(0).success(page("account A", "cursor-A"));
+            subject.loadMore();
+            Pending oldPage = isolated.requests.get(1);
+            assertEquals("cursor-A", oldPage.cursor);
+
+            account.set(2);
+            assertTrue(subject.synchronizeSession());
+            assertTrue(oldPage.canceled);
+            assertTrue(subject.getCurrentState().items.isEmpty());
+            assertEquals("", subject.getCurrentState().nextFrom);
+            assertFalse(subject.getCurrentState().loading);
+
+            subject.ensureLoaded();
+            assertEquals("", isolated.requests.get(2).cursor);
+            oldPage.success(page("late account A", "cursor-A2"));
+            assertTrue(subject.getCurrentState().items.isEmpty());
+            assertTrue(subject.getCurrentState().loading);
+            isolated.requests.get(2).success(page("account B", "cursor-B"));
+            assertEquals(1, subject.getCurrentState().items.size());
+            assertEquals("account B", subject.getCurrentState().items.get(0).text);
+            assertEquals("cursor-B", subject.getCurrentState().nextFrom);
+        } finally { subject.onCleared(); }
+    }
+
+    @Test public void staleCallbackDetectsNewSessionBeforeListenerDelivery() {
+        AtomicLong account = new AtomicLong(1);
+        FakeRepository isolated = new FakeRepository();
+        NotificationsViewModel subject = new NotificationsViewModel(isolated, account::get, () -> true);
+        try {
+            subject.ensureLoaded();
+            Pending old = isolated.requests.get(0);
+            account.set(2);
+            old.success(page("late account A", "cursor-A"));
+            assertTrue(old.canceled);
+            assertTrue(subject.getCurrentState().items.isEmpty());
+            assertFalse(subject.getCurrentState().loading);
+            assertEquals("", subject.getCurrentState().nextFrom);
+            subject.ensureLoaded();
+            assertEquals("", isolated.requests.get(1).cursor);
+        } finally { subject.onCleared(); }
+    }
 
     @Test public void pagingFailureRetainsItemsAndRetryUsesSameCursor() {
         model.ensureLoaded(); model.ensureLoaded();

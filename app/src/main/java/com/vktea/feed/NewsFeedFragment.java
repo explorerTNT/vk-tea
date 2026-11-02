@@ -1,5 +1,6 @@
 package com.vktea.feed;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,6 +18,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.vktea.R;
 import com.vktea.api.VKApi;
+import com.vktea.auth.Session;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -25,6 +27,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 public class NewsFeedFragment extends Fragment {
 
@@ -55,6 +59,11 @@ public class NewsFeedFragment extends Fragment {
     private TextView newPostsButton;
     private RecyclerView storiesRow;
     private final List<Story> stories = new ArrayList<>();
+    private final Runnable sessionCheck = this::refreshSessionIfChanged;
+    private long displayedSessionGeneration;
+    private int feedRequestGeneration;
+    private int storiesRequestGeneration;
+    private boolean feedStarted;
 
     static class Story {
         final String name;
@@ -77,6 +86,7 @@ public class NewsFeedFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        displayedSessionGeneration = Session.generation();
         listId = requireArguments().getLong("list_id", 0);
         refresh = view.findViewById(R.id.feed_refresh);
         newPostsButton = view.findViewById(R.id.feed_new_posts);
@@ -134,13 +144,66 @@ public class NewsFeedFragment extends Fragment {
         loadStories();
     }
 
+    @Override public void onStart() {
+        super.onStart();
+        feedStarted = true;
+        Session.addChangeListener(sessionCheck);
+        refreshSessionIfChanged();
+    }
+
+    @Override public void onStop() {
+        feedStarted = false;
+        Session.removeChangeListener(sessionCheck);
+        super.onStop();
+    }
+
+    @Override public void onDestroyView() {
+        ++feedRequestGeneration;
+        ++storiesRequestGeneration;
+        super.onDestroyView();
+    }
+
+    private void refreshSessionIfChanged() {
+        if (!feedStarted || !isAdded() || getView() == null) return;
+        Session.Snapshot current = Session.snapshot(requireContext());
+        if (current.generation == displayedSessionGeneration) return;
+        displayedSessionGeneration = current.generation;
+        ++feedRequestGeneration;
+        ++storiesRequestGeneration;
+        loading = false;
+        nextFrom = "";
+        newestDate = 0;
+        lastCheckTime = 0;
+        adapter.clear();
+        stories.clear();
+        storiesRow.setAdapter(null);
+        storiesRow.setVisibility(View.GONE);
+        newPostsButton.setVisibility(View.GONE);
+        refresh.setRefreshing(false);
+        if (current.token != null && !current.token.isEmpty()) {
+            refresh.setRefreshing(true);
+            load();
+            loadStories();
+        }
+    }
+
+    protected void requestFeed(String params, VKApi.Callback callback) {
+        VKApi.get(requireContext(), "newsfeed.get", params, callback);
+    }
+
+    protected void requestStories(VKApi.Callback callback) {
+        VKApi.get(requireContext(), "stories.get", "extended=1", callback);
+    }
+
     private void checkNewPosts() {
         lastCheckTime = System.currentTimeMillis();
+        final long sessionGeneration = Session.generation();
         String params = "filters=post,photo&count=10&start_time=" + newestDate
                 + (listId != 0 ? "&list_id=" + listId : "");
-        VKApi.get(requireContext(), "newsfeed.get", params, new VKApi.Callback() {
+        requestFeed(params, new VKApi.Callback() {
             @Override
             public void success(JSONObject response) {
+                if (sessionGeneration != Session.generation()) return;
                 try {
                     int n = response.getJSONObject("response").getJSONArray("items").length();
                     if (n > 0 && isAdded()) {
@@ -159,9 +222,13 @@ public class NewsFeedFragment extends Fragment {
     }
 
     private void loadStories() {
-        VKApi.get(requireContext(), "stories.get", "extended=1", new VKApi.Callback() {
+        final int request = ++storiesRequestGeneration;
+        final long sessionGeneration = Session.generation();
+        requestStories(new VKApi.Callback() {
             @Override
             public void success(JSONObject response) {
+                if (!isAdded() || getView() == null || request != storiesRequestGeneration
+                        || sessionGeneration != Session.generation()) return;
                 try {
                     stories.clear();
                     JSONObject data = response.getJSONObject("response");
@@ -258,17 +325,21 @@ public class NewsFeedFragment extends Fragment {
 
     private void load() {
         loading = true;
+        final int request = ++feedRequestGeneration;
+        final Session.Snapshot session = Session.snapshot(requireContext());
+        final String page = nextFrom;
         String params = "filters=post,photo&count=" + PAGE_SIZE + "&max_photos=1&photo_sizes=1"
                 + (listId != 0 ? "&list_id=" + listId : "")
-                + (nextFrom.isEmpty() ? "" : "&start_from=" + nextFrom);
-        VKApi.get(requireContext(), "newsfeed.get", params,
+                + (page.isEmpty() ? "" : "&start_from=" + page);
+        requestFeed(params,
                 new VKApi.Callback() {
                     @Override
                     public void success(JSONObject response) {
+                        if (!currentFeedRequest(request, session.generation)) return;
                         try {
                             JSONObject data = response.getJSONObject("response");
-                            if (nextFrom.isEmpty()) {
-                                saveCache(response.toString());
+                            if (page.isEmpty()) {
+                                saveCache(response.toString(), session.userId);
                             }
                             nextFrom = data.optString("next_from", "");
                             Map<Long, Source> sources = parseSources(data);
@@ -301,18 +372,45 @@ public class NewsFeedFragment extends Fragment {
 
                     @Override
                     public void error(Exception e) {
+                        if (!currentFeedRequest(request, session.generation)) return;
                         loading = false;
                         refresh.setRefreshing(false);
-                        if (adapter.getItemCount() == 0) {
-                            loadCache();
+                        if (!(e instanceof VKApi.SessionChangedException) && adapter.getItemCount() == 0) {
+                            loadCache(session.userId);
                         }
                     }
                 });
     }
 
-    private void saveCache(String json) {
+    private boolean currentFeedRequest(int request, long generation) {
+        if (!isAdded() || getView() == null || request != feedRequestGeneration) return false;
+        if (generation != Session.generation()) {
+            refreshSessionIfChanged();
+            return false;
+        }
+        return true;
+    }
+
+    /** Never reads or deletes the older unscoped cache; user IDs are not file names. */
+    static java.io.File feedCacheFile(Context context, @Nullable String userId) {
+        if (userId == null || userId.trim().isEmpty()) return null;
         try {
-            java.io.File file = new java.io.File(requireContext().getFilesDir(), "feed_cache.json");
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(userId.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hash = new StringBuilder();
+            for (byte value : digest) {
+                hash.append(Character.forDigit((value >>> 4) & 15, 16));
+                hash.append(Character.forDigit(value & 15, 16));
+            }
+            return new java.io.File(context.getFilesDir(), "feed_cache_" + hash + ".json");
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new AssertionError(impossible);
+        }
+    }
+
+    private void saveCache(String json, @Nullable String userId) {
+        try {
+            java.io.File file = feedCacheFile(requireContext(), userId);
+            if (file == null) return;
             java.io.FileWriter writer = new java.io.FileWriter(file, false);
             writer.write(json);
             writer.close();
@@ -320,10 +418,10 @@ public class NewsFeedFragment extends Fragment {
         }
     }
 
-    private void loadCache() {
+    private void loadCache(@Nullable String userId) {
         try {
-            java.io.File file = new java.io.File(requireContext().getFilesDir(), "feed_cache.json");
-            if (!file.exists()) {
+            java.io.File file = feedCacheFile(requireContext(), userId);
+            if (file == null || !file.exists()) {
                 return;
             }
             StringBuilder json = new StringBuilder();

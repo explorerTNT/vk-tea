@@ -47,8 +47,12 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private boolean countersStarted, countersLoading, countersPending;
     private long countersSessionGeneration = -1;
     private long countersLifecycleGeneration;
+    private long countersRequestGeneration;
+    private long headerSessionGeneration = -1;
+    private String headerAccountId, counterAccountId;
     private boolean authoritativeCountersLoaded;
     private final com.vktea.msg.MessageLongPoll.Listener messageUpdates = this::refreshCounters;
+    private final Runnable sessionUpdates = this::onSessionChanged;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,6 +123,29 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             checkForUpdates(false);
         }
 
+        Session.Snapshot initialSession = Session.snapshot(this);
+        headerSessionGeneration = initialSession.generation;
+        headerAccountId = initialSession.userId;
+        loadHeaderUser();
+
+        if (ACTION_OPEN_AUDIO.equals(getIntent().getAction())) {
+            getIntent().setAction(null);
+            showSection(R.id.menu_audios);
+        } else if (savedInstanceState == null) {
+            showSection(currentId);
+        } else {
+            for (MenuEntry entry : menu) {
+                if (entry.id == currentId) {
+                    toolbarTitle.setText(currentId == R.id.menu_audios ? R.string.audio_my_music : entry.titleRes);
+                    break;
+                }
+            }
+        }
+        toolbarTitle.setTextSize(currentId == R.id.menu_audios ? 20 : 23);
+        updateContentTitle();
+    }
+
+    private void loadHeaderUser() {
         final long profileSessionGeneration = Session.generation();
         com.vktea.api.VKApi.get(this, "users.get", "fields=photo_200,status,counters,cover", new com.vktea.api.VKApi.Callback() {
             @Override
@@ -177,39 +204,37 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
             }
         });
 
-        if (ACTION_OPEN_AUDIO.equals(getIntent().getAction())) {
-            getIntent().setAction(null);
-            showSection(R.id.menu_audios);
-        } else if (savedInstanceState == null) {
-            showSection(currentId);
-        } else {
-            for (MenuEntry entry : menu) {
-                if (entry.id == currentId) {
-                    toolbarTitle.setText(currentId == R.id.menu_audios ? R.string.audio_my_music : entry.titleRes);
-                    break;
-                }
-            }
-        }
-        toolbarTitle.setTextSize(currentId == R.id.menu_audios ? 20 : 23);
-        updateContentTitle();
     }
 
     private void updateContentTitle() {
         androidx.fragment.app.Fragment current = getSupportFragmentManager().findFragmentById(R.id.content);
-        int title;
+        int title, section = 0;
         if (current instanceof com.vktea.feed.ProfileFragment) title = ((com.vktea.feed.ProfileFragment) current).navigationTitleRes();
-        else if (current instanceof com.vktea.friends.FriendsFragment) title = R.string.section_friends;
-        else if (current instanceof com.vktea.groups.GroupsFragment) title = R.string.section_groups;
-        else if (current instanceof com.vktea.notifications.NotificationsFragment) title = R.string.section_feedback;
+        else if (current instanceof com.vktea.feed.NewsFeedFragment) { title = R.string.section_news; section = R.id.menu_news; }
+        else if (current instanceof com.vktea.friends.FriendsFragment) { title = R.string.section_friends; section = R.id.menu_friends; }
+        else if (current instanceof com.vktea.groups.GroupsFragment) { title = R.string.section_groups; section = R.id.menu_groups; }
+        else if (current instanceof com.vktea.notifications.NotificationsFragment) { title = R.string.section_feedback; section = R.id.menu_feedback; }
+        else if (current instanceof com.vktea.documents.DocumentsFragment) { title = R.string.section_docs; section = R.id.menu_docs; }
+        else if (current instanceof com.vktea.msg.DialogsFragment) { title = R.string.section_messages; section = R.id.menu_messages; }
+        else if (current instanceof com.vktea.ui.AudioFragment) { title = R.string.audio_my_music; section = R.id.menu_audios; }
+        else if (current instanceof com.vktea.ui.SettingsFragment) { title = R.string.section_settings; section = R.id.menu_settings; }
         else return;
+        if (section != 0) {
+            currentId = section;
+            if (menuAdapter != null) menuAdapter.setSelectedId(section);
+        }
         toolbarTitle.setText(title);
-        toolbarTitle.setTextSize(23);
+        toolbarTitle.setTextSize(section == R.id.menu_audios ? 20 : 23);
     }
 
     @Override protected void onStart() {
         super.onStart();
+        if (menuAdapter != null) {
+            Session.addChangeListener(sessionUpdates);
+            onSessionChanged();
+        }
         if (miniPlayer != null) miniPlayer.start();
-        if (Session.isAuthorized(this) && toolbarBadge != null) {
+        if (!countersStarted && Session.isAuthorized(this) && toolbarBadge != null) {
             countersLifecycleGeneration++;
             countersStarted = true;
             subscribeCounterUpdates();
@@ -218,9 +243,12 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     }
 
     @Override protected void onStop() {
+        Session.removeChangeListener(sessionUpdates);
         if (miniPlayer != null) miniPlayer.stop();
         countersStarted = false;
         countersLifecycleGeneration++;
+        countersRequestGeneration++;
+        countersLoading = false;
         countersPending = false;
         unsubscribeCounterUpdates();
         super.onStop();
@@ -233,12 +261,39 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         com.vktea.api.VKApi.get(this, "account.getCounters", "filter=messages,notifications", callback);
     }
 
+    private void onSessionChanged() {
+        if (menuAdapter == null || isFinishing() || isDestroyed()) return;
+        Session.Snapshot session = Session.snapshot(this);
+        if (headerSessionGeneration == session.generation) return;
+        boolean sameAccount = headerAccountId != null && !headerAccountId.isEmpty()
+                && headerAccountId.equals(session.userId) && session.token != null && !session.token.isEmpty();
+        headerSessionGeneration = session.generation;
+        headerAccountId = session.userId;
+        if (!sameAccount) {
+            menuAdapter.setHeaderUser(null);
+            userFeedLists.clear();
+            feedListId = 0;
+        }
+        countersRequestGeneration++;
+        countersLoading = false;
+        countersPending = false;
+        synchronizeCounterSession();
+        if (session.token != null && !session.token.isEmpty()) {
+            loadHeaderUser();
+            loadUserFeedLists();
+            if (countersStarted) refreshCounters();
+        }
+    }
+
     private void refreshCounters() {
-        if (!countersStarted) return;
+        String token = Session.getToken(this);
+        if (!countersStarted || token == null || token.isEmpty()) return;
+        if (headerSessionGeneration != Session.generation()) { onSessionChanged(); return; }
         synchronizeCounterSession();
         if (countersLoading) { countersPending = true; return; }
         countersLoading = true;
         countersPending = false;
+        final long requestGeneration = ++countersRequestGeneration;
         final long requestSessionGeneration = countersSessionGeneration;
         final long requestLifecycleGeneration = countersLifecycleGeneration;
         requestCounters(new com.vktea.api.VKApi.Callback() {
@@ -250,19 +305,24 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     authoritativeCountersLoaded = true;
                     updateCounterBadge(data.optInt("messages"), data.optInt("notifications"));
                 }
-                finishCounters();
+                finishCounters(requestGeneration);
             }
-            @Override public void error(Exception ignored) { finishCounters(); }
+            @Override public void error(Exception ignored) { finishCounters(requestGeneration); }
         });
     }
 
     private void synchronizeCounterSession() {
-        long currentGeneration = Session.generation();
-        if (countersSessionGeneration == currentGeneration) return;
-        countersSessionGeneration = currentGeneration;
+        Session.Snapshot session = Session.snapshot(this);
+        if (countersSessionGeneration == session.generation) return;
+        boolean sameAccount = counterAccountId != null && !counterAccountId.isEmpty()
+                && counterAccountId.equals(session.userId) && session.token != null && !session.token.isEmpty();
+        countersSessionGeneration = session.generation;
+        counterAccountId = session.userId;
         authoritativeCountersLoaded = false;
-        toolbarBadge.setVisibility(View.GONE);
-        toolbarBadge.setText("");
+        if (!sameAccount) {
+            toolbarBadge.setVisibility(View.GONE);
+            toolbarBadge.setText("");
+        }
     }
 
     private void updateCounterBadge(int messages, int notifications) {
@@ -271,7 +331,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         toolbarBadge.setText(String.valueOf(count));
     }
 
-    private void finishCounters() {
+    private void finishCounters(long requestGeneration) {
+        if (requestGeneration != countersRequestGeneration) return;
         countersLoading = false;
         if (countersPending && countersStarted) { countersPending = false; refreshCounters(); }
     }
@@ -341,15 +402,20 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private final android.util.SparseArray<String> userFeedLists = new android.util.SparseArray<>();
 
     private void loadUserFeedLists() {
+        final long sessionGeneration = Session.generation();
         com.vktea.api.VKApi.get(this, "newsfeed.getLists", "", new com.vktea.api.VKApi.Callback() {
             @Override
             public void success(org.json.JSONObject response) {
                 try {
+                    if (isFinishing() || isDestroyed() || sessionGeneration != Session.generation()) return;
                     org.json.JSONArray items = response.getJSONObject("response").getJSONArray("items");
+                    android.util.SparseArray<String> fresh = new android.util.SparseArray<>();
                     for (int i = 0; i < items.length(); i++) {
                         org.json.JSONObject l = items.getJSONObject(i);
-                        userFeedLists.put((int) l.getLong("id"), l.optString("title", ""));
+                        fresh.put((int) l.getLong("id"), l.optString("title", ""));
                     }
+                    userFeedLists.clear();
+                    for (int i = 0; i < fresh.size(); i++) userFeedLists.put(fresh.keyAt(i), fresh.valueAt(i));
                 } catch (Exception ignored) {
                 }
             }

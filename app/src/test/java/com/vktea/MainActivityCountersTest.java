@@ -102,9 +102,30 @@ public class MainActivityCountersTest {
         idle();
         assertEquals(View.GONE, badge().getVisibility());
         assertEquals(2, Api.counters.size());
+        assertTrue("counter subscription should be active after restart",
+                ReflectionHelpers.<Boolean>getField(controller.get(), "countersStarted"));
+        assertEquals("counter request must belong to current session", Session.generation(),
+                (long) ReflectionHelpers.<Long>getField(controller.get(), "countersSessionGeneration"));
+        assertEquals("callback lifecycle must match current lifecycle",
+                (long) ReflectionHelpers.<Long>getField(controller.get(), "countersLifecycleGeneration"),
+                (long) ReflectionHelpers.<Long>getField(Api.counters.get(1), "val$requestLifecycleGeneration"));
+        assertEquals("callback generation must match current request",
+                (long) ReflectionHelpers.<Long>getField(controller.get(), "countersRequestGeneration"),
+                (long) ReflectionHelpers.<Long>getField(Api.counters.get(1), "val$requestGeneration"));
+        assertEquals("callback session must match current session", Session.generation(),
+                (long) ReflectionHelpers.<Long>getField(Api.counters.get(1), "val$requestSessionGeneration"));
         Api.counters.get(1).success(counters(2, 2));
         idle();
         assertBadge("4");
+    }
+
+    @Test public void logoutDoesNotRequestCountersForAnEmptySession() {
+        Session.clear(app);
+        idle();
+        ReflectionHelpers.callInstanceMethod(controller.get(), "onCounterEvent");
+        idle();
+        assertEquals(1, Api.counters.size());
+        assertEquals(View.GONE, badge().getVisibility());
     }
 
     private TextView badge() { return controller.get().findViewById(R.id.toolbar_badge); }

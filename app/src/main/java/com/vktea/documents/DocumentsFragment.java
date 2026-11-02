@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.vktea.R;
+import com.vktea.auth.Session;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -43,7 +44,6 @@ public class DocumentsFragment extends Fragment {
     @Override public void onCreate(@Nullable Bundle state) {
         super.onCreate(state);
         model = new ViewModelProvider(this, createModelFactory()).get(DocumentsViewModel.class);
-        if (state != null) model.setQuery(state.getString("documents_query", ""));
     }
     protected ViewModelProvider.Factory createModelFactory() { return new DocumentsViewModel.Factory(requireContext()); }
     @Nullable @Override public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup parent, @Nullable Bundle state) {
@@ -76,9 +76,10 @@ public class DocumentsFragment extends Fragment {
         refresh.setColorSchemeResources(R.color.vk_blue); refresh.setOnRefreshListener(model::refresh);
         refresh.setOnChildScrollUpCallback((parent, child) -> list != null && list.canScrollVertically(-1));
         view.findViewById(R.id.documents_retry).setOnClickListener(v -> model.retry());
-        model.state().observe(getViewLifecycleOwner(), this::render);
         model.ensureLoaded();
+        model.state().observe(getViewLifecycleOwner(), this::render);
     }
+    @Override public void onStart() { super.onStart(); model.ensureLoaded(); }
     private void render(DocumentsViewModel.State state) {
         if (adapter == null) return;
         rendering = true;
@@ -115,10 +116,11 @@ public class DocumentsFragment extends Fragment {
     }
     private void openDocument(DocumentItem item) {
         if (!item.canOpen()) { Toast.makeText(requireContext(), R.string.documents_unavailable, Toast.LENGTH_SHORT).show(); return; }
+        final long sessionGeneration = Session.generation();
         new AlertDialog.Builder(requireContext()).setTitle(R.string.documents_open_title)
                 .setMessage(R.string.documents_open_message)
                 .setPositiveButton(R.string.documents_open, (dialog, which) -> {
-                    if (!isAdded() || !item.canOpen()) return;
+                    if (!isAdded() || getView() == null || Session.generation() != sessionGeneration || !item.canOpen()) return;
                     try {
                         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(item.url));
                         intent.addCategory(Intent.CATEGORY_BROWSABLE);
@@ -127,9 +129,6 @@ public class DocumentsFragment extends Fragment {
                         Toast.makeText(requireContext(), R.string.documents_no_handler, Toast.LENGTH_SHORT).show();
                     }
                 }).setNegativeButton(android.R.string.cancel, null).show();
-    }
-    @Override public void onSaveInstanceState(@NonNull Bundle out) {
-        super.onSaveInstanceState(out); if (search != null) out.putString("documents_query", search.getText().toString());
     }
     @Override public void onDestroyView() {
         if (search != null && watcher != null) search.removeTextChangedListener(watcher);

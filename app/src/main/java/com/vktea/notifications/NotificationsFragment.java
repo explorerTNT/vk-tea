@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.vktea.R;
+import com.vktea.auth.Session;
 
 public class NotificationsFragment extends Fragment {
     private NotificationsViewModel model;
@@ -62,8 +63,15 @@ public class NotificationsFragment extends Fragment {
         refresh.setOnChildScrollUpCallback((parent, child) -> list != null && list.canScrollVertically(-1));
         view.findViewById(R.id.notifications_retry).setOnClickListener(v -> model.retry());
         more.setOnClickListener(v -> model.loadMore());
+        model.synchronizeSession();
         model.state().observe(getViewLifecycleOwner(), this::render);
         model.ensureLoaded();
+    }
+    @Override public void onStart() {
+        super.onStart();
+        model.synchronizeSession();
+        String token = Session.getToken(requireContext());
+        if (Session.isAuthorized(requireContext()) && token != null && !token.isEmpty()) model.ensureLoaded();
     }
     private void render(NotificationsViewModel.State state) {
         if (adapter == null) return;
