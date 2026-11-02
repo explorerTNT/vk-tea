@@ -1,3 +1,9 @@
 <resources>
     <string name="chat_voice_record">Записать голосовое сообщение</string>
+    <string name="chat_voice_play">Воспроизвести голосовое сообщение</string>
+    <string name="chat_voice_play_with_duration">Воспроизвести голосовое сообщение, %1$s</string>
+    <string name="chat_voice_unavailable">Голосовое сообщение недоступно</string>
+    <string name="chat_voice_pause">Приостановить голосовое сообщение</string>
+    <string name="chat_voice_seek">Перемотка голосового сообщения</string>
+    <string name="chat_voice_elapsed">%1$s / %2$s</string>
 </resources>

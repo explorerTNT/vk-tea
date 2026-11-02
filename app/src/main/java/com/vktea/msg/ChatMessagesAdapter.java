@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -25,11 +26,14 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /** Recycled display rows only; API requests and opening viewers belong to the activity. */
 public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessagesAdapter.Holder> {
     public interface Callback {
         void onAttachmentClicked(ChatAttachment attachment);
+        default void onVoiceSeek(ChatAttachment attachment, float fraction) { }
         default void onMessageLongClicked(ChatMessage message) { }
     }
     interface ImageSize { void onSize(int width, int height); }
@@ -46,6 +50,10 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
     private final List<ChatMessage> messages = new ArrayList<>();
     private final Callback callback;
     private final Images images;
+    private final Map<View, ChatAttachment> voiceRows = new WeakHashMap<>();
+    @Nullable private ChatAttachment activeVoice;
+    private boolean voicePlaying;
+    private long voicePositionMs, voiceDurationMs;
 
     public ChatMessagesAdapter(Callback callback) { this(callback, new GlideImages()); }
 
@@ -127,11 +135,12 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
 
     private void addAttachment(Holder holder, ChatAttachment attachment) {
         boolean hasPreview = !attachment.previewUrl.isEmpty();
-        View child = LayoutInflater.from(holder.itemView.getContext()).inflate(hasPreview
-                ? R.layout.item_msg_attachment_media : R.layout.item_msg_attachment_label,
-                holder.attachments, false);
+        boolean voice = "audio_message".equals(attachment.type);
+        int layout = voice ? R.layout.item_msg_attachment_voice : hasPreview
+                ? R.layout.item_msg_attachment_media : R.layout.item_msg_attachment_label;
+        View child = LayoutInflater.from(holder.itemView.getContext()).inflate(layout, holder.attachments, false);
         child.setTag(attachment);
-        if (hasPreview) {
+        if (hasPreview && !voice) {
             ChatMediaPreview preview = child.findViewById(R.id.chat_attachment_media);
             preview.setSourceDimensions(attachment.width, attachment.height);
             ImageView image = child.findViewById(R.id.chat_attachment_image);
@@ -157,17 +166,91 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
             subtitle.setText(detail);
             subtitle.setVisibility(detail.isEmpty() ? View.GONE : View.VISIBLE);
         }
-        boolean canOpen = ChatAttachmentActions.canOpen(attachment)
-                || ("audio_message".equals(attachment.type) && !attachment.url.isEmpty())
+        boolean canOpen = voice ? voiceCanOpen(attachment) : ChatAttachmentActions.canOpen(attachment)
                 || hasPreview || (attachment.id != 0
                 && (attachment.type.equals("video") || attachment.type.equals("clip")));
         if (callback != null && canOpen) {
             child.setOnClickListener(v -> callback.onAttachmentClicked(attachment));
         }
+        if (voice) {
+            SeekBar progress = child.findViewById(R.id.chat_voice_progress);
+            progress.setProgressDrawable(new VoiceWaveformDrawable(child.getContext(), attachment.waveform()));
+            progress.setTag(R.id.chat_voice_progress, Boolean.FALSE);
+            progress.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                private boolean tracking;
+                @Override public void onStartTrackingTouch(SeekBar bar) {
+                    tracking = true;
+                    bar.setTag(R.id.chat_voice_progress, Boolean.TRUE);
+                }
+                @Override public void onProgressChanged(SeekBar bar, int value, boolean fromUser) {
+                    if (!fromUser) return;
+                    long length = VoiceMessagePlayer.sameVoice(activeVoice, attachment) && voiceDurationMs > 0
+                            ? voiceDurationMs : attachment.duration * 1000L;
+                    setVoiceTime(child, length * value / 1000, length, true);
+                    // Accessibility and keyboard changes do not have a touch tracking callback.
+                    if (!tracking && callback != null) callback.onVoiceSeek(attachment, value / 1000f);
+                }
+                @Override public void onStopTrackingTouch(SeekBar bar) {
+                    tracking = false;
+                    bar.setTag(R.id.chat_voice_progress, Boolean.FALSE);
+                    if (callback != null) callback.onVoiceSeek(attachment, bar.getProgress() / 1000f);
+                }
+            });
+            voiceRows.put(child, attachment);
+            updateVoiceRow(child, attachment);
+        }
         if (holder.attachments.getChildCount() > 0 || holder.text.getVisibility() == View.VISIBLE) {
             ((LinearLayout.LayoutParams) child.getLayoutParams()).topMargin = dp(child, 5);
         }
         holder.attachments.addView(child);
+    }
+
+    /** Updates bound rows in place so progress ticks never rebind or disturb message scrolling. */
+    public void setVoicePlayback(@Nullable ChatAttachment attachment, boolean playing,
+                                 long positionMs, long durationMs) {
+        activeVoice = attachment;
+        voicePlaying = playing;
+        voicePositionMs = Math.max(0, positionMs);
+        voiceDurationMs = Math.max(0, durationMs);
+        for (Map.Entry<View, ChatAttachment> entry : new ArrayList<>(voiceRows.entrySet())) {
+            View row = entry.getKey();
+            if (row != null && row.getTag() == entry.getValue()) updateVoiceRow(row, entry.getValue());
+        }
+    }
+
+    private void updateVoiceRow(View row, ChatAttachment attachment) {
+        boolean active = VoiceMessagePlayer.sameVoice(activeVoice, attachment);
+        boolean canOpen = voiceCanOpen(attachment);
+        long duration = active && voiceDurationMs > 0 ? voiceDurationMs : attachment.duration * 1000L;
+        long position = active ? Math.min(voicePositionMs, duration > 0 ? duration : voicePositionMs) : 0;
+        ImageView icon = row.findViewById(R.id.chat_voice_play_icon);
+        icon.setImageResource(active && voicePlaying ? R.drawable.chat_voice_pause : R.drawable.chat_voice_play);
+        icon.setAlpha(canOpen ? 1f : .5f);
+        String time = attachment.duration > 0 ? formatDuration(attachment.duration) : "";
+        row.setContentDescription(!canOpen ? row.getContext().getString(R.string.chat_voice_unavailable)
+                : active && voicePlaying ? row.getContext().getString(R.string.chat_voice_pause)
+                : time.isEmpty() ? row.getContext().getString(R.string.chat_voice_play)
+                : row.getContext().getString(R.string.chat_voice_play_with_duration, time));
+        SeekBar progress = row.findViewById(R.id.chat_voice_progress);
+        progress.setEnabled(canOpen && active && duration > 0);
+        if (!Boolean.TRUE.equals(progress.getTag(R.id.chat_voice_progress))) {
+            progress.setProgress(duration > 0 ? (int) Math.min(1000, position * 1000 / duration) : 0);
+            setVoiceTime(row, position, duration, active);
+        }
+    }
+
+    private static void setVoiceTime(View row, long position, long duration, boolean active) {
+        TextView time = row.findViewById(R.id.chat_attachment_subtitle);
+        String total = duration > 0 ? formatDuration((int) Math.min(Integer.MAX_VALUE, duration / 1000)) : "";
+        if (active && duration > 0) {
+            String current = formatDuration((int) Math.min(Integer.MAX_VALUE, position / 1000));
+            time.setText(row.getContext().getString(R.string.chat_voice_elapsed, current, total));
+        } else time.setText(total);
+        time.setVisibility(time.length() == 0 ? View.GONE : View.VISIBLE);
+    }
+
+    private static boolean voiceCanOpen(ChatAttachment attachment) {
+        return !attachment.url.isEmpty() || (attachment.ownerId != 0 && attachment.id > 0);
     }
 
     private static boolean isPicture(String type) {
@@ -239,6 +322,7 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
     }
 
     private void clearImages(View view) {
+        voiceRows.remove(view);
         if (view instanceof ImageView) images.clear((ImageView) view);
         if (view instanceof ViewGroup) {
             ViewGroup group = (ViewGroup) view;

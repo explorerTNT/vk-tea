@@ -1,6 +1,7 @@
 package com.vktea.msg;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -21,6 +22,46 @@ import java.util.List;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 public class ChatHistoryParserTest {
+    @Test public void voiceWaveformsAreSnapshotsForBothVkAttachmentShapes() throws Exception {
+        JSONArray directWave = array(0, 7, 31, 12);
+        JSONObject direct = object("id", 22, "owner_id", 91, "duration", 9,
+                "link_ogg", "https://audio.invalid/voice.ogg", "waveform", directWave);
+        JSONObject legacy = object("id", 23, "owner_id", 91, "preview", object("audio_msg",
+                object("duration", 17, "waveform", array(3, 18, 30))));
+        JSONObject ordinary = object("title", "ordinary.ogg", "ext", "ogg", "waveform", array(1, 2));
+        List<ChatAttachment> parts = only(message(1, 100, 91).put("attachments", array(
+                attachment("audio_message", direct), attachment("doc", legacy), attachment("doc", ordinary)))).attachments;
+
+        assertArrayEquals(new int[]{0, 7, 31, 12}, parts.get(0).waveform());
+        assertArrayEquals(new int[]{3, 18, 30}, parts.get(1).waveform());
+        assertEquals("doc", parts.get(2).type);
+        assertArrayEquals(new int[0], parts.get(2).waveform());
+        directWave.put(0, 31);
+        int[] read = parts.get(0).waveform();
+        read[1] = 0;
+        assertArrayEquals(new int[]{0, 7, 31, 12}, parts.get(0).waveform());
+    }
+
+    @Test public void invalidAndRestrictedVoiceWaveformsAreUnavailableAndLargeOnesAreBounded() throws Exception {
+        JSONArray large = new JSONArray();
+        for (int i = 0; i < 1200; i++) large.put(i % 32);
+        JSONObject bad = object("waveform", array(0, "not a sample", 31));
+        JSONObject high = object("waveform", array(0, 32));
+        JSONObject restricted = object("is_deleted", 1, "waveform", array(3, 18));
+        JSONObject oversized = object("waveform", large);
+        List<ChatAttachment> parts = only(message(1, 100, 91).put("attachments", array(
+                attachment("audio_message", bad), attachment("audio_message", high),
+                attachment("audio_message", restricted), attachment("audio_message", oversized)))).attachments;
+
+        assertArrayEquals(new int[0], parts.get(0).waveform());
+        assertArrayEquals(new int[0], parts.get(1).waveform());
+        assertArrayEquals(new int[0], parts.get(2).waveform());
+        int[] limited = parts.get(3).waveform();
+        assertEquals(512, limited.length);
+        assertEquals(0, limited[0]);
+        assertEquals(1199 % 32, limited[limited.length - 1]);
+    }
+
     @Test public void readStateIsOnlyKnownWhenSuppliedForOutgoingMessages() throws Exception {
         List<ChatMessage> rows = ChatHistoryParser.parse(history(
                 message(5, 5, 91).put("out", 1).put("read_state", 1),
@@ -39,10 +80,11 @@ public class ChatHistoryParserTest {
         JSONObject restricted = object("id", 9, "owner_id", 91, "content_restricted", 1,
                 "access_key", "synthetic", "photo_320", "https://example.invalid/preview",
                 "url", "https://example.invalid/video");
-        JSONObject voice = object("title", "audio_message.ogg", "preview", object("audio_msg",
+        JSONObject voice = object("title", "audio_message.ogg", "ext", "ogg", "size", 10000, "preview", object("audio_msg",
                 object("duration", 17, "link_mp3", "https://example.invalid/voice.mp3")));
         List<ChatAttachment> parts = only(message(1, 100, 91).put("attachments", array(
-                attachment("video", restricted), attachment("doc", voice)))).attachments;
+                attachment("video", restricted), attachment("doc", voice), attachment("doc",
+                        object("title", "ordinary.ogg", "ext", "ogg", "url", "https://example.invalid/ordinary.ogg"))))).attachments;
         assertTrue(parts.get(0).title.contains("недоступно"));
         assertEquals("", parts.get(0).previewUrl);
         assertEquals("", parts.get(0).url);
@@ -51,6 +93,9 @@ public class ChatHistoryParserTest {
         assertEquals("Голосовое сообщение", parts.get(1).title);
         assertEquals("https://example.invalid/voice.mp3", parts.get(1).url);
         assertEquals(17, parts.get(1).duration);
+        assertEquals("0:17", parts.get(1).subtitle);
+        assertEquals("doc", parts.get(2).type);
+        assertEquals("ordinary.ogg", parts.get(2).title);
     }
 
     @Test

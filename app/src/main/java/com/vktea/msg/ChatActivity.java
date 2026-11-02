@@ -111,8 +111,14 @@ public class ChatActivity extends AppCompatActivity {
         layout.setStackFromEnd(true);
         list.setLayoutManager(layout);
         voicePlayer = createVoicePlayer();
+        voicePlayer.setObserver((attachment, playing, position, duration) -> {
+            if (adapter != null) adapter.setVoicePlayback(attachment, playing, position, duration);
+        });
         adapter = new ChatMessagesAdapter(new ChatMessagesAdapter.Callback() {
             @Override public void onAttachmentClicked(ChatAttachment attachment) { openAttachment(attachment); }
+            @Override public void onVoiceSeek(ChatAttachment attachment, float fraction) {
+                voicePlayer.seek(attachment, fraction);
+            }
             @Override public void onMessageLongClicked(ChatMessage message) { showMessageActions(message); }
         });
         list.setAdapter(adapter);
@@ -375,7 +381,7 @@ public class ChatActivity extends AppCompatActivity {
 
     private void openAttachment(ChatAttachment attachment) {
         if ("audio_message".equals(attachment.type)) {
-            voicePlayer.open(attachment.url);
+            voicePlayer.toggle(attachment);
             return;
         }
         if (ChatAttachmentActions.open(this, attachment)) return;

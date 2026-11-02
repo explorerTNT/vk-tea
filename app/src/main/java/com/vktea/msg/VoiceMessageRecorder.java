@@ -49,6 +49,19 @@ import okhttp3.Response;
 
 /** Foreground-only, explicit voice recording and sending. Temporary audio never leaves cache. */
 public final class VoiceMessageRecorder {
+    enum SendStage { SERVER, UPLOAD, SAVE, SEND }
+    static final class FailureStatus extends Exception {
+        final boolean vk;
+        final int code;
+        FailureStatus(boolean vk, int code) { this.vk = vk; this.code = code; }
+    }
+
+    static String safeStatus(Exception failure) {
+        if (!(failure instanceof FailureStatus)) return "";
+        FailureStatus status = (FailureStatus) failure;
+        if (status.code <= 0 || status.code > 9999 || (!status.vk && (status.code < 100 || status.code > 599))) return "";
+        return " (код " + (status.vk ? "VK " : "HTTP ") + status.code + ")";
+    }
     private final AppCompatActivity activity;
     private final long peerId;
     private final Runnable sent;
@@ -68,9 +81,12 @@ public final class VoiceMessageRecorder {
             .callTimeout(90, TimeUnit.SECONDS).build();
     }
     private MediaRecorder recorder;
+    private final VoiceWaveform waveform = new VoiceWaveform();
+    private Runnable waveformSampler;
+    private volatile String recordedWaveform;
     private Preview preview;
     private AlertDialog dialog;
-    private File file;
+    private volatile File file;
     private Runnable recordingTimeout;
     private volatile Call upload;
     private long started;
@@ -111,6 +127,8 @@ public final class VoiceMessageRecorder {
         if (Build.VERSION.SDK_INT < 29) return;
         if (dialog != null || recorder != null || peerId == 0) return;
         try {
+            waveform.clear();
+            recordedWaveform = null;
             file = File.createTempFile("voice-", ".ogg", activity.getCacheDir());
             MediaRecorder created = new MediaRecorder();
             recorder = created;
@@ -124,6 +142,7 @@ public final class VoiceMessageRecorder {
             created.prepare();
             created.start();
             started = SystemClock.elapsedRealtime();
+            startWaveformSampling(created);
             // Stop ourselves: setMaxDuration stops asynchronously, so calling stop() in
             // its info callback can race with the platform's own stop and discard audio.
             recordingTimeout = () -> { if (recorder == created) finishRecording(); };
@@ -144,6 +163,8 @@ public final class VoiceMessageRecorder {
         MediaRecorder current = recorder;
         if (current == null) return;
         clearRecordingTimeout();
+        stopWaveformSampling();
+        sampleWaveform(current);
         recorder = null;
         boolean valid = SystemClock.elapsedRealtime() - started >= 500;
         try { current.stop(); } catch (RuntimeException failure) { valid = false; }
@@ -156,6 +177,8 @@ public final class VoiceMessageRecorder {
             toast("Запись слишком короткая или не удалась");
             return;
         }
+        recordedWaveform = waveform.toJson();
+        waveform.clear();
         dialog = new AlertDialog.Builder(activity).setTitle("Голосовое сообщение")
                 .setMessage("Отправить запись?")
                 .setPositiveButton("Отправить", (ignored, which) -> send())
@@ -191,22 +214,27 @@ public final class VoiceMessageRecorder {
         token = Session.getToken(activity);
         secret = Session.getSecret(activity);
         user = Session.getUserId(activity);
-        if (token == null || token.isEmpty()) { sending = false; deleteFile(); toast("Требуется вход в аккаунт"); return; }
+        if (token == null || token.isEmpty()) {
+            sending = false;
+            if (file != null && file.isFile()) showRetryDialog("Требуется вход в аккаунт", null);
+            else { deleteFile(); toast("Запись больше недоступна"); }
+            return;
+        }
         toast("Отправка голосового сообщения…");
         LinkedHashMap<String, String> params = new LinkedHashMap<>();
         params.put("type", "audio_message"); params.put("peer_id", Long.toString(peerId));
-        api(operation, "docs.getMessagesUploadServer", params, new VKApi.Callback() {
+        api(operation, SendStage.SERVER, "docs.getMessagesUploadServer", params, new VKApi.Callback() {
             @Override public void success(JSONObject response) {
-                if (!active(operation)) return;
+                if (!active(operation)) { fail(operation, SendStage.SERVER); return; }
                 JSONObject data = response.optJSONObject("response");
                 String url = data == null ? "" : data.optString("upload_url", "");
                 HttpUrl parsed = HttpUrl.parse(url);
-                if (!allowedUpload(parsed)) { fail(operation); return; }
+                if (!allowedUpload(parsed)) { fail(operation, SendStage.SERVER); return; }
                 File recorded = file;
-                if (recorded == null) { fail(operation); return; }
+                if (recorded == null) { fail(operation, SendStage.SERVER); return; }
                 new Thread(() -> upload(operation, parsed, recorded), "voice-upload").start();
             }
-            @Override public void error(Exception ignored) { fail(operation); }
+            @Override public void error(Exception error) { fail(operation, SendStage.SERVER, error); }
         });
     }
 
@@ -217,16 +245,50 @@ public final class VoiceMessageRecorder {
                 || host.endsWith(".vk.ru") || host.equals("userapi.com") || host.endsWith(".userapi.com");
     }
 
+    private void startWaveformSampling(MediaRecorder recording) {
+        stopWaveformSampling();
+        waveformSampler = new Runnable() {
+            @Override public void run() {
+                if (recorder != recording || waveformSampler != this) return;
+                if (sampleWaveform(recording) && !waveform.isFull()) main.postDelayed(this, 250);
+            }
+        };
+        main.postDelayed(waveformSampler, 250);
+    }
+
+    private void stopWaveformSampling() {
+        Runnable old = waveformSampler;
+        waveformSampler = null;
+        if (old != null) main.removeCallbacks(old);
+    }
+
+    private boolean sampleWaveform(MediaRecorder recording) {
+        try {
+            waveform.add(recording.getMaxAmplitude());
+            return true;
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    static RequestBody uploadBody(File recorded, String recordedWaveform) {
+        MultipartBody.Builder body = new MultipartBody.Builder().setType(MultipartBody.FORM);
+        if (recordedWaveform != null) body.addFormDataPart("waveform", recordedWaveform);
+        return body.addFormDataPart("file", "Audio Message",
+                RequestBody.create(recorded, MediaType.parse("audio/ogg"))).build();
+    }
+
     private void upload(int operation, HttpUrl url, File recorded) {
         Call call = null;
         try {
-            RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
-                    .addFormDataPart("file", "voice.ogg", RequestBody.create(recorded, MediaType.parse("audio/ogg"))).build();
-            call = client.newCall(new Request.Builder().url(url).post(body).build());
+            RequestBody body = uploadBody(recorded, recordedWaveform);
+            call = client.newCall(new Request.Builder().url(url)
+                    .header("User-Agent", VKApi.USER_AGENT).post(body).build());
             if (!registerCall(operation, call)) { call.cancel(); return; }
-            if (!active(operation)) { call.cancel(); main.post(() -> fail(operation)); return; }
+            if (!active(operation)) { call.cancel(); main.post(() -> fail(operation, SendStage.UPLOAD)); return; }
             try (Response response = call.execute()) {
-                if (!response.isSuccessful() || response.body() == null) throw new IllegalStateException();
+                if (!response.isSuccessful()) throw new FailureStatus(false, response.code());
+                if (response.body() == null) throw new IllegalStateException();
                 if (response.body().source().request(65537) && response.body().source().buffer().size() > 65536)
                     throw new IllegalStateException();
                 String bodyText = response.body().string();
@@ -234,20 +296,20 @@ public final class VoiceMessageRecorder {
                 if (uploaded.isEmpty()) throw new IllegalStateException();
                 main.post(() -> save(operation, uploaded));
             }
-        } catch (Exception ignored) { main.post(() -> fail(operation)); }
-        finally { clearCall(call); if (operation != generation) recorded.delete(); }
+        } catch (Exception failure) { main.post(() -> fail(operation, SendStage.UPLOAD, failure)); }
+        finally { clearCall(call); if (operation != generation && recorded != file) recorded.delete(); }
     }
 
     private void save(int operation, String uploaded) {
-        if (!active(operation)) { fail(operation); return; }
+        if (!active(operation)) { fail(operation, SendStage.SAVE); return; }
         LinkedHashMap<String, String> params = new LinkedHashMap<>();
         params.put("file", uploaded);
-        api(operation, "docs.save", params, new VKApi.Callback() {
+        api(operation, SendStage.SAVE, "docs.save", params, new VKApi.Callback() {
             @Override public void success(JSONObject result) {
-                if (!active(operation)) return;
+                if (!active(operation)) { fail(operation, SendStage.SAVE); return; }
                 JSONObject audio = savedVoice(result);
                 long owner = audio == null ? 0 : audio.optLong("owner_id"), id = audio == null ? 0 : audio.optLong("id");
-                if (owner == 0 || id <= 0) { fail(operation); return; }
+                if (owner == 0 || id <= 0) { fail(operation, SendStage.SAVE); return; }
                 String access = audio.optString("access_key", "");
                 String attachment = "doc" + owner + "_" + id + (access.isEmpty() ? "" : "_" + access);
                 int random = UUID.randomUUID().hashCode() & Integer.MAX_VALUE;
@@ -256,19 +318,19 @@ public final class VoiceMessageRecorder {
                 params.put("peer_id", Long.toString(peerId));
                 params.put("random_id", Integer.toString(random));
                 params.put("attachment", attachment);
-                api(operation, "messages.send", params, new VKApi.Callback() {
+                api(operation, SendStage.SEND, "messages.send", params, new VKApi.Callback() {
                     @Override public void success(JSONObject sentResponse) {
-                        if (!active(operation)) return;
-                        if (sentResponse.optLong("response") <= 0) { fail(operation); return; }
+                        if (!active(operation)) { fail(operation, SendStage.SEND); return; }
+                        if (sentResponse.optLong("response") <= 0) { fail(operation, SendStage.SEND); return; }
                         sending = false;
                         deleteFile();
                         toast("Голосовое сообщение отправлено");
                         if (sent != null) sent.run();
                     }
-                    @Override public void error(Exception ignored) { fail(operation); }
+                    @Override public void error(Exception error) { fail(operation, SendStage.SEND, error); }
                 });
             }
-            @Override public void error(Exception ignored) { fail(operation); }
+            @Override public void error(Exception error) { fail(operation, SendStage.SAVE, error); }
         });
     }
 
@@ -290,8 +352,8 @@ public final class VoiceMessageRecorder {
     }
 
     /** All stages use one session snapshot and no redirects, retries, or response logging. */
-    private void api(int operation, String method, LinkedHashMap<String, String> args, VKApi.Callback callback) {
-        if (!active(operation)) { fail(operation); return; }
+    private void api(int operation, SendStage stage, String method, LinkedHashMap<String, String> args, VKApi.Callback callback) {
+        if (!active(operation)) { fail(operation, stage); return; }
         LinkedHashMap<String, String> fields = new LinkedHashMap<>();
         fields.put("v", "5.82"); fields.put("lang", Locale.getDefault().getLanguage());
         fields.put("https", "1"); fields.put("access_token", token); fields.putAll(args);
@@ -306,15 +368,20 @@ public final class VoiceMessageRecorder {
             try {
                 if (!active(operation)) { call.cancel(); throw new IllegalStateException(); }
                 try (Response response = call.execute()) {
-                    if (!response.isSuccessful() || response.body() == null) throw new IllegalStateException();
+                    if (!response.isSuccessful()) throw new FailureStatus(false, response.code());
+                    if (response.body() == null) throw new IllegalStateException();
                     if (response.body().source().request(65537) && response.body().source().buffer().size() > 65536)
                         throw new IllegalStateException();
                     JSONObject root = new JSONObject(response.body().string());
-                    if (!root.has("response")) throw new IllegalStateException();
-                    main.post(() -> { if (active(operation)) callback.success(root); else fail(operation); });
+                    if (!root.has("response")) {
+                        JSONObject error = root.optJSONObject("error");
+                        throw new FailureStatus(true, error == null ? 0 : error.optInt("error_code", 0));
+                    }
+                    main.post(() -> { if (active(operation)) callback.success(root); else fail(operation, stage); });
                 }
-            } catch (Exception ignored) {
-                main.post(() -> { if (operation == generation) callback.error(new Exception("Request failed")); });
+            } catch (Exception failure) {
+                Exception safe = failure instanceof FailureStatus ? failure : new Exception("Request failed");
+                main.post(() -> { if (operation == generation) callback.error(safe); });
             } finally { clearCall(call); }
         }, "voice-api").start();
     }
@@ -335,15 +402,70 @@ public final class VoiceMessageRecorder {
         } catch (Exception impossible) { throw new AssertionError(impossible); }
     }
 
-    private void fail(int operation) {
+    private void fail(int operation, SendStage stage) {
+        fail(operation, stage, null);
+    }
+
+    private void fail(int operation, SendStage stage, Exception failure) {
         if (operation != generation) return;
         sending = false;
-        deleteFile();
-        if (!activity.isFinishing() && !activity.isDestroyed()) toast("Не удалось подтвердить отправку голосового сообщения");
+        if (!active(operation)) {
+            deleteFile();
+            return;
+        }
+        if (stage == SendStage.SEND) {
+            deleteFile();
+            AlertDialog shown = new AlertDialog.Builder(activity)
+                    .setTitle("Голосовое сообщение")
+                    .setMessage("Не удалось подтвердить отправку" + safeStatus(failure)
+                            + ". Проверьте чат перед повтором.")
+                    .setPositiveButton("Понятно", null)
+                    .create();
+            dialog = shown;
+            shown.setOnDismissListener(ignored -> { if (dialog == shown) dialog = null; });
+            shown.show();
+            return;
+        }
+        if (file == null || !file.isFile()) {
+            deleteFile();
+            toast("Запись больше недоступна");
+            return;
+        }
+        String reason;
+        switch (stage) {
+            case SERVER: reason = "Не удалось получить сервер загрузки"; break;
+            case UPLOAD: reason = "Не удалось загрузить запись"; break;
+            case SAVE: reason = "Не удалось сохранить запись во ВКонтакте"; break;
+            default: throw new AssertionError(stage);
+        }
+        showRetryDialog(reason, failure);
+    }
+
+    private void showRetryDialog(String reason, Exception failure) {
+        final String originalUser = user, originalToken = token, originalSecret = secret;
+        dialog = new AlertDialog.Builder(activity)
+                .setTitle("Голосовое сообщение")
+                .setMessage(reason + safeStatus(failure) + ". Запись сохранена до выхода из чата.")
+                .setPositiveButton("Повторить", (ignored, which) -> {
+                    dialog = null;
+                    if (!java.util.Objects.equals(originalUser, Session.getUserId(activity))
+                            || !java.util.Objects.equals(originalToken, Session.getToken(activity))
+                            || !java.util.Objects.equals(originalSecret, Session.getSecret(activity))) {
+                        deleteFile();
+                        toast("Аккаунт изменился. Запись удалена");
+                        return;
+                    }
+                    send();
+                })
+                .setNegativeButton("Удалить", (ignored, which) -> { dialog = null; deleteFile(); })
+                .setOnCancelListener(ignored -> { dialog = null; deleteFile(); })
+                .create();
+        dialog.show();
     }
 
     private void cancelRecording() {
         clearRecordingTimeout();
+        stopWaveformSampling();
         stopPreview();
         MediaRecorder current = recorder;
         recorder = null;
@@ -417,6 +539,12 @@ public final class VoiceMessageRecorder {
         recordingTimeout = null;
     }
 
-    private void deleteFile() { File old = file; file = null; if (old != null) old.delete(); }
+    private void deleteFile() {
+        File old = file;
+        file = null;
+        recordedWaveform = null;
+        waveform.clear();
+        if (old != null) old.delete();
+    }
     private void toast(String value) { Toast.makeText(activity, value, Toast.LENGTH_SHORT).show(); }
 }
