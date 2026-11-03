@@ -51,13 +51,17 @@ final class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdapt
             case "mention": case "mention_comments": case "mention_comment_photo": case "mention_comment_video":
                 return R.string.notifications_action_mention;
             case "comment_post": case "comment_photo": case "comment_video": case "reply_topic":
+            case "new_comment": case "new_comment_reply": case "new_story_reply": case "story_reply":
                 return R.string.notifications_action_comment;
             case "like_post": case "like_photo": case "like_video": case "like_comment":
+            case "new_like": case "like":
                 return R.string.notifications_action_like;
-            case "copy_post": case "copy_photo": case "copy_video": return R.string.notifications_action_copy;
-            case "follow": return R.string.notifications_action_follow;
-            case "friend_accepted": return R.string.notifications_action_friend;
-            case "wall": case "wall_publish": return R.string.notifications_action_wall;
+            case "copy_post": case "copy_photo": case "copy_video":
+            case "new_repost": case "repost": case "new_post_repost":
+                return R.string.notifications_action_copy;
+            case "follow": case "new_follower": case "followed": return R.string.notifications_action_follow;
+            case "friend_accepted": case "accept_friend_request": case "new_friend": case "friend": return R.string.notifications_action_friend;
+            case "wall": case "wall_publish": case "new_post": case "post": return R.string.notifications_action_wall;
             default: return R.string.notifications_action_other;
         }
     }

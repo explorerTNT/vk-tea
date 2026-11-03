@@ -114,6 +114,12 @@ public final class VoiceMessagePlayer {
         if (attachment == null || !"audio_message".equals(attachment.type)) return;
         active = attachment;
         Session.Snapshot snapshot = Session.snapshot(activity);
+        // Прямая ссылка из истории сообщений уже валидна - играем сразу,
+        // docs.getById используем только как фолбэк (он пустой для чужих голосовых).
+        if (isSafeUrl(attachment.url)) {
+            start(attachment.url);
+            return;
+        }
         if (attachment.ownerId != 0 && attachment.id != 0 && snapshot.token != null && !snapshot.token.isEmpty()) {
             resolving = true;
             int requestGeneration = generation;

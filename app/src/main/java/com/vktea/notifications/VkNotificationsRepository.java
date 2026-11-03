@@ -76,13 +76,17 @@ final class VkNotificationsRepository implements NotificationsRepository {
             catch (NumberFormatException ignored) { finish(null, new NotificationsError(NotificationsError.Kind.AUTH)); return; }
             if (snapshot.token.isEmpty() || !snapshot.matches(sessions.get())) { finish(null, new NotificationsError(NotificationsError.Kind.AUTH)); return; }
             if (cursor.length() > 4096) { finish(null, new NotificationsError(NotificationsError.Kind.MALFORMED)); return; }
+            // VK сверяет sig с порядком параметров в запросе: шлём по алфавиту
             HttpUrl.Builder builder = endpoint.newBuilder().addPathSegments("method/notifications.get")
-                    .addQueryParameter("v", "5.82").addQueryParameter("lang", Locale.getDefault().getLanguage())
-                    .addQueryParameter("https", "1").addQueryParameter("access_token", snapshot.token)
-                    .addQueryParameter("count", "100").addQueryParameter("start_time", "1");
+                    .addQueryParameter("access_token", snapshot.token)
+                    .addQueryParameter("count", "100")
+                    .addQueryParameter("https", "1")
+                    .addQueryParameter("lang", Locale.getDefault().getLanguage());
             if (!cursor.isEmpty()) builder.addQueryParameter("start_from", cursor);
+            builder.addQueryParameter("start_time", "1")
+                    .addQueryParameter("v", "5.82");
             HttpUrl unsigned = builder.build();
-            if (!snapshot.secret.isEmpty()) builder.addQueryParameter("sig", signature(unsigned.encodedPath() + "?" + unsigned.encodedQuery() + snapshot.secret));
+            if (!snapshot.secret.isEmpty()) builder.addQueryParameter("sig", sortedSignature(unsigned, snapshot.secret));
             call = client.newCall(new okhttp3.Request.Builder().url(builder.build()).header("User-Agent", VKApi.USER_AGENT).get().build());
             if (!active()) { call.cancel(); return; }
             call.enqueue(new okhttp3.Callback() {
@@ -134,5 +138,19 @@ final class VkNotificationsRepository implements NotificationsRepository {
             for (byte b : hash) result.append(digits[(b >>> 4) & 15]).append(digits[b & 15]);
             return result.toString();
         } catch (NoSuchAlgorithmException impossible) { throw new AssertionError("MD5 unavailable"); }
+    }
+
+    /** VK считает sig от параметров, отсортированных по алфавиту. */
+    private static String sortedSignature(HttpUrl url, String secret) {
+        java.util.TreeMap<String, String> sorted = new java.util.TreeMap<>();
+        for (String name : url.queryParameterNames()) {
+            for (String value : url.queryParameterValues(name)) sorted.put(name, value);
+        }
+        StringBuilder raw = new StringBuilder(url.encodedPath()).append('?');
+        for (java.util.Map.Entry<String, String> field : sorted.entrySet()) {
+            if (raw.charAt(raw.length() - 1) != '?') raw.append('&');
+            raw.append(field.getKey()).append('=').append(field.getValue());
+        }
+        return signature(raw.append(secret).toString());
     }
 }

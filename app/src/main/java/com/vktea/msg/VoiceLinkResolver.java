@@ -58,10 +58,13 @@ final class VoiceLinkResolver {
 
     Handle resolve(ChatAttachment attachment, Session.Snapshot session, Completion completion) {
         LinkedHashMap<String, String> fields = new LinkedHashMap<>();
-        fields.put("v", "5.82"); fields.put("lang", Locale.getDefault().getLanguage());
-        fields.put("https", "1"); fields.put("access_token", session.token);
+        // Порядок по алфавиту: sig считается от этой же последовательности
+        fields.put("access_token", session.token);
         fields.put("docs", attachment.ownerId + "_" + attachment.id
                 + (attachment.accessKey.isEmpty() ? "" : "_" + attachment.accessKey));
+        fields.put("https", "1");
+        fields.put("lang", Locale.getDefault().getLanguage());
+        fields.put("v", "5.82");
         if (session.secret != null && !session.secret.isEmpty()) fields.put("sig", signature(fields, session.secret));
         FormBody.Builder form = new FormBody.Builder();
         for (Map.Entry<String, String> field : fields.entrySet()) form.add(field.getKey(), field.getValue());
@@ -115,8 +118,9 @@ final class VoiceLinkResolver {
     }
 
     private static String signature(LinkedHashMap<String, String> fields, String secret) {
+        // VK требует параметры в sig-строке строго по алфавиту
         StringBuilder raw = new StringBuilder("/method/docs.getById?");
-        for (Map.Entry<String, String> field : fields.entrySet()) {
+        for (Map.Entry<String, String> field : new java.util.TreeMap<>(fields).entrySet()) {
             if (raw.charAt(raw.length() - 1) != '?') raw.append('&');
             raw.append(field.getKey()).append('=').append(field.getValue());
         }

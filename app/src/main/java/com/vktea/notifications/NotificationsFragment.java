@@ -110,6 +110,17 @@ public class NotificationsFragment extends Fragment {
         String host = uri.getHost();
         if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null
                 || !(host.equalsIgnoreCase("vk.com") || host.equalsIgnoreCase("vk.ru"))) return;
+        // wall-ссылки открываем нативным экраном поста (path или ?w=wall...)
+        java.util.regex.Matcher wall = java.util.regex.Pattern.compile("wall(-?\\d+)_(\\d+)")
+                .matcher(uri.toString());
+        if (wall.find()) {
+            try {
+                com.vktea.feed.PostActivity.startById(requireContext(),
+                        Long.parseLong(wall.group(1)), Long.parseLong(wall.group(2)));
+                return;
+            } catch (NumberFormatException ignored) {
+            }
+        }
         try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
         catch (ActivityNotFoundException e) { Toast.makeText(requireContext(), R.string.notifications_no_browser, Toast.LENGTH_SHORT).show(); }
     }

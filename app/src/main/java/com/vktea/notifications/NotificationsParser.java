@@ -22,6 +22,11 @@ final class NotificationsParser {
         for (int i = 0; i < rows.length(); i++) {
             JSONObject row = rows.optJSONObject(i);
             if (row == null) continue;
+            if ("notifications_unified_notification".equals(row.optString("inner_type", ""))) {
+                NotificationEvent unified = unified(row);
+                if (unified != null) events.add(unified);
+                continue;
+            }
             String type = row.optString("type", "");
             JSONObject feedback = row.optJSONObject("feedback");
             JSONObject parent = row.optJSONObject("parent");
@@ -53,6 +58,48 @@ final class NotificationsParser {
         if (next.length() > 4096) throw new JSONException("Invalid cursor");
         return new EventPage(events, next, response.optLong("last_viewed", 0));
     }
+    /**
+     * Unified-формат (VK отдаёт его теперь всегда):
+     * header = "Сообщество '''[club123|Имя]''' опубликовало запись [url|заголовок]",
+     * footer = "{date}" или текст, action.url = цель перехода.
+     */
+    private static NotificationEvent unified(JSONObject row) {
+        String header = plain(row.optString("header", ""));
+        String footer = plain(row.optString("footer", ""));
+        if (header.isEmpty() && footer.isEmpty()) return null;
+        String actor = firstLinkTitle(row.optString("header", ""));
+        // текст = header без ведущей ссылки на автора (иначе дублируется с именем)
+        String text = header;
+        if (!actor.isEmpty() && header.contains(actor)) {
+            int at = header.indexOf(actor);
+            text = (header.substring(0, at) + header.substring(at + actor.length())).replaceAll("\\s{2,}", " ").trim();
+        }
+        String parent = footer.equals("{date}") ? "" : footer;
+        String url = "";
+        JSONObject action = row.optJSONObject("action");
+        if (action != null) {
+            String candidate = action.optString("url", "");
+            HttpUrl parsed = HttpUrl.parse(candidate);
+            if (parsed != null && parsed.isHttps()
+                    && (parsed.host().endsWith("vk.com") || parsed.host().endsWith("vk.ru"))) {
+                url = candidate;
+            }
+        }
+        return new NotificationEvent(row.optString("icon_type", "unified"),
+                row.optLong("date", 0), actor, "", text, parent, url);
+    }
+
+    /** Убирает разметку: '''жирный''', [id|текст] -> текст. */
+    private static String plain(String value) {
+        return value.replaceAll("'''", "").replaceAll("\\[[^|\\]]+\\|([^\\]]+)\\]", "$1").trim();
+    }
+
+    private static String firstLinkTitle(String value) {
+        java.util.regex.Matcher link =
+                java.util.regex.Pattern.compile("\\[[^|\\]]+\\|([^\\]]+)\\]").matcher(value);
+        return link.find() ? link.group(1) : "";
+    }
+
     private static void readPeople(JSONArray rows, boolean group, Map<Long, Person> people) {
         if (rows == null) return;
         for (int i = 0; i < rows.length(); i++) {

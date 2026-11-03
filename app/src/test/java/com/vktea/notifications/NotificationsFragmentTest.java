@@ -102,8 +102,12 @@ public class NotificationsFragmentTest {
         assertEquals(View.VISIBLE, holder.parent.getVisibility());
         holder.itemView.performClick();
         Intent opened = shadowOf(host.get()).getNextStartedActivity();
-        assertNotNull(opened); assertEquals(Intent.ACTION_VIEW, opened.getAction());
-        assertEquals("https://vk.com/wall1_2", opened.getDataString());
+        assertNotNull(opened);
+        // wall-ссылки открываются нативным экраном поста
+        assertEquals(com.vktea.feed.PostActivity.class.getName(),
+                opened.getComponent() == null ? "" : opened.getComponent().getClassName());
+        assertEquals(1L, opened.getLongExtra("owner_id", 0));
+        assertEquals(2L, opened.getLongExtra("post_id", 0));
         NotificationEvent empty = event("Второй", "", "");
         adapter.submit(Collections.singletonList(empty)); adapter.onBindViewHolder(holder, 0);
         assertEquals("Второй", holder.text.getText().toString());

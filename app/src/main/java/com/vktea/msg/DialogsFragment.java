@@ -131,6 +131,7 @@ public class DialogsFragment extends Fragment {
         List<Dialog> dialogs = DialogsParser.parse(response);
                     target.clear();
                     for (Dialog dialog : dialogs) target.add(dialog);
+                    applyCachedPeers(target);
                     loadAvatars(request, target);
                 }
                 finishLoad();
@@ -162,6 +163,15 @@ public class DialogsFragment extends Fragment {
 
     protected void requestGroups(String ids, VKApi.Callback callback) {
         VKApi.get(requireContext(), "groups.getById", "group_ids=" + ids, callback);
+    }
+
+    private void applyCachedPeers(DialogsAdapter target) {
+        long self = DialogsParser.selfId();
+        for (Dialog dialog : target.items()) {
+            if (dialog.peerId == self) continue; // «Избранное» не трогаем
+            String[] cached = PeerCache.load(requireContext(), dialog.peerId);
+            if (cached != null) target.applyUser(dialog.peerId, cached[0], cached[1]);
+        }
     }
 
     private void loadAvatars(int request, DialogsAdapter target) {
@@ -197,7 +207,9 @@ public class DialogsFragment extends Fragment {
                     if (id <= 0) continue;
                     String name = groups ? peer.optString("name", "")
                             : (peer.optString("first_name", "") + " " + peer.optString("last_name", "")).trim();
-                    target.applyUser(groups ? -id : id, name, MessageAvatars.photoUrl(peer));
+                    String photo = MessageAvatars.photoUrl(peer);
+                    PeerCache.store(requireContext(), groups ? -id : id, name, photo);
+                    target.applyUser(groups ? -id : id, name, photo);
                 }
             }
             @Override public void error(Exception e) { }

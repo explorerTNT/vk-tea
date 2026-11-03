@@ -129,7 +129,7 @@ public class VoiceMessagePlayerTest {
                 voice(0, 0, "https://example.invalid/a")));
     }
 
-    @Test public void refreshUsesOneRequestAndIgnoresCancelledOrOldSessionCallbacks() {
+    @Test public void directUrlPlaysImmediatelyAndResolverOnlyForMissingLinks() {
         Session.save(controller.get(), "synthetic-token", "101");
         List<VoiceLinkResolver.Completion> replies = new ArrayList<>();
         List<Boolean> cancelled = new ArrayList<>();
@@ -141,23 +141,21 @@ public class VoiceMessagePlayerTest {
                     replies.add(reply); cancelled.add(false);
                     return () -> cancelled.set(index, true);
                 });
-        ChatAttachment first = voice(1, 1, "https://example.invalid/old");
-        ChatAttachment second = voice(1, 2, "https://example.invalid/second");
-        subject.toggle(first);
+        // Прямая ссылка из истории сообщений - играем без docs.getById
+        subject.toggle(voice(1, 1, "https://example.invalid/direct"));
         assertTrue(playing);
-        assertTrue(players.isEmpty());
-        subject.toggle(second);
-        assertTrue(cancelled.get(0));
-        replies.get(0).complete(new VoiceLinkResolver.Result(VoiceLinkResolver.Kind.FOUND, "https://example.invalid/late"));
-        assertTrue(players.isEmpty());
-        replies.get(1).complete(new VoiceLinkResolver.Result(VoiceLinkResolver.Kind.FAILED, ""));
-        assertEquals(1, players.size()); // The existing HTTPS URL is the offline fallback.
-        subject.toggle(second);
-        assertEquals(2, replies.size()); // Pausing never refreshes again.
-        subject.toggle(first);
+        assertEquals(1, players.size());
+        assertTrue(replies.isEmpty());
+        // Без ссылки - резолвер; недоступный документ плеер не запускает
+        subject.toggle(voice(1, 2, ""));
+        assertEquals(1, replies.size());
+        replies.get(0).complete(new VoiceLinkResolver.Result(VoiceLinkResolver.Kind.UNAVAILABLE, ""));
+        assertEquals(1, players.size());
+        // Ответ после смены сессии - фолбэк старого аккаунта не играем
         Session.save(controller.get(), "synthetic-other-token", "102");
-        replies.get(2).complete(new VoiceLinkResolver.Result(VoiceLinkResolver.Kind.FAILED, ""));
-        assertNull(shown); // Never play a previous account's fallback.
+        subject.toggle(voice(1, 3, ""));
+        assertEquals(2, replies.size());
+        replies.get(1).complete(new VoiceLinkResolver.Result(VoiceLinkResolver.Kind.FAILED, ""));
         assertEquals(1, players.size());
     }
 
@@ -167,7 +165,7 @@ public class VoiceMessagePlayerTest {
         subject = new VoiceMessagePlayer(controller.get(), (a, p, pos, d) -> shown = a,
                 context -> { FakePlayer fake = new FakePlayer(); players.add(fake); return fake.player; },
                 (attachment, session, reply) -> { replies.add(reply); return () -> { }; });
-        subject.toggle(voice(1, 1, "https://example.invalid/old"));
+        subject.toggle(voice(1, 1, ""));
         replies.get(0).complete(new VoiceLinkResolver.Result(VoiceLinkResolver.Kind.UNAVAILABLE, ""));
         assertTrue(players.isEmpty());
         assertNull(shown);
