@@ -24,10 +24,10 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-/** Скачивает APK из релиза и запускает системный установщик. */
+/** Скачивает APK из релиза (с проверкой целостности) и запускает системный установщик. */
 public class UpdateInstaller {
 
-    public static void downloadAndInstall(Activity activity, String apkUrl) {
+    public static void downloadAndInstall(Activity activity, String apkUrl, long expectedSize) {
         Context context = activity.getApplicationContext();
         AlertDialog progress = new AlertDialog.Builder(activity)
                 .setTitle(R.string.update_downloading)
@@ -38,9 +38,15 @@ public class UpdateInstaller {
         progress.show();
 
         File dir = new File(context.getCacheDir(), "updates");
-        if (!dir.exists()) dir.mkdirs();
-        final File apk = new File(dir, "vk-tea-update.apk");
-        if (apk.exists()) apk.delete();
+        if (!dir.exists() && !dir.mkdirs() && !dir.isDirectory()) {
+            progress.dismiss();
+            Toast.makeText(activity, R.string.update_download_failed, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // чистим старые обрезки, качаем в уникальное имя (защита от параллельных загрузок)
+        File[] stale = dir.listFiles();
+        if (stale != null) for (File f : stale) f.delete();
+        final File apk = new File(dir, "vk-tea-update-" + System.currentTimeMillis() + ".apk");
 
         new Thread(() -> {
             OkHttpClient client = new OkHttpClient.Builder()
@@ -61,20 +67,37 @@ public class UpdateInstaller {
                     out.write(buf, 0, read);
                     done += read;
                     if (total > 0) {
-                        int percent = (int) (done * 100 / total);
-                        runProgress(progress, percent + "%");
+                        runProgress(progress, (int) (done * 100 / total) + "%");
                     }
                 }
+                out.flush();
                 out.close();
                 in.close();
+                // Целостность: обрыв соединения без исключения даёт короткий файл -
+                // установщик тогда падает с "problem parsing the package"
+                if ((total > 0 && done < total)
+                        || (expectedSize > 0 && apk.length() != expectedSize)) {
+                    Log.e("VKTea", "update size mismatch: got " + apk.length()
+                            + ", expected " + (expectedSize > 0 ? expectedSize : total));
+                    apk.delete();
+                    runProgress(progress, null);
+                    runFailed(activity);
+                    return;
+                }
                 runProgress(progress, null);
-                runInstall(activity, progress, apk);
+                runInstall(activity, apk);
             } catch (Exception e) {
                 Log.e("VKTea", "update download failed", e);
+                apk.delete();
                 runProgress(progress, null);
-                runInstall(activity, null, null);
+                runFailed(activity);
             }
         }, "update-download").start();
+    }
+
+    private static void runFailed(Activity activity) {
+        new Handler(Looper.getMainLooper()).post(() ->
+                Toast.makeText(activity, R.string.update_download_failed, Toast.LENGTH_SHORT).show());
     }
 
     private static void runProgress(AlertDialog dialog, String text) {
@@ -86,9 +109,8 @@ public class UpdateInstaller {
         });
     }
 
-    private static void runInstall(Activity activity, AlertDialog progress, File apk) {
+    private static void runInstall(Activity activity, File apk) {
         new Handler(Looper.getMainLooper()).post(() -> {
-            if (progress != null && progress.isShowing()) progress.dismiss();
             if (apk == null || !apk.exists()) {
                 Toast.makeText(activity, R.string.update_download_failed, Toast.LENGTH_SHORT).show();
                 return;
@@ -99,7 +121,12 @@ public class UpdateInstaller {
             intent.setDataAndType(uri, "application/vnd.android.package-archive");
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                     | Intent.FLAG_ACTIVITY_NEW_TASK);
-            activity.startActivity(intent);
+            try {
+                activity.startActivity(intent);
+            } catch (Exception e) {
+                Log.e("VKTea", "installer start failed", e);
+                Toast.makeText(activity, R.string.update_download_failed, Toast.LENGTH_SHORT).show();
+            }
         });
     }
 }

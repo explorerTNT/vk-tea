@@ -24,7 +24,7 @@ public class UpdateChecker {
     public static final String REPO_API = "https://api.github.com/repos/explorerTNT/vk-tea/releases/latest";
 
     public interface Callback {
-        void onUpdateAvailable(String version, String apkUrl, String notes);
+        void onUpdateAvailable(String version, String apkUrl, String notes, long apkSize);
         void onUpToDate();
         void onError(Exception e);
     }
@@ -65,6 +65,7 @@ public class UpdateChecker {
                     String version = tag.startsWith("v") ? tag.substring(1) : tag;
                     String notes = json.optString("body", "");
                     String apkUrl = null;
+                    long apkSize = 0;
                     org.json.JSONArray assets = json.optJSONArray("assets");
                     if (assets != null) {
                         for (int i = 0; i < assets.length(); i++) {
@@ -72,17 +73,19 @@ public class UpdateChecker {
                             String name = a.optString("name", "");
                             if (name.endsWith(".apk")) {
                                 apkUrl = a.optString("browser_download_url", null);
+                                apkSize = a.optLong("size", 0);
                                 if (name.contains("release")) break;
                             }
                         }
                     }
                     final String url = apkUrl;
+                    final long size = apkSize;
                     if (version.isEmpty() || url == null) {
                         post(() -> callback.onUpToDate());
                         return;
                     }
                     if (isNewer(version, BuildConfig.VERSION_NAME)) {
-                        post(() -> callback.onUpdateAvailable(version, url, notes.trim()));
+                        post(() -> callback.onUpdateAvailable(version, url, notes.trim(), size));
                     } else {
                         post(() -> callback.onUpToDate());
                     }

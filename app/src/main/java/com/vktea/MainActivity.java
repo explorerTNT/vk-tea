@@ -503,8 +503,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
     private void checkForUpdates(boolean manual) {
         com.vktea.updates.UpdateChecker.check(this, new com.vktea.updates.UpdateChecker.Callback() {
             @Override
-            public void onUpdateAvailable(String version, String apkUrl, String notes) {
-                runOnUiThread(() -> showUpdateDialog(version, apkUrl, notes));
+            public void onUpdateAvailable(String version, String apkUrl, String notes, long apkSize) {
+                runOnUiThread(() -> showUpdateDialog(version, apkUrl, notes, apkSize));
             }
 
             @Override
@@ -525,7 +525,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         });
     }
 
-    private void showUpdateDialog(String version, String apkUrl, String notes) {
+    private void showUpdateDialog(String version, String apkUrl, String notes, long apkSize) {
         String message = getString(R.string.update_version_line, version);
         if (notes != null && !notes.isEmpty()) {
             message += "\n\n" + notes;
@@ -534,7 +534,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 .setTitle(R.string.update_available)
                 .setMessage(message)
                 .setPositiveButton(R.string.update_now,
-                        (d, w) -> com.vktea.updates.UpdateInstaller.downloadAndInstall(this, apkUrl))
+                        (d, w) -> com.vktea.updates.UpdateInstaller.downloadAndInstall(this, apkUrl, apkSize))
                 .setNegativeButton(R.string.update_later, null)
                 .show();
     }
