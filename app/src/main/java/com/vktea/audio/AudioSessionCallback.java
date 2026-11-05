@@ -82,10 +82,6 @@ final class AudioSessionCallback implements MediaSession.Callback {
     @Override
     public int onPlayerCommandRequest(MediaSession session,
                                       MediaSession.ControllerInfo controller, int playerCommand) {
-        android.util.Log.d("VKTeaAudio", "playerCommand=" + playerCommand
-                + " from=" + controller.getPackageName()
-                + " uid=" + controller.getUid()
-                + " trusted=" + controller.isTrusted());
         if (!isAvailable() || !allowsController(controller)
                 || (!ownsController(controller) && !TRANSPORT_COMMANDS.contains(playerCommand))) {
             return SessionError.ERROR_PERMISSION_DENIED;
