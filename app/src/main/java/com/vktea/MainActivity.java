@@ -532,7 +532,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         }
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle(R.string.update_available)
-                .setMessage(message)
+                .setMessage(com.vktea.updates.ChangelogFormatter.format(message))
                 .setPositiveButton(R.string.update_now,
                         (d, w) -> com.vktea.updates.UpdateInstaller.downloadAndInstall(this, apkUrl, apkSize))
                 .setNegativeButton(R.string.update_later, null)

@@ -103,7 +103,8 @@ public final class VkAudioViewModel extends ViewModel {
     }
 
     public void getPlaylists(VkAudioRepository.Callback<List<VkAudioPlaylist>> callback) {
-        repository.getPlaylists(0, 1000, callback);
+        // VK ограничивает count <= 100 (error 100 при больших значениях)
+        repository.getPlaylists(0, 100, callback);
     }
     public void createPlaylist(String title, VkAudioRepository.Callback<Boolean> callback) {
         repository.createPlaylist(title, callback);

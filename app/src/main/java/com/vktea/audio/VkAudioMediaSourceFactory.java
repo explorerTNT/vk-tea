@@ -123,6 +123,7 @@ final class VkAudioMediaSourceFactory implements MediaSource.Factory {
                                     if (original.mediaId.equals(track.mediaId())) { selected = track; break; }
                                 }
                                 if (selected == null || !selected.hasPlayableUrl()) {
+                                    android.util.Log.e("VKTeaAudio", "resolve: no url for " + original.mediaId);
                                     failure = unavailable();
                                     return;
                                 }
@@ -140,6 +141,8 @@ final class VkAudioMediaSourceFactory implements MediaSource.Factory {
                         @Override public void onError(VkAudioError ignored) {
                             handler.post(() -> {
                                 if (expected == generation && playbackHandler == handler) {
+                                    android.util.Log.e("VKTeaAudio", "resolve failed for " + original.mediaId
+                                            + " kind=" + ignored.kind);
                                     request = null;
                                     failure = unavailable();
                                 }

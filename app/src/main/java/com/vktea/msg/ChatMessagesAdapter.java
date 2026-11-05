@@ -79,6 +79,14 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
     @Override public int getItemCount() { return messages.size(); }
     @Override public int getItemViewType(int position) { return messages.get(position).out ? 1 : 0; }
 
+    /** Позиция сообщения по id, -1 если не найдено (для скролла к закрепу). */
+    public int findMessagePosition(long messageId) {
+        for (int i = 0; i < messages.size(); i++) {
+            if (messages.get(i).id == messageId) return i;
+        }
+        return -1;
+    }
+
     @NonNull @Override public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         return new Holder(LayoutInflater.from(parent.getContext()).inflate(
                 viewType == 1 ? R.layout.item_msg_out : R.layout.item_msg_in, parent, false));

@@ -79,6 +79,7 @@ public class ChatActivity extends AppCompatActivity {
     }
     private long localId = -100;
     private final List<ChatMessage> historyMessages = new ArrayList<>();
+    private final List<ChatMessage> rewoundMessages = new ArrayList<>();
     private final List<LocalMessage> localMessages = new ArrayList<>();
 
     @Override
@@ -185,6 +186,7 @@ public class ChatActivity extends AppCompatActivity {
         } else {
             loadHistory();
             markRead();
+            loadPinnedMessage();
         }
         ViewCompat.requestApplyInsets(root);
     }
@@ -205,6 +207,88 @@ public class ChatActivity extends AppCompatActivity {
     protected void markRead() {
         VKApi.get(this, "messages.markAsRead", "peer_id=" + peerId, new VKApi.Callback() {
             @Override public void success(JSONObject response) { }
+            @Override public void error(Exception e) { }
+        });
+    }
+
+    /** Планка закреплённого сообщения под шапкой чата. */
+    private void loadPinnedMessage() {
+        // ВАЖНО: messages.getConversations игнорирует peer_ids (отдаёт первый чат
+        // списка) - закреп берём только через getConversationsById.
+        VKApi.get(this, "messages.getConversationsById",
+                "peer_ids=" + peerId,
+                new VKApi.Callback() {
+            @Override public void success(JSONObject response) {
+                try {
+                    org.json.JSONArray items = response.optJSONObject("response")
+                            .optJSONArray("items");
+                    if (items == null || items.length() == 0) return;
+                    org.json.JSONObject conversation = items.getJSONObject(0);
+                    org.json.JSONObject settings = conversation.optJSONObject("chat_settings");
+                    org.json.JSONObject pinned = settings == null
+                            ? null : settings.optJSONObject("pinned_message");
+                    if (pinned == null) return;
+                    String text = pinned.optString("text", "").trim();
+                    String label = text.isEmpty() ? "Вложение" : text;
+                    long fromId = pinned.optLong("from_id", 0);
+                    String name = "";
+                    if (fromId > 0) {
+                        String[] cached = PeerCache.load(ChatActivity.this, fromId);
+                        if (cached != null) name = cached[0];
+                    }
+                    final String sender = name;
+                    final String shown = label;
+                    final long messageId = pinned.optLong("id", 0);
+                    runOnUiThread(() -> {
+                        android.view.View bar = findViewById(R.id.chat_pinned_bar);
+                        android.widget.TextView view = findViewById(R.id.chat_pinned_text);
+                        if (bar == null || view == null) return;
+                        view.setText(sender.isEmpty() ? shown : sender + ": " + shown);
+                        bar.setVisibility(android.view.View.VISIBLE);
+                        bar.setOnClickListener(v -> scrollToMessage(messageId));
+                    });
+                } catch (Exception ignored) {
+                }
+            }
+            @Override public void error(Exception e) { }
+        });
+    }
+
+    private void scrollToMessage(long messageId) {
+        if (messageId == 0) return;
+        if (adapter != null) {
+            int position = adapter.findMessagePosition(messageId);
+            if (position >= 0 && list != null) {
+                list.getLayoutManager().scrollToPosition(position);
+                return;
+            }
+        }
+        // Сообщения нет в последних 50 - подгружаем историю вокруг него и мотаем чат
+        rewindToMessage(messageId);
+    }
+
+    private void rewindToMessage(long messageId) {
+        VKApi.get(this, "messages.getHistory", "peer_id=" + peerId
+                        + "&count=30&start_message_id=" + messageId + "&rev=0&extended=1&photo_sizes=1"
+                        + "&fields=first_name,last_name,photo_200,photo_100,photo_50,online,last_seen",
+                new VKApi.Callback() {
+            @Override public void success(JSONObject response) {
+                try {
+                    List<ChatMessage> chunk = ChatHistoryParser.parse(response, peerId);
+                    runOnUiThread(() -> {
+                        rewoundMessages.clear();
+                        rewoundMessages.addAll(chunk);
+                        renderMessages();
+                        int position = adapter.findMessagePosition(messageId);
+                        if (position >= 0 && list != null && list.getLayoutManager() != null) {
+                            ((androidx.recyclerview.widget.LinearLayoutManager)
+                                    list.getLayoutManager())
+                                    .scrollToPositionWithOffset(position, list.getHeight() / 3);
+                        }
+                    });
+                } catch (Exception ignored) {
+                }
+            }
             @Override public void error(Exception e) { }
         });
     }
@@ -440,6 +524,9 @@ public class ChatActivity extends AppCompatActivity {
         List<ChatMessage> displayed = new ArrayList<>(historyMessages);
         Set<Long> loadedIds = new HashSet<>();
         for (ChatMessage message : historyMessages) loadedIds.add(message.id);
+        for (ChatMessage message : rewoundMessages) {
+            if (!loadedIds.contains(message.id)) displayed.add(message);
+        }
         for (LocalMessage local : localMessages) {
             if (local.serverId <= 0 || !loadedIds.contains(local.serverId)) displayed.add(local.message);
         }

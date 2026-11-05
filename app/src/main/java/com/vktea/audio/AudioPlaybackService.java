@@ -107,6 +107,23 @@ public class AudioPlaybackService extends MediaSessionService {
         queueStore.restore(player, accountId);
         // Prepare without playing so external transport controls can resume after restoration.
         if (player.getMediaItemCount() > 0) player.prepare();
+        player.addListener(new Player.Listener() {
+            @Override public void onMediaItemTransition(@Nullable androidx.media3.common.MediaItem mediaItem, int reason) {
+                android.util.Log.d("VKTeaAudio", "transition reason=" + reason
+                        + " next=" + (mediaItem == null ? "null" : mediaItem.mediaId));
+            }
+            @Override public void onPlaybackStateChanged(int state) {
+                android.util.Log.d("VKTeaAudio", "state=" + state
+                        + " playWhenReady=" + (player != null && player.getPlayWhenReady())
+                        + " pos=" + (player != null ? player.getCurrentPosition() : -1));
+            }
+            @Override public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
+                android.util.Log.d("VKTeaAudio", "playWhenReady=" + playWhenReady + " reason=" + reason);
+            }
+            @Override public void onPlayerError(androidx.media3.common.PlaybackException error) {
+                android.util.Log.e("VKTeaAudio", "playerError", error);
+            }
+        });
         player.addListener(queueListener);
         checkpointHandler.postDelayed(checkpoint, 5000);
         Intent openPlayer = new Intent(this, AudioPlayerActivity.class)
