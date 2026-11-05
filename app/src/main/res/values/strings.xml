@@ -125,4 +125,11 @@
     <string name="update_download_failed">Не удалось скачать обновление</string>    <string name="update_check">Проверить обновления</string>
     <string name="update_up_to_date">У вас последняя версия</string>
     <string name="update_check_failed">Не удалось проверить обновления</string>    <string name="update_grant_install">Разрешите установку приложений для VK Tea, затем повторите обновление</string>    <string name="update_downloaded_notification">Обновление скачивается в Загрузки - откройте нотификацию для установки</string>    <string name="update_confirm_install">Подтвердите установку в системном окне</string>
-    <string name="update_installed">Обновлено до версии %1$s</string></resources>
+    <string name="update_installed">Обновлено до версии %1$s</string>    <string name="profile_new_post">Запись</string>
+    <string name="profile_add_photo">Фото</string>
+    <string name="post_create_title">Новая запись</string>
+    <string name="post_create_hint">Что у вас нового?</string>
+    <string name="post_create_send">Опубликовать</string>
+    <string name="post_create_attach">Прикрепить фото</string>
+    <string name="post_create_publishing">Публикация…</string>
+    <string name="post_create_done">Запись опубликована</string></resources>
