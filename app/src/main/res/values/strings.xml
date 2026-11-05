@@ -132,4 +132,6 @@
     <string name="post_create_send">Опубликовать</string>
     <string name="post_create_attach">Прикрепить фото</string>
     <string name="post_create_publishing">Публикация…</string>
-    <string name="post_create_done">Запись опубликована</string></resources>
+    <string name="post_create_done">Запись опубликована</string>    <string name="post_create_empty">Добавьте текст или фото</string>
+    <string name="post_create_limit">Не больше %1$d фото</string>
+    <string name="post_create_no_picker">Не удалось открыть галерею</string></resources>
