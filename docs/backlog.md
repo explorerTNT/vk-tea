@@ -47,7 +47,7 @@
 - [x] P1 **Переписка** (чат, вложения, голосовые) - пузыри Coffee 9-patch, фото/видео/wall-вложения (открываются нативно), тёмная тема
 - [x] P1 **Пересылка сообщений** - `MessageForwarder`
 - [x] P1 **Закреплённые сообщения** - планка под шапкой чата (`messages.getConversationsById`: `getConversations` игнорирует `peer_ids`), тап подгружает историю от закрепа (`start_message_id`) и матает к нему
-- [ ] P0 **Постинг на стену** (записи + фото) - приоритет из багрепорта пользователей
+- [x] P0 **Постинг на стену** (записи + фото) - `NewPostActivity` + `WallPostPublisher`; экран и кнопки профиля по макетам Coffee (`update_status.xml`, `profile_post_buttons.xml`)
 - [ ] P1 **Отключение «прочитано»/«набирает»** - фирменные фичи Coffee: `ic_menu_disable_read`, `in_menu_disable_type` (реализация в отправке API-флагов, смотреть `OnlineData.setLP` и вызовы markAsRead)
 - [x] P2 **Голосовые сообщения (запись)** - `VoiceMessageRecorder` + волна `VoiceWaveform`; отправка проверена на реальном аккаунте
 

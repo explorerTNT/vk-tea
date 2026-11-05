@@ -125,7 +125,5 @@
         android:layout_height="0.5dp"
         android:background="@color/post_divider" />
 
-    <include
-        android:id="@+id/profile_post_buttons_block"
-        layout="@layout/profile_post_buttons" />
+    <include layout="@layout/profile_post_buttons" />
 </LinearLayout>
