@@ -120,6 +120,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         loadUserFeedLists();
 
         if (savedInstanceState == null) {
+            announceUpdateIfInstalled();
             checkForUpdates(false);
         }
 
@@ -494,6 +495,24 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 .commit();
         toolbarTitle.setText(titleRes);
         drawer.closeDrawers();
+    }
+
+    /** Первый запуск после установки новой версии - подтверждаем пользователю результат. */
+    private void announceUpdateIfInstalled() {
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("updates", MODE_PRIVATE);
+        String seen = prefs.getString("last_version", "");
+        String current = com.vktea.BuildConfig.VERSION_NAME;
+        if (!current.equals(seen)) {
+            prefs.edit().putString("last_version", current).apply();
+            android.app.NotificationManager manager = (android.app.NotificationManager)
+                    getSystemService(NOTIFICATION_SERVICE);
+            if (manager != null) manager.cancel(com.vktea.updates.UpdateInstaller.NOTIFICATION_ID);
+            if (!seen.isEmpty()) {
+                Toast.makeText(this, getString(R.string.update_installed, current),
+                        Toast.LENGTH_LONG).show();
+            }
+        }
     }
 
     public void checkForUpdatesPublic() {

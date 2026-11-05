@@ -35,6 +35,32 @@ import okhttp3.Response;
  */
 public class UpdateInstaller {
 
+    private static final String CHANNEL = "vk_tea_updates";
+    public static final int NOTIFICATION_ID = 4210;
+
+    /** Нотификация на время установки: приложение будет убито заменой пакета. */
+    private static void showInstalling(Context context) {
+        android.app.NotificationManager manager = (android.app.NotificationManager)
+                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null) return;
+        if (Build.VERSION.SDK_INT >= 26) {
+            android.app.NotificationChannel channel = new android.app.NotificationChannel(
+                    CHANNEL, "Обновления", android.app.NotificationManager.IMPORTANCE_LOW);
+            manager.createNotificationChannel(channel);
+        }
+        try {
+            manager.notify(NOTIFICATION_ID, new androidx.core.app.NotificationCompat.Builder(context, CHANNEL)
+                    .setSmallIcon(android.R.drawable.stat_sys_download)
+                    .setContentTitle("Устанавливается обновление")
+                    .setContentText("VK Tea перезапустится после установки")
+                    .setProgress(0, 0, true)
+                    .setOngoing(true)
+                    .setTimeoutAfter(180000)
+                    .build());
+        } catch (Exception ignored) {
+        }
+    }
+
     public static void downloadAndInstall(Activity activity, String apkUrl, long expectedSize) {
         lastUrl.set(apkUrl);
         lastSize = expectedSize;
@@ -146,8 +172,26 @@ public class UpdateInstaller {
                     int status = data.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
                     String message = data.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
                     Log.e("VKTea", "update session status=" + status + " msg=" + message);
+                    if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+                        // Система просит подтверждение - запускаем её же диалог установки
+                        Intent confirm = data.getParcelableExtra(Intent.EXTRA_INTENT);
+                        if (confirm != null) {
+                            confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            try {
+                                showInstalling(context);
+                                new Handler(Looper.getMainLooper()).post(() ->
+                                        Toast.makeText(activity, R.string.update_confirm_install,
+                                                Toast.LENGTH_LONG).show());
+                                activity.startActivity(confirm);
+                                return;
+                            } catch (Exception e) {
+                                Log.e("VKTea", "confirm intent failed", e);
+                            }
+                        }
+                    }
                     try { context.unregisterReceiver(this); } catch (Exception ignored) { }
-                    if (status != PackageInstaller.STATUS_SUCCESS) {
+                    if (status != PackageInstaller.STATUS_SUCCESS
+                            && status != PackageInstaller.STATUS_PENDING_USER_ACTION) {
                         new Handler(Looper.getMainLooper()).post(() -> downloadViaSystem(activity));
                     }
                 }

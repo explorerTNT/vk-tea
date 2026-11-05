@@ -124,4 +124,5 @@
     <string name="update_downloading">Загрузка обновления</string>
     <string name="update_download_failed">Не удалось скачать обновление</string>    <string name="update_check">Проверить обновления</string>
     <string name="update_up_to_date">У вас последняя версия</string>
-    <string name="update_check_failed">Не удалось проверить обновления</string>    <string name="update_grant_install">Разрешите установку приложений для VK Tea, затем повторите обновление</string>    <string name="update_downloaded_notification">Обновление скачивается в Загрузки - откройте нотификацию для установки</string></resources>
+    <string name="update_check_failed">Не удалось проверить обновления</string>    <string name="update_grant_install">Разрешите установку приложений для VK Tea, затем повторите обновление</string>    <string name="update_downloaded_notification">Обновление скачивается в Загрузки - откройте нотификацию для установки</string>    <string name="update_confirm_install">Подтвердите установку в системном окне</string>
+    <string name="update_installed">Обновлено до версии %1$s</string></resources>
