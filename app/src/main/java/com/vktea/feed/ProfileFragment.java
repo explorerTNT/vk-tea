@@ -348,10 +348,29 @@ public class ProfileFragment extends Fragment {
             }
         }
 
+        /** «Запись» и «Фото» показываем только на собственной странице (как в Coffee). */
+        private void bindPostButtons(HeadHolder h) {
+            if (h.postButtons == null) return;
+            String self = com.vktea.auth.Session.getUserId(requireContext());
+            boolean own = self != null && !self.isEmpty() && String.valueOf(userId).equals(self);
+            h.postButtons.setVisibility(own ? View.VISIBLE : View.GONE);
+            if (!own) return;
+            if (h.addPost != null) {
+                h.addPost.setOnClickListener(v ->
+                        startActivity(new android.content.Intent(requireContext(), NewPostActivity.class)));
+            }
+            if (h.addPhoto != null) {
+                h.addPhoto.setOnClickListener(v ->
+                        startActivity(new android.content.Intent(requireContext(), NewPostActivity.class)
+                                .putExtra(NewPostActivity.EXTRA_PICK_PHOTO, true)));
+            }
+        }
+
         private void bindHead(HeadHolder h) {
             if (profile == null) {
                 return;
             }
+            bindPostButtons(h);
             if (userId < 0) {
                 bindGroupHead(h);
                 return;
@@ -524,6 +543,9 @@ public class ProfileFragment extends Fragment {
         final LinearLayout counters;
         final ImageView cover;
         final ImageView avatar;
+        final View postButtons;
+        final View addPost;
+        final View addPhoto;
 
         HeadHolder(@NonNull View itemView) {
             super(itemView);
@@ -536,6 +558,9 @@ public class ProfileFragment extends Fragment {
             counters = itemView.findViewById(R.id.profile_counters);
             cover = itemView.findViewById(R.id.cover_photo);
             avatar = itemView.findViewById(R.id.profile_avatar);
+            postButtons = itemView.findViewById(R.id.profile_post_buttons);
+            addPost = itemView.findViewById(R.id.profile_add_post);
+            addPhoto = itemView.findViewById(R.id.profile_add_photo);
         }
     }
 
