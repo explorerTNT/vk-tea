@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_hint">Поиск</string>
+    <string name="search_tab_hints">Подсказки</string>
+    <string name="search_tab_people">Люди</string>
+    <string name="search_tab_groups">Сообщества</string>
+    <string name="search_empty_query">Начните вводить запрос</string>
+    <string name="search_nothing">Ничего не найдено</string>
+    <string name="search_failed">Поиск недоступен</string>
+    <string name="search_type_user">Пользователь</string>
+    <string name="search_type_group">Сообщество</string>
+    <string name="search_group_members">%1$s участников</string>
+</resources>

@@ -91,7 +91,9 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                 ((com.vktea.groups.GroupsFragment) current).showGroupsSearch();
             } else if (current instanceof com.vktea.documents.DocumentsFragment) {
                 ((com.vktea.documents.DocumentsFragment) current).showDocumentsSearch();
-            } else Toast.makeText(this, R.string.section_search, Toast.LENGTH_SHORT).show();
+            } else {
+                startActivity(new Intent(this, com.vktea.search.SearchActivity.class));
+            }
         });
         getSupportFragmentManager().addOnBackStackChangedListener(this::updateContentTitle);
 
@@ -227,6 +229,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         else if (current instanceof com.vktea.documents.DocumentsFragment) { title = R.string.section_docs; section = R.id.menu_docs; }
         else if (current instanceof com.vktea.photos.PhotosFragment) { title = R.string.section_photos; section = R.id.menu_photos; }
         else if (current instanceof com.vktea.videos.VideosFragment) { title = R.string.section_videos; section = R.id.menu_videos; }
+        else if (current instanceof com.vktea.fave.FaveFragment) { title = R.string.section_fave; section = R.id.menu_fave; }
         else if (current instanceof com.vktea.msg.DialogsFragment) { title = R.string.section_messages; section = R.id.menu_messages; }
         else if (current instanceof com.vktea.ui.AudioFragment) { title = R.string.audio_my_music; section = R.id.menu_audios; }
         else if (current instanceof com.vktea.ui.SettingsFragment) { title = R.string.section_settings; section = R.id.menu_settings; }
@@ -490,6 +493,11 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.photos.PhotosFragment();
                 } else if (menuId == R.id.menu_videos) {
                     fragment = new com.vktea.videos.VideosFragment();
+                } else if (menuId == R.id.menu_fave) {
+                    fragment = new com.vktea.fave.FaveFragment();
+                } else if (menuId == R.id.menu_search) {
+                    startActivity(new Intent(this, com.vktea.search.SearchActivity.class));
+                    return;
                 } else {
                     fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
                 }
