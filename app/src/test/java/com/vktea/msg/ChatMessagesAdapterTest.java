@@ -37,7 +37,30 @@ import java.util.List;
 public class ChatMessagesAdapterTest {
     private final FakeImages images = new FakeImages();
     private final List<ChatAttachment> clicked = new ArrayList<>();
-    private final ChatMessagesAdapter adapter = new ChatMessagesAdapter(clicked::add, images);
+    private final List<Object> quoteClicks = new ArrayList<>();
+    private final List<Long> authorClicks = new ArrayList<>();
+    private final ChatMessagesAdapter adapter = new ChatMessagesAdapter(new ChatMessagesAdapter.Callback() {
+        @Override public void onAttachmentClicked(ChatAttachment attachment) { clicked.add(attachment); }
+        @Override public void onQuoteClicked(long messageId) { quoteClicks.add(messageId); }
+        @Override public void onAuthorClicked(long fromId) { authorClicks.add(fromId); }
+    }, images);
+
+    @Test public void quoteWithOriginalIdTapsToMessageInsteadOfProfile() {
+        ChatMessage quoted = new ChatMessage(982880, false, 42, "Автор", "", "Текст цитаты", 100,
+                Collections.emptyList(), -1, Collections.emptyList(), null);
+        quoted.peerId = 91;
+        ChatMessage answer = new ChatMessage(983255, true, 0, "", "", "Ответ", 200,
+                Collections.emptyList(), -1, Collections.emptyList(), quoted);
+        adapter.replaceAll(Collections.singletonList(answer));
+        ChatMessagesAdapter.Holder holder = bind(0, 320, 1f);
+        View quote = holder.header.findViewById(R.id.reply_name).getParent() instanceof View
+                ? (View) holder.header.findViewById(R.id.reply_name).getParent().getParent() : null;
+        assertNotNull(quote);
+        assertNotNull(quote.hasOnClickListeners());
+        quote.performClick();
+        assertEquals(Collections.singletonList(982880L), quoteClicks);
+        assertTrue(authorClicks.isEmpty());
+    }
 
     @Test public void readIndicatorAppearsOnlyForKnownOutgoingStateAndRecyclingClearsIt() {
         ChatMessage unread = new ChatMessage(1, true, 0, "", "", "Text", 100,

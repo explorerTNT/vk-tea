@@ -44,7 +44,7 @@ public class VKApi {
             Locale.getDefault().getLanguage());
 
     public static void get(Context context, String method, String params, Callback callback) {
-        get(context, method, params, callback, null);
+        get(context, method, params, callback, CLIENT);
     }
 
     /** @param version API-версия конкретного вызова (null = 5.82); например getHistory с reply_message - 5.92. */

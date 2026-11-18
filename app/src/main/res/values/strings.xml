@@ -84,6 +84,7 @@
     <string name="message">Написать</string>
     <string name="add_friend">Добавить в друзья</string>
     <string name="is_friend">У вас в друзьях</string>
+    <string name="friend_request_sent">Заявка отправлена</string>
     <string name="request_sent">Заявка отправлена</string>
     <string name="online_now">в сети</string>
     <string name="last_seen_fmt">был(а) в сети %1$s</string>

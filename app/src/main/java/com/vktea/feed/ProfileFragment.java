@@ -413,6 +413,8 @@ public class ProfileFragment extends Fragment {
                 Glide.with(h.cover).load(coverUrl).centerCrop().into(h.cover);
             }
             Button friendBtn = h.friendBtn;
+            int friendStatus = profile.optInt("friend_status", 0);
+            isFriend = friendStatus == 3;
             if (String.valueOf(userId).equals(com.vktea.auth.Session.getUserId(requireContext()))) {
                 friendBtn.setVisibility(View.GONE);
             } else if (isFriend) {
@@ -429,7 +431,12 @@ public class ProfileFragment extends Fragment {
                             public void error(Exception e) {
                             }
                         }));
+            } else if (friendStatus == 1) {
+                friendBtn.setText(R.string.friend_request_sent);
+                friendBtn.setEnabled(false);
+                friendBtn.setOnClickListener(null);
             } else {
+                friendBtn.setEnabled(true);
                 friendBtn.setText(R.string.add_friend);
                 friendBtn.setOnClickListener(v -> VKApi.get(requireContext(), "friends.add",
                         "user_id=" + userId, new VKApi.Callback() {

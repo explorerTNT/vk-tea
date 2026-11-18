@@ -393,6 +393,16 @@ public class ChatActivity extends AppCompatActivity {
                         return;
                     }
                     List<ChatMessage> messages = ChatHistoryParser.parse(response, peerId);
+                    // Временная диагностика цитат: только счётчики, без содержимого.
+                    int withReply = 0, replyWithId = 0, fwdTotal = 0, fwdWithId = 0;
+                    for (ChatMessage m : messages) {
+                        if (m.replyTo != null) { withReply++; if (m.replyTo.id > 0) replyWithId++; }
+                        for (ChatMessage f : m.forwarded) { fwdTotal++; if (f.id > 0) fwdWithId++; }
+                    }
+                    android.util.Log.d("VKTeaHistory", "peer=" + peerId
+                            + " msgs=" + messages.size() + " replies=" + withReply
+                            + " repliesWithId=" + replyWithId + " fwd=" + fwdTotal
+                            + " fwdWithId=" + fwdWithId);
                     runOnUiThread(() -> {
                         if (!historyCurrent(requestGeneration, requestSession)) return;
                         loading = false;

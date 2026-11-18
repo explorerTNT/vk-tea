@@ -310,8 +310,26 @@ public class ChatHistoryParserTest {
     }
 
     @Test
-    public void repliesAndForwardedMessagesAreStructuredRowsWithAuthorsAndContent() throws Exception {
-        JSONObject reply = message(4, 90, 91).put("text", "Synthetic quoted text");
+    public void modernHistoryReplyMessageKeepsOriginalId() throws Exception {
+        // Живой дамп messages.getHistory v5.92 (18.11.2026): ответ несёт полный reply_message
+        // с id оригинала и пустой fwd_messages.
+        JSONObject quoted = new JSONObject("{\"id\":982880,\"date\":1794276254,"
+                + "\"from_id\":435029022,\"text\":\"quoted\",\"attachments\":[],"
+                + "\"conversation_message_id\":10239,\"peer_id\":435029022}");
+        JSONObject row = new JSONObject("{\"id\":983255,\"date\":1794974533,\"out\":1,"
+                + "\"from_id\":435029022,\"text\":\"my answer\",\"attachments\":[],"
+                + "\"conversation_message_id\":10243,\"peer_id\":435029022,"
+                + "\"reply_message\":" + quoted + ",\"fwd_messages\":[]}");
+        ChatMessage parsed = ChatHistoryParser.parse(history(row), 435029022).get(0);
+        assertNotNull(parsed.replyTo);
+        assertEquals(982880, parsed.replyTo.id);
+        assertEquals("quoted", parsed.replyTo.body);
+        assertEquals(435029022, parsed.replyTo.peerId);
+        assertTrue(parsed.forwarded.isEmpty());
+    }
+
+    @Test
+    public void repliesAndForwardedMessagesAreStructuredRowsWithAuthorsAndContent() throws Exception {        JSONObject reply = message(4, 90, 91).put("text", "Synthetic quoted text");
         JSONObject forward = message(5, 80, -7).put("attachments", array(attachment("doc", object("title", "Synthetic report"))));
         JSONObject nested = message(6, 70, 91).put("fwd_messages", array(message(7, 60, 91).put("text", "Synthetic nested text")));
         JSONObject row = message(8, 100, 91).put("text", "Synthetic current text")

@@ -125,6 +125,11 @@ public class CombinedSectionsNavigationTest {
     @Implements(value = VKApi.class, isInAndroidSdk = false)
     public static class Api {
         @Implementation protected static void get(Context context, String method, String params, VKApi.Callback callback) {
+            get(context, method, params, callback, null);
+        }
+
+        @Implementation protected static void get(Context context, String method, String params,
+                                                 VKApi.Callback callback, String version) {
             try {
                 if ("messages.getDialogs".equals(method)) {
                     callback.success(new JSONObject("{\"response\":{\"items\":[{\"conversation\":{\"peer\":{\"id\":42}}," +
