@@ -65,10 +65,12 @@ public final class ChatHistoryParser {
             body = action != null ? action(action) : flag(row, "is_deleted", false)
                     || flag(row, "deleted", false) ? "Сообщение удалено" : "Сообщение недоступно";
         }
-        return new ChatMessage(row.optLong("id", row.optLong("mid", 0)), out, from,
+        ChatMessage result = new ChatMessage(row.optLong("id", row.optLong("mid", 0)), out, from,
                 person.name, person.avatar, body, Math.max(0, row.optLong("date", 0)), attachments,
                 out && row.has("read_state") ? row.optInt("read_state", -1) : -1,
                 forwarded, reply, person.known);
+        result.peerId = row.optLong("peer_id", 0);
+        return result;
     }
 
     private static Map<Long, Person> people(JSONObject data) {

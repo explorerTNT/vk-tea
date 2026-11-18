@@ -28,7 +28,12 @@ import okhttp3.Response;
 
 /** Sends one explicitly selected message, without logging credentials or retrying a POST. */
 final class MessageForwarder implements AutoCloseable {
-    interface Callback { void complete(JSONObject result); void failed(); }
+    interface Callback {
+        void complete(JSONObject result);
+        void failed();
+        /** VK API отказал с конкретным кодом (например 924 при удалении для всех). */
+        default void apiError(int code) { failed(); }
+    }
     interface Sessions { Credentials get(); }
     static final class Credentials {
         final String token, secret, user;
@@ -173,24 +178,33 @@ final class MessageForwarder implements AutoCloseable {
         active = call;
         if (closed) { call.cancel(); return; }
         call.enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call ignored, java.io.IOException error) { deliver(null); }
+            @Override public void onFailure(Call ignored, java.io.IOException error) { deliver(null, null); }
             @Override public void onResponse(Call ignored, Response response) {
                 JSONObject result = null;
+                Integer apiErrorCode = null;
                 try (Response received = response) {
                     if (received.isSuccessful() && received.body() != null
                             && !(received.body().source().request(2 * 1024 * 1024 + 1L)
                             && received.body().source().buffer().size() > 2 * 1024 * 1024)) {
                         JSONObject root = new JSONObject(received.body().string());
-                        if (root.has("response") && (!post || root.optLong("response", 0) > 0)) result = root;
+                        if (root.has("response")) {
+                            // messages.delete возвращает 1 или массив [1, ...] на каждого - оба успешны.
+                            result = root;
+                        } else if (root.has("error")) {
+                            apiErrorCode = root.optJSONObject("error") == null
+                                    ? null : root.optJSONObject("error").optInt("error_code", 0);
+                        }
                     }
                 } catch (Exception ignoredError) { }
-                deliver(result);
+                deliver(result, apiErrorCode);
             }
-            private void deliver(JSONObject result) {
+            private void deliver(JSONObject result, Integer apiErrorCode) {
                 main.post(() -> {
                     if (closed || call.isCanceled()) return;
-                    if (!snapshot.matches(sessions.get()) || result == null) callback.failed();
-                    else callback.complete(result);
+                    if (!snapshot.matches(sessions.get())) callback.failed();
+                    else if (result != null) callback.complete(result);
+                    else if (apiErrorCode != null) callback.apiError(apiErrorCode);
+                    else callback.failed();
                 });
             }
         });

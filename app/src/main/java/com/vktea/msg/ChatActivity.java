@@ -84,7 +84,11 @@ public class ChatActivity extends AppCompatActivity {
 
     protected void onLiveMessagesChanged() {
         if (loading) livePending = true;
-        else loadHistory(true);
+        else {
+            loadHistory(true);
+            // Курсор out_read и закреп меняются при событиях LongPoll (прочтение, закреп).
+            loadPinnedMessage();
+        }
     }
     private long localId = -100;
     private final List<ChatMessage> historyMessages = new ArrayList<>();
@@ -147,27 +151,8 @@ public class ChatActivity extends AppCompatActivity {
         voicePlayer.setObserver((attachment, playing, position, duration) -> {
             if (adapter != null) adapter.setVoicePlayback(attachment, playing, position, duration);
         });
-        adapter = new ChatMessagesAdapter(new ChatMessagesAdapter.Callback() {
-            @Override public void onAttachmentClicked(ChatAttachment attachment) { openAttachment(attachment); }
-            @Override public void onVoiceSeek(ChatAttachment attachment, float fraction) {
-                voicePlayer.seek(attachment, fraction);
-            }
-            @Override public void onMessageLongClicked(ChatMessage message) { showMessageActions(message); }
-            @Override public void onMessageClicked(ChatMessage message) { toggleSelection(message); }
-            @Override public void onAuthorClicked(long fromId) { openAuthorProfile(fromId); }
-            @Override public void onAttachmentLongClicked(ChatAttachment attachment) {
-                showAttachmentActions(attachment);
-            }
-            @Override public void onLinkClicked(String url) {
-                try {
-                    startActivity(new Intent(ChatActivity.this, com.vktea.auth.AuthWebViewActivity.class)
-                            .setData(android.net.Uri.parse(url)));
-                } catch (Exception ignored) {
-                    Toast.makeText(ChatActivity.this, R.string.chat_attachment_open_failed,
-                            Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
+        adapter = new ChatMessagesAdapter(chatCallback(), peerId);
+        adapter = new ChatMessagesAdapter(chatCallback(), peerId);
         list.setAdapter(adapter);
         loadingView = findViewById(R.id.chat_loading);
         stateView = findViewById(R.id.chat_state);
@@ -221,7 +206,30 @@ public class ChatActivity extends AppCompatActivity {
 
     // Factories let the isolated QA build use synthetic transports without altering user sessions.
     protected VoiceMessagePlayer createVoicePlayer() { return new VoiceMessagePlayer(this); }
-    protected VoiceMessageRecorder createVoiceRecorder(long peer, Runnable sent) { return new VoiceMessageRecorder(this, peer, sent); }
+
+    private ChatMessagesAdapter.Callback chatCallback() {
+        return new ChatMessagesAdapter.Callback() {
+            @Override public void onAttachmentClicked(ChatAttachment attachment) { openAttachment(attachment); }
+            @Override public void onVoiceSeek(ChatAttachment attachment, float fraction) {
+                voicePlayer.seek(attachment, fraction);
+            }
+            @Override public void onMessageLongClicked(ChatMessage message) { showMessageActions(message); }
+            @Override public void onMessageClicked(ChatMessage message) { toggleSelection(message); }
+            @Override public void onAuthorClicked(long fromId) { openAuthorProfile(fromId); }
+            @Override public void onAttachmentLongClicked(ChatAttachment attachment) {
+                showAttachmentActions(attachment);
+            }
+            @Override public void onLinkClicked(String url) {
+                try {
+                    startActivity(new Intent(ChatActivity.this, com.vktea.auth.AuthWebViewActivity.class)
+                            .setData(android.net.Uri.parse(url)));
+                } catch (Exception ignored) {
+                    Toast.makeText(ChatActivity.this, R.string.chat_attachment_open_failed,
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+        };
+    }    protected VoiceMessageRecorder createVoiceRecorder(long peer, Runnable sent) { return new VoiceMessageRecorder(this, peer, sent); }
     protected ChatFileSender createFileSender(long peer, Runnable sent) { return new ChatFileSender(this, peer, sent); }
     MessageForwarder createMessageForwarder() { return new MessageForwarder(this); }
 
@@ -239,7 +247,7 @@ public class ChatActivity extends AppCompatActivity {
         });
     }
 
-    /** Планка закреплённого сообщения под шапкой чата. */
+    /** Планка закреплённого сообщения под шапкой чата + курсор прочитанного out_read. */
     private void loadPinnedMessage() {
         // ВАЖНО: messages.getConversations игнорирует peer_ids (отдаёт первый чат
         // списка) - закреп берём только через getConversationsById.
@@ -252,6 +260,11 @@ public class ChatActivity extends AppCompatActivity {
                             .optJSONArray("items");
                     if (items == null || items.length() == 0) return;
                     org.json.JSONObject conversation = items.getJSONObject(0);
+                    // Coffee: исходящее прочитано, когда его id <= conversation.out_read.
+                    long outRead = conversation.optLong("out_read", 0);
+                    if (outRead > 0 && adapter != null) {
+                        runOnUiThread(() -> adapter.setReadCursor(outRead));
+                    }
                     org.json.JSONObject settings = conversation.optJSONObject("chat_settings");
                     org.json.JSONObject pinned = settings == null
                             ? null : settings.optJSONObject("pinned_message");
@@ -881,7 +894,7 @@ public class ChatActivity extends AppCompatActivity {
     private void deleteMessages(List<Long> ids, boolean deleteForAll) {
         MessageForwarder operation = createMessageForwarder();
         textSends.add(operation);
-        operation.deleteMessages(ids, deleteForAll, new MessageForwarder.Callback() {
+        MessageForwarder.Callback callback = new MessageForwarder.Callback() {
             @Override public void complete(JSONObject response) {
                 runOnUiThread(() -> {
                     textSends.remove(operation);
@@ -899,7 +912,19 @@ public class ChatActivity extends AppCompatActivity {
                 });
                 operation.close();
             }
-        });
+            @Override public void apiError(int code) {
+                runOnUiThread(() -> {
+                    textSends.remove(operation);
+                    if (!synchronizeSession()) return;
+                    // 924: «Невозможно удалить сообщение для получателей» (Coffee MessagesDeleteNew).
+                    Toast.makeText(ChatActivity.this, code == 924
+                            ? R.string.chat_delete_for_all_denied : R.string.chat_delete_failed,
+                            Toast.LENGTH_LONG).show();
+                });
+                operation.close();
+            }
+        };
+        operation.deleteMessages(ids, deleteForAll, callback);
     }
 
     private void toggleSelection(ChatMessage message) {

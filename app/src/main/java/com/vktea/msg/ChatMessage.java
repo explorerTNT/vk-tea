@@ -25,6 +25,8 @@ public final class ChatMessage {
     public final ChatMessage replyTo;
     /** False when the author row was not part of the API response yet. */
     public final boolean authorKnown;
+    /** Peer of this message row; used to detect reply-shaped forwards of the official client. */
+    public long peerId;
 
     public ChatMessage(long id, boolean out, long fromId, String author, String avatar,
                        String body, long date, List<ChatAttachment> attachments) {
@@ -73,15 +75,19 @@ public final class ChatMessage {
     }
 
     public ChatMessage withSendStatus(SendStatus status) {
-        return new ChatMessage(id, out, fromId, author, avatar, body, date, attachments,
+        ChatMessage copy = new ChatMessage(id, out, fromId, author, avatar, body, date, attachments,
                 readState, forwarded, replyTo, authorKnown, status);
+        copy.peerId = peerId;
+        return copy;
     }
 
     /** Returns a copy with a resolved author identity after an explicit lookup. */
     public ChatMessage withIdentity(String author, String avatar) {
-        return new ChatMessage(id, out, fromId,
+        ChatMessage copy = new ChatMessage(id, out, fromId,
                 author == null || author.isEmpty() ? this.author : author,
                 avatar == null ? this.avatar : avatar,
                 body, date, attachments, readState, forwarded, replyTo, true, sendStatus);
+        copy.peerId = peerId;
+        return copy;
     }
 }

@@ -61,12 +61,32 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
     private long voicePositionMs, voiceDurationMs;
     @Nullable private Set<Long> selectedIds;
     private boolean selectionMode;
+    private long readCursor;
 
-    public ChatMessagesAdapter(Callback callback) { this(callback, new GlideImages()); }
+    public ChatMessagesAdapter(Callback callback) { this(callback, 0L); }
+
+    public ChatMessagesAdapter(Callback callback, long peerId) {
+        this.callback = callback;
+        this.peerId = peerId;
+        this.images = new GlideImages();
+    }
 
     ChatMessagesAdapter(Callback callback, Images images) {
         this.callback = callback;
+        this.peerId = 0;
         this.images = images;
+    }
+
+    private final long peerId;
+
+    /**
+     * Официальный клиент отправляет ответ через forward{is_reply}; на чтении такой ответ
+     * приходит как единственная пересылка из этого же диалога - показываем её цитатой.
+     */
+    @Nullable private ChatMessage replyShapedForward(ChatMessage message) {
+        if (message.replyTo != null || message.forwarded.size() != 1) return null;
+        ChatMessage fwd = message.forwarded.get(0);
+        return fwd.peerId != 0 && fwd.peerId == peerId ? fwd : null;
     }
 
     public void replaceAll(List<ChatMessage> rows) {
@@ -109,6 +129,13 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
 
     public void setSelectedIds(@Nullable Set<Long> ids) {
         selectedIds = ids;
+        notifyDataSetChanged();
+    }
+
+    /** Coffee/официальный клиент: исходящее прочитано, когда id <= conversation.out_read. */
+    public void setReadCursor(long outRead) {
+        if (readCursor == outRead) return;
+        readCursor = outRead;
         notifyDataSetChanged();
     }
 
@@ -159,7 +186,9 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         holder.date.setVisibility(showDate ? View.VISIBLE : View.GONE);
         holder.date.setText(showDate ? formatDate(message.date) : "");
         renderReply(holder, message, night);
-        renderForwarded(holder.header, message, 0, night);
+        ChatMessage replyForward = replyShapedForward(message);
+        if (replyForward != null) renderQuote(holder, replyForward, message, night);
+        else renderForwarded(holder.header, message, 0, night);
         holder.header.setVisibility(holder.header.getChildCount() == 0 ? View.GONE : View.VISIBLE);
         holder.text.setText(message.body.isEmpty() && message.attachments.isEmpty()
                 && message.forwarded.isEmpty() && message.replyTo == null
@@ -203,11 +232,12 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         } else if (message.sendStatus == ChatMessage.SendStatus.UNCONFIRMED) {
             icon = statusDrawable(holder, R.drawable.ic_msg_error);
             status = holder.time.getContext().getString(R.string.chat_status_unconfirmed);
-        } else if (message.readState == 0 || message.readState < 0) {
+        } else if (message.readState == 1 || message.readState < 0 && message.id > 0
+                && readCursor > 0 && message.id <= readCursor) {
+            status = holder.time.getContext().getString(R.string.chat_status_read);
+        } else {
             icon = statusDrawable(holder, R.drawable.dot_unread);
             status = holder.time.getContext().getString(R.string.chat_status_sent);
-        } else if (message.readState >= 0) {
-            status = holder.time.getContext().getString(R.string.chat_status_read);
         }
         holder.time.setText(time);
         holder.time.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, null, null, null);
@@ -231,18 +261,25 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
     /** Короткая цитата ответа над содержимым: полоска акцента + автор + текст/вложение. */
     private void renderReply(Holder holder, ChatMessage message, boolean night) {
         if (message.replyTo == null) return;
+        renderQuote(holder, message.replyTo, message, night);
+    }
+
+    private void renderQuote(Holder holder, ChatMessage quote, ChatMessage message, boolean night) {
         View block = LayoutInflater.from(holder.itemView.getContext())
                 .inflate(R.layout.item_msg_reply, holder.header, false);
         TextView name = block.findViewById(R.id.reply_name);
         TextView text = block.findViewById(R.id.reply_text);
-        name.setText(message.replyTo.author.isEmpty() ? "Сообщение" : message.replyTo.author);
-        String body = message.replyTo.body;
-        if (body.isEmpty()) for (ChatAttachment attachment : message.replyTo.attachments) {
+        name.setText(quote.author.isEmpty() ? "Сообщение" : quote.author);
+        String body = quote.body;
+        if (body.isEmpty()) for (ChatAttachment attachment : quote.attachments) {
             body = body.isEmpty() ? attachment.title : body + " · " + attachment.title;
         }
-        if (body.isEmpty() && !message.replyTo.forwarded.isEmpty()) body = "Пересланное сообщение";
+        if (body.isEmpty() && !quote.forwarded.isEmpty()) body = "Пересланное сообщение";
         text.setText(body);
         text.setTextColor(night && !message.out ? 0xFF939CA5 : 0xFF8A939C);
+        if (quote.fromId != 0 && callback != null) {
+            block.setOnClickListener(v -> callback.onAuthorClicked(quote.fromId));
+        }
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         params.bottomMargin = dp(block, 4);
