@@ -117,6 +117,8 @@ final class MessageForwarder implements AutoCloseable {
         do { randomId = new SecureRandom().nextInt(); } while (randomId == 0);
         args.put("random_id", Integer.toString(randomId));
         args.put("message", text);
+        // Проверено живым запросом: reply_to принимается только с версии 5.92,
+        // на 5.82 сервер отвечает error 100 "reply_to is accepted only from version 5.92".
         if (replyTo > 0) args.put("reply_to", Long.toString(replyTo));
         if (forwardIds != null && !forwardIds.isEmpty()) {
             StringBuilder ids = new StringBuilder();
@@ -127,7 +129,7 @@ final class MessageForwarder implements AutoCloseable {
             }
             if (ids.length() > 0) args.put("forward_messages", ids.toString());
         }
-        execute("messages.send", args, true, callback);
+        execute("messages.send", args, true, replyTo > 0 ? "5.92" : null, callback);
     }
 
     /** messages.edit с сохранением пересылок, как в Coffee MessagesEdit. */
@@ -160,10 +162,17 @@ final class MessageForwarder implements AutoCloseable {
     }
 
     private void execute(String method, LinkedHashMap<String, String> args, boolean post, Callback callback) {
+        execute(method, args, post, null, callback);
+    }
+
+    /** @param version override для методов, где параметр появился позже 5.82 (reply_to -> 5.92). */
+    private void execute(String method, LinkedHashMap<String, String> args, boolean post,
+                         String version, Callback callback) {
         Credentials snapshot = sessions.get();
         if (closed || snapshot == null || snapshot.token.isEmpty()) { callback.failed(); return; }
         LinkedHashMap<String, String> params = new LinkedHashMap<>();
-        params.put("v", "5.82"); params.put("lang", Locale.getDefault().getLanguage());
+        params.put("v", version == null ? "5.82" : version);
+        params.put("lang", Locale.getDefault().getLanguage());
         params.put("https", "1"); params.put("access_token", snapshot.token); params.putAll(args);
         if (!snapshot.secret.isEmpty()) params.put("sig", signature(method, params, snapshot.secret));
         HttpUrl.Builder url = endpoint.newBuilder().addPathSegments("method/" + method);

@@ -80,13 +80,15 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
     private final long peerId;
 
     /**
-     * Официальный клиент отправляет ответ через forward{is_reply}; на чтении такой ответ
-     * приходит как единственная пересылка из этого же диалога - показываем её цитатой.
+     * Ответ (наш reply_to или свайп официального клиента) на чтении в v5.82 приходит
+     * как единственная пересылка без id и peer_id (живой дамп 18.11.2026) -
+     * показываем её цитатой. Настоящие пересылки всегда несут id.
      */
     @Nullable private ChatMessage replyShapedForward(ChatMessage message) {
         if (message.replyTo != null || message.forwarded.size() != 1) return null;
         ChatMessage fwd = message.forwarded.get(0);
-        return fwd.peerId != 0 && fwd.peerId == peerId ? fwd : null;
+        if (fwd.id != 0) return null;
+        return fwd.peerId == 0 || fwd.peerId == peerId ? fwd : null;
     }
 
     public void replaceAll(List<ChatMessage> rows) {
