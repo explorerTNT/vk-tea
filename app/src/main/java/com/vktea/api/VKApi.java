@@ -44,12 +44,22 @@ public class VKApi {
             Locale.getDefault().getLanguage());
 
     public static void get(Context context, String method, String params, Callback callback) {
-        get(context, method, params, callback, CLIENT);
+        get(context, method, params, callback, null);
+    }
+
+    /** @param version API-версия конкретного вызова (null = 5.82); например getHistory с reply_message - 5.92. */
+    public static void get(Context context, String method, String params, Callback callback, String version) {
+        get(context, method, params, callback, CLIENT, version);
     }
 
     /** Package-private transport injection is used only by offline synthetic tests. */
     static void get(Context context, String method, String params, Callback callback,
                     okhttp3.OkHttpClient client) {
+        get(context, method, params, callback, client, null);
+    }
+
+    static void get(Context context, String method, String params, Callback callback,
+                    okhttp3.OkHttpClient client, String version) {
         Session.Snapshot snapshot = Session.snapshot(context);
         if (snapshot.token == null || snapshot.token.isEmpty()) {
             dispatch(snapshot.generation, callback, null, new Exception("Authentication required"));
@@ -61,7 +71,7 @@ public class VKApi {
                     dispatch(snapshot.generation, callback, null, new SessionChangedException());
                     return;
                 }
-                String query = "v=" + API_VERSION
+                String query = "v=" + (version == null ? API_VERSION : version)
                         + "&lang=" + Locale.getDefault().getLanguage()
                         + "&https=1"
                         + "&access_token=" + snapshot.token

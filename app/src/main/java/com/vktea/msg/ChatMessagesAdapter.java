@@ -38,6 +38,7 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         default void onMessageLongClicked(ChatMessage message) { }
         default void onMessageClicked(ChatMessage message) { }
         default void onAuthorClicked(long fromId) { }
+        default void onQuoteClicked(long messageId) { }
         default void onAttachmentLongClicked(ChatAttachment attachment) { }
         default void onLinkClicked(String url) { }
     }
@@ -279,7 +280,10 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         if (body.isEmpty() && !quote.forwarded.isEmpty()) body = "Пересланное сообщение";
         text.setText(body);
         text.setTextColor(night && !message.out ? 0xFF939CA5 : 0xFF8A939C);
-        if (quote.fromId != 0 && callback != null) {
+        if (quote.id > 0 && callback != null) {
+            // Тап по цитате ведёт к исходному сообщению (как в официальном клиенте).
+            block.setOnClickListener(v -> callback.onQuoteClicked(quote.id));
+        } else if (quote.fromId != 0 && callback != null) {
             block.setOnClickListener(v -> callback.onAuthorClicked(quote.fromId));
         }
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(

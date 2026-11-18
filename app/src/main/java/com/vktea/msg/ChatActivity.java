@@ -216,6 +216,7 @@ public class ChatActivity extends AppCompatActivity {
             @Override public void onMessageLongClicked(ChatMessage message) { showMessageActions(message); }
             @Override public void onMessageClicked(ChatMessage message) { toggleSelection(message); }
             @Override public void onAuthorClicked(long fromId) { openAuthorProfile(fromId); }
+            @Override public void onQuoteClicked(long messageId) { scrollToMessage(messageId); }
             @Override public void onAttachmentLongClicked(ChatAttachment attachment) {
                 showAttachmentActions(attachment);
             }
@@ -235,9 +236,12 @@ public class ChatActivity extends AppCompatActivity {
 
     /** Separate transport boundary lets offline UI tests use synthetic history only. */
     protected void requestHistory(VKApi.Callback callback) {
+        // 5.92: reply_message возвращается полноценным объектом с id оригинала
+        // (на 5.82 ответ вырождается в урезанный fwd без id - живая проверка 18.11.2026).
         VKApi.get(this, "messages.getHistory", "peer_id=" + peerId
                 + "&count=50&rev=0&extended=1&photo_sizes=1"
-                + "&fields=first_name,last_name,photo_200,photo_100,photo_50,online,last_seen", callback);
+                + "&fields=first_name,last_name,photo_200,photo_100,photo_50,online,last_seen",
+                callback, "5.92");
     }
 
     protected void markRead() {
@@ -331,7 +335,7 @@ public class ChatActivity extends AppCompatActivity {
                 }
             }
             @Override public void error(Exception e) { }
-        });
+        }, "5.92");
     }
 
     @Override protected void onStart() {
@@ -881,12 +885,13 @@ public class ChatActivity extends AppCompatActivity {
         text.setText(ids.size() == 1 ? getString(R.string.chat_delete_confirm_one)
                 : getString(R.string.chat_delete_confirm_many, ids.size()));
         android.widget.CheckBox forAll = custom.findViewById(R.id.delete_for_all);
-        forAll.setVisibility(allOwn && allFresh ? View.VISIBLE : View.GONE);
+        boolean canDeleteForAll = allOwn && allFresh && !isSelfChat;
+        forAll.setVisibility(canDeleteForAll ? View.VISIBLE : View.GONE);
         new AlertDialog.Builder(this)
                 .setTitle(R.string.chat_delete_title)
                 .setView(custom)
                 .setPositiveButton(R.string.chat_action_delete, (dialog, which) ->
-                        deleteMessages(ids, forAll.getVisibility() == View.VISIBLE && forAll.isChecked()))
+                        deleteMessages(ids, canDeleteForAll && forAll.isChecked()))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
@@ -913,15 +918,23 @@ public class ChatActivity extends AppCompatActivity {
                 operation.close();
             }
             @Override public void apiError(int code) {
+                operation.close();
+                if (code == 924 && deleteForAll) {
+                    // VK отказал удалять для всех (например, получатель успел прочитать
+                    // или диалог с самим собой) - удаляем хотя бы для себя.
+                    runOnUiThread(() -> {
+                        textSends.remove(operation);
+                        if (synchronizeSession()) deleteMessages(ids, false);
+                    });
+                    return;
+                }
                 runOnUiThread(() -> {
                     textSends.remove(operation);
                     if (!synchronizeSession()) return;
-                    // 924: «Невозможно удалить сообщение для получателей» (Coffee MessagesDeleteNew).
                     Toast.makeText(ChatActivity.this, code == 924
                             ? R.string.chat_delete_for_all_denied : R.string.chat_delete_failed,
                             Toast.LENGTH_LONG).show();
                 });
-                operation.close();
             }
         };
         operation.deleteMessages(ids, deleteForAll, callback);
