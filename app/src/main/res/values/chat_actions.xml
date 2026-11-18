@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_message_title">Сообщение</string>
+    <string name="chat_action_reply">Ответить</string>
+    <string name="chat_action_copy">Копировать текст</string>
+    <string name="chat_action_edit">Редактировать</string>
+    <string name="chat_action_delete">Удалить</string>
+    <string name="chat_action_mention">Сделать обращение</string>
+    <string name="chat_action_select">Выбрать сообщения</string>
+    <string name="chat_text_copied">Текст скопирован в буфер обмена</string>
+    <string name="chat_copy_empty">В сообщении нет текста</string>
+    <string name="chat_reply_attached_author">Ответ · %1$s</string>
+    <string name="chat_editing">Редактирование сообщения</string>
+    <string name="chat_delete_title">Удалить сообщения</string>
+    <string name="chat_delete_confirm_one">Вы действительно хотите удалить это сообщение?</string>
+    <string name="chat_delete_confirm_many">Вы действительно хотите удалить %1$d сообщений?</string>
+    <string name="chat_delete_for_all">Удалить для всех</string>
+    <string name="chat_delete_done">Сообщение удалено</string>
+    <string name="chat_delete_failed">Не удалось удалить сообщение</string>
+    <string name="chat_delete_for_all_denied">Невозможно удалить сообщение для получателей</string>
+    <string name="chat_reply_attached">Пересылаемое сообщение</string>
+    <string name="chat_doc_download">Скачать</string>
+    <string name="chat_doc_open">Открыть</string>
+    <string name="chat_doc_share">Поделиться</string>
+    <string name="chat_doc_downloading">Скачивается в Загрузки…</string>
+    <string name="chat_doc_download_failed">Не удалось скачать файл</string>
+    <string name="chat_selected_n">Выбрано: %1$d</string>
+    <plurals name="chat_forward_attached_messages">
+        <item quantity="one">%1$d сообщение</item>
+        <item quantity="few">%1$d сообщения</item>
+        <item quantity="many">%1$d сообщений</item>
+        <item quantity="other">%1$d сообщений</item>
+    </plurals>
+</resources>

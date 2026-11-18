@@ -160,7 +160,10 @@ public class ChatActivityTest {
         androidx.appcompat.app.AlertDialog dialog = (androidx.appcompat.app.AlertDialog)
                 org.robolectric.shadows.ShadowDialog.getLatestDialog();
         assertNotNull(dialog);
-        assertEquals(activity.getString(R.string.chat_forward_action), dialog.getListView().getItemAtPosition(0));
+        assertEquals(activity.getString(R.string.chat_action_reply), dialog.getListView().getItemAtPosition(0));
+        assertEquals(activity.getString(R.string.chat_forward_action), dialog.getListView().getItemAtPosition(1));
+        assertEquals(activity.getString(R.string.chat_action_copy), dialog.getListView().getItemAtPosition(2));
+        assertEquals(activity.getString(R.string.chat_action_delete), dialog.getListView().getItemAtPosition(3));
         assertEquals(0, activity.sendCalls);
     }
 
@@ -254,8 +257,10 @@ public class ChatActivityTest {
         ChatMessagesAdapter adapter = (ChatMessagesAdapter) list.getAdapter();
         ChatMessagesAdapter.Holder holder = adapter.onCreateViewHolder(list, adapter.getItemViewType(1));
         adapter.onBindViewHolder(holder, 1);
-        assertFalse(holder.time.getText().toString().contains("✓"));
-        assertFalse(holder.time.getText().toString().contains("Отправка"));
+        String described = holder.time.getContentDescription() == null
+                ? "" : holder.time.getContentDescription().toString();
+        assertFalse(described.contains("✓"));
+        assertFalse(described.contains("Отправка не подтверждена"));
         assertEquals(2, activity.requestSendCalls);
     }
 
@@ -264,7 +269,8 @@ public class ChatActivityTest {
         ChatMessagesAdapter adapter = (ChatMessagesAdapter) list.getAdapter();
         ChatMessagesAdapter.Holder holder = adapter.onCreateViewHolder(list, adapter.getItemViewType(0));
         adapter.onBindViewHolder(holder, 0);
-        return holder.time.getText().toString();
+        return holder.time.getContentDescription() == null
+                ? "" : holder.time.getContentDescription().toString();
     }
 
     @Test public void liveEventDuringHistoryLoadTriggersOneFollowUpAndMarksNewIncomingRead() throws Exception {
@@ -329,6 +335,6 @@ public class ChatActivityTest {
             if (useRealSend) super.sendMessage(text);
             else { sendCalls++; sent = text; }
         }
-        @Override protected void requestSend(String text, VKApi.Callback callback) { requestSendCalls++; sending = callback; }
+        @Override protected void requestSend(String text, long replyTo, java.util.List<Long> forwardIds, VKApi.Callback callback) { requestSendCalls++; sending = callback; }
     }
 }

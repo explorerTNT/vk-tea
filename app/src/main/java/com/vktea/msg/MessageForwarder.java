@@ -14,6 +14,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -71,19 +72,37 @@ final class MessageForwarder implements AutoCloseable {
     }
 
     void send(long peerId, long messageId, Callback callback) {
-        if (peerId == 0 || peerId == Long.MIN_VALUE || peerId == 2_000_000_000L || messageId <= 0) {
+        send(peerId, Collections.singletonList(messageId), callback);
+    }
+
+    /** Пересылка одного или нескольких сообщений (Coffee forward_messages). */
+    void send(long peerId, List<Long> messageIds, Callback callback) {
+        if (peerId == 0 || peerId == Long.MIN_VALUE || peerId == 2_000_000_000L
+                || messageIds == null || messageIds.isEmpty()) {
             callback.failed(); return;
         }
+        StringBuilder ids = new StringBuilder();
+        for (Long id : messageIds) {
+            if (id == null || id <= 0) continue;
+            if (ids.length() > 0) ids.append(',');
+            ids.append(id);
+        }
+        if (ids.length() == 0) { callback.failed(); return; }
         LinkedHashMap<String, String> args = new LinkedHashMap<>();
         args.put("peer_id", Long.toString(peerId));
         int randomId;
         do { randomId = new SecureRandom().nextInt(); } while (randomId == 0);
         args.put("random_id", Integer.toString(randomId));
-        args.put("forward_messages", Long.toString(messageId));
+        args.put("forward_messages", ids.toString());
         execute("messages.send", args, true, callback);
     }
 
     void sendText(long peerId, String text, Callback callback) {
+        sendText(peerId, text, 0, null, callback);
+    }
+
+    /** Текст с необязательными ответом (reply_to) и прикреплёнными пересылками (Coffee WriteBar). */
+    void sendText(long peerId, String text, long replyTo, List<Long> forwardIds, Callback callback) {
         if (peerId == 0 || peerId == Long.MIN_VALUE || peerId == 2_000_000_000L || text == null || text.trim().isEmpty()) {
             callback.failed(); return;
         }
@@ -93,7 +112,46 @@ final class MessageForwarder implements AutoCloseable {
         do { randomId = new SecureRandom().nextInt(); } while (randomId == 0);
         args.put("random_id", Integer.toString(randomId));
         args.put("message", text);
+        if (replyTo > 0) args.put("reply_to", Long.toString(replyTo));
+        if (forwardIds != null && !forwardIds.isEmpty()) {
+            StringBuilder ids = new StringBuilder();
+            for (Long id : forwardIds) {
+                if (id == null || id <= 0) continue;
+                if (ids.length() > 0) ids.append(',');
+                ids.append(id);
+            }
+            if (ids.length() > 0) args.put("forward_messages", ids.toString());
+        }
         execute("messages.send", args, true, callback);
+    }
+
+    /** messages.edit с сохранением пересылок, как в Coffee MessagesEdit. */
+    void editMessage(long peerId, long messageId, String text, Callback callback) {
+        if (peerId == 0 || messageId <= 0 || text == null || text.trim().isEmpty()) {
+            callback.failed(); return;
+        }
+        LinkedHashMap<String, String> args = new LinkedHashMap<>();
+        args.put("peer_id", Long.toString(peerId));
+        args.put("message_id", Long.toString(messageId));
+        args.put("message", text);
+        args.put("keep_forward_messages", "1");
+        execute("messages.edit", args, true, callback);
+    }
+
+    /** messages.delete; ошибка 924 означает отказ удаления для всех. */
+    void deleteMessages(List<Long> messageIds, boolean deleteForAll, Callback callback) {
+        if (messageIds == null || messageIds.isEmpty()) { callback.failed(); return; }
+        StringBuilder ids = new StringBuilder();
+        for (Long id : messageIds) {
+            if (id == null || id <= 0) continue;
+            if (ids.length() > 0) ids.append(',');
+            ids.append(id);
+        }
+        if (ids.length() == 0) { callback.failed(); return; }
+        LinkedHashMap<String, String> args = new LinkedHashMap<>();
+        args.put("message_ids", ids.toString());
+        args.put("delete_for_all", deleteForAll ? "1" : "0");
+        execute("messages.delete", args, true, callback);
     }
 
     private void execute(String method, LinkedHashMap<String, String> args, boolean post, Callback callback) {

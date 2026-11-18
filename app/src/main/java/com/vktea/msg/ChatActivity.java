@@ -59,6 +59,15 @@ public class ChatActivity extends AppCompatActivity {
     private MessageForwarder forwarder;
     private final Set<MessageForwarder> textSends = new HashSet<>();
     private boolean forwardBusy;
+    private android.widget.LinearLayout contextBar;
+    private android.widget.ImageView contextIcon;
+    private android.widget.TextView contextText;
+    private EditText inputView;
+    private long replyMessageId;
+    private long editingMessageId;
+    private final List<Long> barForwardIds = new ArrayList<>();
+    private final Set<Long> selectedIds = new HashSet<>();
+    private androidx.appcompat.view.ActionMode selectionMode;
     private VoiceMessagePlayer voicePlayer;
     private VoiceMessageRecorder voiceRecorder;
     private ChatFileSender fileSender;
@@ -144,6 +153,20 @@ public class ChatActivity extends AppCompatActivity {
                 voicePlayer.seek(attachment, fraction);
             }
             @Override public void onMessageLongClicked(ChatMessage message) { showMessageActions(message); }
+            @Override public void onMessageClicked(ChatMessage message) { toggleSelection(message); }
+            @Override public void onAuthorClicked(long fromId) { openAuthorProfile(fromId); }
+            @Override public void onAttachmentLongClicked(ChatAttachment attachment) {
+                showAttachmentActions(attachment);
+            }
+            @Override public void onLinkClicked(String url) {
+                try {
+                    startActivity(new Intent(ChatActivity.this, com.vktea.auth.AuthWebViewActivity.class)
+                            .setData(android.net.Uri.parse(url)));
+                } catch (Exception ignored) {
+                    Toast.makeText(ChatActivity.this, R.string.chat_attachment_open_failed,
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
         });
         list.setAdapter(adapter);
         loadingView = findViewById(R.id.chat_loading);
@@ -154,6 +177,11 @@ public class ChatActivity extends AppCompatActivity {
 
         View send = findViewById(R.id.chat_send);
         EditText input = findViewById(R.id.chat_input);
+        inputView = input;
+        contextBar = findViewById(R.id.chat_context_bar);
+        contextIcon = findViewById(R.id.chat_context_icon);
+        contextText = findViewById(R.id.chat_context_text);
+        findViewById(R.id.chat_context_cancel).setOnClickListener(v -> resetComposerContext());
         voiceRecorder = createVoiceRecorder(peerId, this::onLiveMessagesChanged);
         fileSender = createFileSender(peerId, this::onLiveMessagesChanged);
         View attach = findViewById(R.id.chat_attach);
@@ -364,6 +392,7 @@ public class ChatActivity extends AppCompatActivity {
                         historyMessages.clear();
                         historyMessages.addAll(messages);
                         renderMessages();
+                        resolveUnknownAuthors(historyMessages);
                         updatePeer(data);
                         if (adapter.getItemCount() == 0) showState(R.string.chat_empty, false);
                         else {
@@ -473,6 +502,10 @@ public class ChatActivity extends AppCompatActivity {
 
     protected void sendMessage(String text) {
         if (!synchronizeSession()) return;
+        if (editingMessageId > 0) {
+            sendEdit(text);
+            return;
+        }
         stateView.setVisibility(View.GONE);
         ChatMessage message = new ChatMessage(--localId, true, 0, "", "", text,
                 System.currentTimeMillis() / 1000L, Collections.emptyList())
@@ -481,7 +514,10 @@ public class ChatActivity extends AppCompatActivity {
         localMessages.add(local);
         adapter.add(message);
         list.scrollToPosition(adapter.getItemCount() - 1);
-        requestSend(text, new VKApi.Callback() {
+        long replyTo = replyMessageId;
+        List<Long> forwards = new ArrayList<>(barForwardIds);
+        resetComposerContext();
+        requestSend(text, replyTo, forwards, new VKApi.Callback() {
                     @Override public void success(JSONObject response) {
                         runOnUiThread(() -> {
                             if (!synchronizeSession()) return;
@@ -502,10 +538,35 @@ public class ChatActivity extends AppCompatActivity {
                 });
     }
 
-    protected void requestSend(String text, VKApi.Callback callback) {
+    private void sendEdit(String text) {
+        long target = editingMessageId;
+        resetComposerContext();
         MessageForwarder send = createMessageForwarder();
         textSends.add(send);
-        send.sendText(peerId, text, new MessageForwarder.Callback() {
+        send.editMessage(peerId, target, text, new MessageForwarder.Callback() {
+            @Override public void complete(JSONObject response) {
+                textSends.remove(send);
+                send.close();
+                runOnUiThread(() -> {
+                    if (!synchronizeSession()) return;
+                    loadHistory(true);
+                });
+            }
+            @Override public void failed() {
+                textSends.remove(send);
+                send.close();
+                runOnUiThread(() -> {
+                    if (!synchronizeSession()) return;
+                    Toast.makeText(ChatActivity.this, R.string.send_failed, Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+
+    protected void requestSend(String text, long replyTo, List<Long> forwardIds, VKApi.Callback callback) {
+        MessageForwarder send = createMessageForwarder();
+        textSends.add(send);
+        send.sendText(peerId, text, replyTo, forwardIds, new MessageForwarder.Callback() {
             @Override public void complete(JSONObject response) {
                 textSends.remove(send);
                 callback.success(response);
@@ -540,6 +601,115 @@ public class ChatActivity extends AppCompatActivity {
         LocalMessage(ChatMessage message) { this.message = message; }
     }
 
+    /** Авторы пересланных сообщений часто не приходят в history - догружаем одним запросом. */
+    private void resolveUnknownAuthors(List<ChatMessage> messages) {
+        Set<Long> users = new HashSet<>();
+        Set<Long> groups = new HashSet<>();
+        for (ChatMessage message : messages) collectUnknown(message, users, groups);
+        users.remove(DialogsParser.selfId());
+        if (users.isEmpty() && groups.isEmpty()) return;
+        final long requestSession = sessionGeneration;
+        if (!users.isEmpty()) {
+            StringBuilder ids = new StringBuilder();
+            for (Long id : users) { if (ids.length() > 0) ids.append(','); ids.append(id); }
+            VKApi.get(this, "users.get", "user_ids=" + ids + "&fields=photo_100,first_name,last_name",
+                    new VKApi.Callback() {
+                @Override public void success(JSONObject response) {
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed() || requestSession != sessionGeneration) return;
+                        applyResolvedIdentities(response.optJSONArray("response"), true);
+                    });
+                }
+                @Override public void error(Exception e) { }
+            });
+        }
+        if (!groups.isEmpty()) {
+            StringBuilder ids = new StringBuilder();
+            for (Long id : groups) { if (ids.length() > 0) ids.append(','); ids.append(id); }
+            VKApi.get(this, "groups.getById", "group_ids=" + ids + "&fields=photo_100",
+                    new VKApi.Callback() {
+                @Override public void success(JSONObject response) {
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed() || requestSession != sessionGeneration) return;
+                        JSONObject data = response.optJSONObject("response");
+                        applyResolvedIdentities(data == null ? null : data.optJSONArray("groups"), false);
+                    });
+                }
+                @Override public void error(Exception e) { }
+            });
+        }
+    }
+
+    private void collectUnknown(ChatMessage message, Set<Long> users, Set<Long> groups) {
+        if (message.fromId != 0 && !message.authorKnown
+                && !message.body.equals("Сообщение удалено") && !message.body.equals("Сообщение недоступно")) {
+            if (message.fromId > 0) users.add(message.fromId);
+            else groups.add(-message.fromId);
+        }
+        if (message.replyTo != null) collectUnknown(message.replyTo, users, groups);
+        for (ChatMessage fwd : message.forwarded) collectUnknown(fwd, users, groups);
+    }
+
+    private void applyResolvedIdentities(JSONArray rows, boolean users) {
+        if (rows == null) return;
+        java.util.Map<Long, String[]> identities = new java.util.HashMap<>();
+        for (int i = 0; i < rows.length(); i++) {
+            JSONObject row = rows.optJSONObject(i);
+            if (row == null) continue;
+            long id = row.optLong("id", 0);
+            if (id == 0) continue;
+            String name = users
+                    ? (row.optString("first_name", "") + " " + row.optString("last_name", "")).trim()
+                    : row.optString("name", "");
+            if (name.isEmpty()) continue;
+            identities.put(users ? id : -id, new String[]{name, MessageAvatars.photoUrl(row)});
+        }
+        if (identities.isEmpty()) return;
+        boolean changed = false;
+        List<ChatMessage> updated = new ArrayList<>(historyMessages.size());
+        for (ChatMessage message : historyMessages) {
+            ChatMessage next = applyIdentity(message, identities);
+            changed |= next != message;
+            updated.add(next);
+        }
+        if (!changed) return;
+        historyMessages.clear();
+        historyMessages.addAll(updated);
+        renderMessages();
+    }
+
+    private ChatMessage applyIdentity(ChatMessage message, java.util.Map<Long, String[]> identities) {
+        boolean changed = false;
+        String[] identity = identities.get(message.fromId);
+        if (!message.authorKnown && identity != null) {
+            message = message.withIdentity(identity[0], identity[1]);
+            changed = true;
+        }
+        if (message.replyTo != null) {
+            ChatMessage reply = applyIdentity(message.replyTo, identities);
+            if (reply != message.replyTo) changed = true;
+            // Immutable tree: rebuild is not supported, so quote updates apply on next parse.
+        }
+        List<ChatMessage> forwarded = message.forwarded;
+        List<ChatMessage> updatedForwarded = null;
+        for (int i = 0; i < forwarded.size(); i++) {
+            ChatMessage fwd = applyIdentity(forwarded.get(i), identities);
+            if (fwd != forwarded.get(i)) {
+                if (updatedForwarded == null) updatedForwarded = new ArrayList<>(forwarded);
+                updatedForwarded.set(i, fwd);
+            }
+        }
+        if (updatedForwarded != null) {
+            ChatMessage withFwd = new ChatMessage(message.id, message.out, message.fromId,
+                    message.author, message.avatar, message.body, message.date, message.attachments,
+                    message.readState, updatedForwarded, message.replyTo, true);
+            message = message.sendStatus == ChatMessage.SendStatus.NONE
+                    ? withFwd : withFwd.withSendStatus(message.sendStatus);
+            changed = true;
+        }
+        return changed ? message : message;
+    }
+
     private void openAttachment(ChatAttachment attachment) {
         if (!synchronizeSession()) return;
         if ("audio_message".equals(attachment.type)) {
@@ -571,11 +741,284 @@ public class ChatActivity extends AppCompatActivity {
 
     private void showMessageActions(ChatMessage message) {
         if (message.id <= 0) return;
-        new AlertDialog.Builder(this).setItems(new String[]{getString(R.string.chat_forward_action)},
-                (dialog, which) -> chooseForwardRecipient(message.id)).show();
+        List<String> items = new ArrayList<>();
+        List<Runnable> actions = new ArrayList<>();
+        items.add(getString(R.string.chat_action_reply));
+        actions.add(() -> attachReply(message));
+        items.add(getString(R.string.chat_forward_action));
+        actions.add(() -> chooseForwardRecipient(message.id));
+        if (!message.body.trim().isEmpty()) {
+            items.add(getString(R.string.chat_action_copy));
+            actions.add(() -> copyMessageText(message));
+        }
+        if (canEditMessage(message)) {
+            items.add(getString(R.string.chat_action_edit));
+            actions.add(() -> startEditing(message));
+        }
+        items.add(getString(R.string.chat_action_delete));
+        actions.add(() -> confirmDelete(Collections.singletonList(message)));
+        if (peerId >= 2_000_000_000L && message.fromId > 0) {
+            items.add(getString(R.string.chat_action_mention));
+            actions.add(() -> insertMention(message));
+        }
+        items.add(getString(R.string.chat_action_select));
+        actions.add(() -> {
+            startSelectionMode();
+            toggleSelection(message);
+        });
+        new AlertDialog.Builder(this).setTitle(R.string.chat_message_title)
+                .setItems(items.toArray(new String[0]), (dialog, which) -> actions.get(which).run())
+                .show();
+    }
+
+    /** Coffee canEditMessage: своё, моложе суток, без граффити/стикера/голосового/подарка. */
+    private boolean canEditMessage(ChatMessage message) {
+        if (!message.out || message.id <= 0 || message.sendStatus != ChatMessage.SendStatus.NONE) return false;
+        if (System.currentTimeMillis() / 1000L - message.date > 86400) return false;
+        for (ChatAttachment attachment : message.attachments) {
+            String type = attachment.type;
+            if ("sticker".equals(type) || "graffiti".equals(type)
+                    || "audio_message".equals(type) || "gift".equals(type)) return false;
+        }
+        return true;
+    }
+
+    private void attachReply(ChatMessage message) {
+        replyMessageId = message.id;
+        editingMessageId = 0;
+        barForwardIds.clear();
+        showContextBar(R.drawable.ic_ab_forward,
+                getString(R.string.chat_reply_attached_author, message.author));
+        inputView.requestFocus();
+    }
+
+    /** Быстрая пересылка внутри чата: сообщение прикрепляется к полю ввода (Coffee WriteBar.addFwdMessages). */
+    private void attachForwardToBar(ChatMessage message) {
+        if (!barForwardIds.contains(message.id)) barForwardIds.add(message.id);
+        editingMessageId = 0;
+        replyMessageId = 0;
+        String label = barForwardIds.size() == 1 && !message.body.isEmpty()
+                ? getString(R.string.chat_reply_attached_author, message.author)
+                : getResources().getQuantityString(R.plurals.chat_forward_attached_messages,
+                        barForwardIds.size(), barForwardIds.size());
+        showContextBar(R.drawable.ic_ab_forward, label);
+        inputView.requestFocus();
+    }
+
+    private void startEditing(ChatMessage message) {
+        editingMessageId = message.id;
+        replyMessageId = 0;
+        barForwardIds.clear();
+        inputView.setText(message.body);
+        showContextBar(R.drawable.ic_chat_edit, getString(R.string.chat_editing));
+        inputView.requestFocus();
+        inputView.setSelection(inputView.getText().length());
+    }
+
+    private void showContextBar(int iconRes, String text) {
+        contextIcon.setImageResource(iconRes);
+        contextText.setText(text);
+        contextBar.setVisibility(View.VISIBLE);
+    }
+
+    private void resetComposerContext() {
+        replyMessageId = 0;
+        editingMessageId = 0;
+        barForwardIds.clear();
+        contextBar.setVisibility(View.GONE);
+        inputView.setText("");
+    }
+
+    private boolean composerHasContext() {
+        return replyMessageId > 0 || editingMessageId > 0 || !barForwardIds.isEmpty();
+    }
+
+    private void copyMessageText(ChatMessage message) {
+        android.content.ClipboardManager clipboard =
+                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard == null) return;
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("VK Tea", message.body));
+        Toast.makeText(this, R.string.chat_text_copied, Toast.LENGTH_SHORT).show();
+    }
+
+    private void insertMention(ChatMessage message) {
+        String mention = "[id" + message.fromId + "|" + message.author + "], ";
+        inputView.getText().insert(inputView.getSelectionStart(), mention);
+        inputView.requestFocus();
+    }
+
+    private void openAuthorProfile(long fromId) {
+        if (fromId == 0) return;
+        startActivity(new Intent(this, com.vktea.MainActivity.class)
+                .putExtra(com.vktea.MainActivity.EXTRA_OPEN_PROFILE, fromId));
+    }
+
+    private void confirmDelete(List<ChatMessage> targets) {
+        List<Long> ids = new ArrayList<>();
+        boolean allOwn = true;
+        boolean allFresh = true;
+        for (ChatMessage message : targets) {
+            if (message.id > 0) ids.add(message.id);
+            if (!message.out) allOwn = false;
+            if (System.currentTimeMillis() / 1000L - message.date > 86400) allFresh = false;
+        }
+        if (ids.isEmpty()) return;
+        android.view.View custom = getLayoutInflater().inflate(R.layout.dialog_delete_messages, null);
+        android.widget.TextView text = custom.findViewById(R.id.delete_message_text);
+        text.setText(ids.size() == 1 ? getString(R.string.chat_delete_confirm_one)
+                : getString(R.string.chat_delete_confirm_many, ids.size()));
+        android.widget.CheckBox forAll = custom.findViewById(R.id.delete_for_all);
+        forAll.setVisibility(allOwn && allFresh ? View.VISIBLE : View.GONE);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.chat_delete_title)
+                .setView(custom)
+                .setPositiveButton(R.string.chat_action_delete, (dialog, which) ->
+                        deleteMessages(ids, forAll.getVisibility() == View.VISIBLE && forAll.isChecked()))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void deleteMessages(List<Long> ids, boolean deleteForAll) {
+        MessageForwarder operation = createMessageForwarder();
+        textSends.add(operation);
+        operation.deleteMessages(ids, deleteForAll, new MessageForwarder.Callback() {
+            @Override public void complete(JSONObject response) {
+                runOnUiThread(() -> {
+                    textSends.remove(operation);
+                    if (!synchronizeSession()) return;
+                    Toast.makeText(ChatActivity.this, R.string.chat_delete_done, Toast.LENGTH_SHORT).show();
+                    loadHistory(true);
+                });
+                operation.close();
+            }
+            @Override public void failed() {
+                runOnUiThread(() -> {
+                    textSends.remove(operation);
+                    if (!synchronizeSession()) return;
+                    Toast.makeText(ChatActivity.this, R.string.chat_delete_failed, Toast.LENGTH_LONG).show();
+                });
+                operation.close();
+            }
+        });
+    }
+
+    private void toggleSelection(ChatMessage message) {
+        if (selectionMode == null || message.id <= 0) return;
+        if (selectedIds.contains(message.id)) selectedIds.remove(message.id);
+        else selectedIds.add(message.id);
+        if (selectedIds.isEmpty()) {
+            if (selectionMode != null) selectionMode.finish();
+            return;
+        }
+        selectionMode.setTitle(getString(R.string.chat_selected_n, selectedIds.size()));
+        adapter.setSelectedIds(new HashSet<>(selectedIds));
+    }
+
+    private void startSelectionMode() {
+        if (selectionMode != null) return;
+        selectedIds.clear();
+        selectionMode = startSupportActionMode(new androidx.appcompat.view.ActionMode.Callback() {
+            @Override public boolean onCreateActionMode(androidx.appcompat.view.ActionMode mode, android.view.Menu menu) {
+                mode.getMenuInflater().inflate(R.menu.chat_selection, menu);
+                return true;
+            }
+            @Override public boolean onPrepareActionMode(androidx.appcompat.view.ActionMode mode, android.view.Menu menu) {
+                return true;
+            }
+            @Override public boolean onActionItemClicked(androidx.appcompat.view.ActionMode mode, android.view.MenuItem item) {
+                List<ChatMessage> selected = new ArrayList<>();
+                for (ChatMessage message : adapter.currentMessages()) {
+                    if (selectedIds.contains(message.id)) selected.add(message);
+                }
+                int id = item.getItemId();
+                if (id == R.id.selection_copy && selected.size() == 1) {
+                    copyMessageText(selected.get(0));
+                    mode.finish();
+                    return true;
+                }
+                if (id == R.id.selection_forward) {
+                    List<Long> ids = new ArrayList<>();
+                    for (ChatMessage message : selected) ids.add(message.id);
+                    mode.finish();
+                    chooseForwardRecipients(ids);
+                    return true;
+                }
+                if (id == R.id.selection_delete) {
+                    mode.finish();
+                    confirmDelete(selected);
+                    return true;
+                }
+                return false;
+            }
+            @Override public void onDestroyActionMode(androidx.appcompat.view.ActionMode mode) {
+                selectionMode = null;
+                selectedIds.clear();
+                adapter.setSelectedIds(null);
+                adapter.setSelectionMode(false);
+            }
+        });
+        adapter.setSelectionMode(true);
+        selectionMode.setTitle(getString(R.string.chat_selected_n, 1));
+    }
+
+    private void showAttachmentActions(ChatAttachment attachment) {
+        if (!"doc".equals(attachment.type) && !"link".equals(attachment.type)
+                && !"article".equals(attachment.type)) return;
+        List<String> items = new ArrayList<>();
+        List<Runnable> actions = new ArrayList<>();
+        if (!attachment.url.isEmpty()) {
+            items.add(getString(R.string.chat_doc_download));
+            actions.add(() -> downloadAttachment(attachment));
+            items.add(getString(R.string.chat_doc_open));
+            actions.add(() -> ChatAttachmentActions.open(this, attachment));
+            items.add(getString(R.string.chat_doc_share));
+            actions.add(() -> shareAttachmentLink(attachment));
+        }
+        if (items.isEmpty()) return;
+        new AlertDialog.Builder(this)
+                .setItems(items.toArray(new String[0]), (dialog, which) -> actions.get(which).run())
+                .show();
+    }
+
+    /** Coffee DocAttachView: файлы без превью скачиваются в Downloads через DownloadManager. */
+    private void downloadAttachment(ChatAttachment attachment) {
+        if (attachment.url.isEmpty()) return;
+        try {
+            String name = attachment.title == null || attachment.title.trim().isEmpty()
+                    ? "vk-tea-file" : attachment.title.replaceAll("[/\\\\:*?\"<>|]", "_");
+            android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(
+                    android.net.Uri.parse(attachment.url))
+                    .setTitle(name)
+                    .setDestinationInExternalPublicDir(
+                            android.os.Environment.DIRECTORY_DOWNLOADS, name)
+                    .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.allowScanningByMediaScanner();
+            android.app.DownloadManager manager = (android.app.DownloadManager)
+                    getSystemService(DOWNLOAD_SERVICE);
+            if (manager == null) throw new IllegalStateException();
+            manager.enqueue(request);
+            Toast.makeText(this, R.string.chat_doc_downloading, Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.chat_doc_download_failed, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void shareAttachmentLink(ChatAttachment attachment) {
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_SEND)
+                .setType("text/plain")
+                .putExtra(android.content.Intent.EXTRA_TEXT, attachment.url);
+        try {
+            startActivity(android.content.Intent.createChooser(intent, getString(R.string.chat_doc_share)));
+        } catch (Exception ignored) {
+            Toast.makeText(this, R.string.chat_attachment_open_failed, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void chooseForwardRecipient(long messageId) {
+        chooseForwardRecipients(Collections.singletonList(messageId));
+    }
+
+    private void chooseForwardRecipients(List<Long> messageIds) {
         if (forwardBusy) return;
         forwardBusy = true;
         if (forwarder != null) forwarder.close();
@@ -595,7 +1038,19 @@ public class ChatActivity extends AppCompatActivity {
                 String[] titles = new String[dialogs.size()];
                 for (int i = 0; i < dialogs.size(); i++) titles[i] = dialogs.get(i).title;
                 new AlertDialog.Builder(ChatActivity.this).setTitle(R.string.chat_forward_choose)
-                        .setItems(titles, (dialog, which) -> sendForward(operation, dialogs.get(which).peerId, messageId))
+                        .setItems(titles, (dialog, which) -> {
+                            forwardBusy = false;
+                            long destination = dialogs.get(which).peerId;
+                            if (destination == peerId && messageIds.size() >= 1) {
+                                // Coffee: пересылка в текущий диалог прикрепляется к полю ввода.
+                                for (Long id : messageIds) {
+                                    ChatMessage source = adapter.findMessage(id);
+                                    if (source != null) attachForwardToBar(source);
+                                }
+                                return;
+                            }
+                            sendForward(operation, destination, messageIds);
+                        })
                         .setNegativeButton(android.R.string.cancel, (dialog, which) -> forwardBusy = false)
                         .setOnCancelListener(dialog -> forwardBusy = false).show();
             }
@@ -607,8 +1062,8 @@ public class ChatActivity extends AppCompatActivity {
         });
     }
 
-    private void sendForward(MessageForwarder operation, long destination, long messageId) {
-        operation.send(destination, messageId, new MessageForwarder.Callback() {
+    private void sendForward(MessageForwarder operation, long destination, List<Long> messageIds) {
+        operation.send(destination, messageIds, new MessageForwarder.Callback() {
             @Override public void complete(JSONObject response) {
                 forwardBusy = false;
                 if (!isFinishing() && !isDestroyed()) Toast.makeText(ChatActivity.this,

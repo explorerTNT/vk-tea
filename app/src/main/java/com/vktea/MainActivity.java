@@ -33,6 +33,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
 
     private static final String STATE_SECTION = "current_section";
     private static final String ACTION_OPEN_AUDIO = "com.vktea.action.OPEN_AUDIO";
+    /** Открывает профиль пользователя при запуске (клик по авторе пересланного сообщения). */
+    public static final String EXTRA_OPEN_PROFILE = "open_profile_id";
 
     private DrawerLayout drawer;
     private RecyclerView menuView;
@@ -132,6 +134,13 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         if (ACTION_OPEN_AUDIO.equals(getIntent().getAction())) {
             getIntent().setAction(null);
             showSection(R.id.menu_audios);
+        } else if (getIntent().hasExtra(EXTRA_OPEN_PROFILE)) {
+            long profileId = getIntent().getLongExtra(EXTRA_OPEN_PROFILE, 0);
+            getIntent().removeExtra(EXTRA_OPEN_PROFILE);
+            currentId = R.id.menu_news;
+            showSection(currentId);
+            if (profileId != 0) openFragment(com.vktea.feed.ProfileFragment.newInstance(profileId),
+                    R.string.section_news);
         } else if (savedInstanceState == null) {
             showSection(currentId);
         } else {

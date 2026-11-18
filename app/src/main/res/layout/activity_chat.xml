@@ -144,6 +144,48 @@
     </FrameLayout>
 
     <LinearLayout
+        android:id="@+id/chat_context_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_card"
+        android:gravity="center_vertical"
+        android:minHeight="40dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/chat_context_icon"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="16dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_ab_forward"
+            app:tint="@color/vk_blue" />
+
+        <TextView
+            android:id="@+id/chat_context_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/chat_input_text"
+            android:textSize="14sp" />
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/chat_context_cancel"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@android:string/cancel"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_chat_close"
+            app:tint="@color/chat_hint" />
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/chat_composer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
