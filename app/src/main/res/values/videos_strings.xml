@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="videos_search_hint">Поиск видео</string>
+    <string name="videos_open">Открыть видео</string>
+    <string name="videos_empty">Нет видео</string>
+    <string name="videos_search_empty">Ничего не найдено</string>
+    <string name="videos_load_failed">Не удалось загрузить видео</string>
+    <string name="videos_views">%1$s просмотров</string>
+</resources>
