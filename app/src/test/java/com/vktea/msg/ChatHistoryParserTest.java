@@ -3,6 +3,7 @@ package com.vktea.msg;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -309,7 +310,7 @@ public class ChatHistoryParserTest {
     }
 
     @Test
-    public void repliesAndForwardedMessagesIncludeAuthorAndContentOrAttachmentSummary() throws Exception {
+    public void repliesAndForwardedMessagesAreStructuredRowsWithAuthorsAndContent() throws Exception {
         JSONObject reply = message(4, 90, 91).put("text", "Synthetic quoted text");
         JSONObject forward = message(5, 80, -7).put("attachments", array(attachment("doc", object("title", "Synthetic report"))));
         JSONObject nested = message(6, 70, 91).put("fwd_messages", array(message(7, 60, 91).put("text", "Synthetic nested text")));
@@ -319,11 +320,17 @@ public class ChatHistoryParserTest {
                 .put("groups", array(object("id", 7, "name", "Synthetic community")));
         ChatMessage parsed = ChatHistoryParser.parse(data, 91).get(0);
 
-        assertTrue(parsed.body.startsWith("Synthetic current text"));
-        assertTrue(parsed.body.contains("Ответ · Synthetic Person\nSynthetic quoted text"));
-        assertTrue(parsed.body.contains("Переслано · Synthetic community\nSynthetic report"));
-        assertTrue(parsed.body.contains("Synthetic nested text"));
+        assertEquals("Synthetic current text", parsed.body);
         assertEquals(Collections.emptyList(), parsed.attachments);
+        assertNotNull(parsed.replyTo);
+        assertEquals(4, parsed.replyTo.id);
+        assertEquals("Synthetic Person", parsed.replyTo.author);
+        assertEquals("Synthetic quoted text", parsed.replyTo.body);
+        assertEquals(2, parsed.forwarded.size());
+        assertEquals("Synthetic community", parsed.forwarded.get(0).author);
+        assertEquals("Synthetic report", parsed.forwarded.get(0).attachments.get(0).title);
+        assertEquals(1, parsed.forwarded.get(1).forwarded.size());
+        assertEquals("Synthetic nested text", parsed.forwarded.get(1).forwarded.get(0).body);
     }
 
     @Test

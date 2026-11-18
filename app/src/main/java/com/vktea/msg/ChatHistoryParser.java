@@ -15,6 +15,9 @@ import java.util.Map;
 
 /** Pure display parser. It neither fetches missing attachments nor logs private message data. */
 public final class ChatHistoryParser {
+    /** Coffee renders up to ten nested forwarding levels (MessageListItemHelper). */
+    private static final int MAX_FWD_DEPTH = 10;
+
     private ChatHistoryParser() {}
 
     /** Accepts either the API envelope or its response object; rev=0 history is newest first. */
@@ -29,38 +32,43 @@ public final class ChatHistoryParser {
         for (int index = 0; index < items.length(); index++) {
             JSONObject row = items.optJSONObject(index);
             if (row == null) continue;
-            boolean out = flag(row, "out", false);
-            long from = row.has("from_id") ? row.optLong("from_id", 0)
-                    : out ? 0 : row.optLong("user_id", row.optLong("uid", peerId));
-            Person person = person(people, from, out);
-            List<ChatAttachment> attachments = attachments(row.optJSONArray("attachments"));
-            JSONObject geo = row.optJSONObject("geo");
-            if (geo != null) attachments.add(geo(geo));
-            String body = string(row, "text", string(row, "body", ""));
-            JSONObject reply = row.optJSONObject("reply_message");
-            if (reply != null) body = append(body, "Ответ · " + summary(reply, people, 0));
-            JSONArray forwarded = row.optJSONArray("fwd_messages");
-            if (forwarded != null && forwarded.length() > 0) {
-                for (int part = 0; part < Math.min(5, forwarded.length()); part++) {
-                    JSONObject forwardedMessage = forwarded.optJSONObject(part);
-                    body = append(body, "Переслано · " + (forwardedMessage == null
-                            ? "Сообщение недоступно" : summary(forwardedMessage, people, 0)));
-                }
-                if (forwarded.length() > 5) body = append(body, "Ещё пересланных сообщений: " + (forwarded.length() - 5));
-            }
-            if (body.trim().isEmpty() && attachments.isEmpty()) {
-                JSONObject action = row.optJSONObject("action");
-                body = action != null ? action(action) : flag(row, "is_deleted", false)
-                        || flag(row, "deleted", false) ? "Сообщение удалено" : "Сообщение недоступно";
-            }
-            messages.add(new ChatMessage(row.optLong("id", row.optLong("mid", 0)), out, from,
-                    person.name, person.avatar, body, Math.max(0, row.optLong("date", 0)), attachments,
-                    out && row.has("read_state") ? row.optInt("read_state", -1) : -1));
+            messages.add(message(row, people, peerId, 0));
         }
         Collections.reverse(messages);
         // Stable sort preserves the reversed API order for messages with the same second.
         messages.sort(Comparator.comparingLong(message -> message.date));
         return Collections.unmodifiableList(messages);
+    }
+
+    private static ChatMessage message(JSONObject row, Map<Long, Person> people, long peerId, int depth) {
+        boolean out = flag(row, "out", false);
+        long from = row.has("from_id") ? row.optLong("from_id", 0)
+                : out ? 0 : row.optLong("user_id", row.optLong("uid", peerId));
+        Person person = person(people, from, out);
+        List<ChatAttachment> attachments = attachments(row.optJSONArray("attachments"));
+        JSONObject geo = row.optJSONObject("geo");
+        if (geo != null) attachments.add(geo(geo));
+        String body = string(row, "text", string(row, "body", ""));
+        ChatMessage reply = null;
+        List<ChatMessage> forwarded = new ArrayList<>();
+        if (depth < MAX_FWD_DEPTH) {
+            JSONObject replyRow = row.optJSONObject("reply_message");
+            if (replyRow != null) reply = message(replyRow, people, peerId, depth + 1);
+            JSONArray rows = row.optJSONArray("fwd_messages");
+            if (rows != null) for (int index = 0; index < rows.length(); index++) {
+                JSONObject forwardedRow = rows.optJSONObject(index);
+                if (forwardedRow != null) forwarded.add(message(forwardedRow, people, peerId, depth + 1));
+            }
+        }
+        if (body.trim().isEmpty() && attachments.isEmpty() && forwarded.isEmpty() && reply == null) {
+            JSONObject action = row.optJSONObject("action");
+            body = action != null ? action(action) : flag(row, "is_deleted", false)
+                    || flag(row, "deleted", false) ? "Сообщение удалено" : "Сообщение недоступно";
+        }
+        return new ChatMessage(row.optLong("id", row.optLong("mid", 0)), out, from,
+                person.name, person.avatar, body, Math.max(0, row.optLong("date", 0)), attachments,
+                out && row.has("read_state") ? row.optInt("read_state", -1) : -1,
+                forwarded, reply, person.known);
     }
 
     private static Map<Long, Person> people(JSONObject data) {
@@ -91,7 +99,8 @@ public final class ChatHistoryParser {
 
     private static Person person(Map<Long, Person> people, long id, boolean out) {
         Person known = people.get(id);
-        return known != null ? known : new Person(out ? "Вы" : id < 0 ? "Сообщество" : "Пользователь", "");
+        if (known != null) return known;
+        return new Person(out ? "Вы" : id < 0 ? "Сообщество" : "Пользователь", "", false);
     }
 
     private static List<ChatAttachment> attachments(JSONArray array) {
@@ -355,26 +364,6 @@ public final class ChatHistoryParser {
         return new ChatAttachment("geo", title, subtitle, "", "", 0, 0, 0, 0, 0, "");
     }
 
-    private static String summary(JSONObject message, Map<Long, Person> people, int depth) {
-        long from = message.optLong("from_id", message.optLong("user_id", message.optLong("uid", 0)));
-        String author = person(people, from, flag(message, "out", false)).name;
-        String text = excerpt(string(message, "text", string(message, "body", "")));
-        if (text.isEmpty()) {
-            List<ChatAttachment> attachments = attachments(message.optJSONArray("attachments"));
-            for (ChatAttachment attachment : attachments) text = join(text, attachment.title);
-        }
-        if (text.isEmpty() && depth < 2) {
-            JSONObject reply = message.optJSONObject("reply_message");
-            if (reply != null) text = "Ответ: " + summary(reply, people, depth + 1);
-            JSONArray forwarded = message.optJSONArray("fwd_messages");
-            if (text.isEmpty() && forwarded != null && forwarded.length() > 0) {
-                JSONObject first = forwarded.optJSONObject(0);
-                text = first == null ? "Пересланное сообщение" : "Переслано: " + summary(first, people, depth + 1);
-            }
-        }
-        return author + "\n" + nonempty(excerpt(text), "Сообщение недоступно");
-    }
-
     private static String action(JSONObject action) {
         String text = string(action, "text", "");
         switch (string(action, "type", "")) {
@@ -414,10 +403,6 @@ public final class ChatHistoryParser {
         return "";
     }
 
-    private static String append(String base, String line) {
-        return base.isEmpty() ? line : base + "\n\n" + line;
-    }
-
     private static String join(String left, String right) {
         return left.isEmpty() ? right : right.isEmpty() ? left : left + " · " + right;
     }
@@ -444,7 +429,11 @@ public final class ChatHistoryParser {
     private static final class Person {
         final String name;
         final String avatar;
-        Person(String name, String avatar) { this.name = name; this.avatar = avatar; }
+        final boolean known;
+        Person(String name, String avatar) { this(name, avatar, true); }
+        Person(String name, String avatar, boolean known) {
+            this.name = name; this.avatar = avatar; this.known = known;
+        }
     }
 
     private static final class Image {
