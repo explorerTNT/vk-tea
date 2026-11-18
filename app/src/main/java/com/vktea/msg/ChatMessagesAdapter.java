@@ -380,7 +380,10 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
             child.setOnClickListener(v -> callback.onAttachmentClicked(attachment));
         }
         if (callback != null && ("doc".equals(attachment.type) || "link".equals(attachment.type)
-                || "article".equals(attachment.type)) && !attachment.url.isEmpty()) {
+                || "article".equals(attachment.type)
+                || ((attachment.type.equals("wall") || attachment.type.equals("wall_reply"))
+                && attachment.ownerId != 0 && attachment.id != 0)
+                || !attachment.url.isEmpty())) {
             child.setOnLongClickListener(v -> {
                 callback.onAttachmentLongClicked(attachment);
                 return true;

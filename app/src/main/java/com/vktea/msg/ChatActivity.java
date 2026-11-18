@@ -129,6 +129,9 @@ public class ChatActivity extends AppCompatActivity {
         peerAvatar = findViewById(R.id.chat_peer_avatar);
         peerName = findViewById(R.id.chat_peer_name);
         peerStatus = findViewById(R.id.chat_peer_status);
+        // Coffee: тап по шапке открывает страницу собеседника (не для бесед).
+        View header = peerName.getParent() instanceof View ? (View) peerName.getParent() : null;
+        if (header != null) header.setOnClickListener(v -> openAuthorProfile(peerId));
         String title = getIntent().getStringExtra(EXTRA_TITLE);
         if (isSelfChat) {
             peerName.setText(R.string.favorites);
@@ -393,16 +396,6 @@ public class ChatActivity extends AppCompatActivity {
                         return;
                     }
                     List<ChatMessage> messages = ChatHistoryParser.parse(response, peerId);
-                    // Временная диагностика цитат: только счётчики, без содержимого.
-                    int withReply = 0, replyWithId = 0, fwdTotal = 0, fwdWithId = 0;
-                    for (ChatMessage m : messages) {
-                        if (m.replyTo != null) { withReply++; if (m.replyTo.id > 0) replyWithId++; }
-                        for (ChatMessage f : m.forwarded) { fwdTotal++; if (f.id > 0) fwdWithId++; }
-                    }
-                    android.util.Log.d("VKTeaHistory", "peer=" + peerId
-                            + " msgs=" + messages.size() + " replies=" + withReply
-                            + " repliesWithId=" + replyWithId + " fwd=" + fwdTotal
-                            + " fwdWithId=" + fwdWithId);
                     runOnUiThread(() -> {
                         if (!historyCurrent(requestGeneration, requestSession)) return;
                         loading = false;
@@ -875,7 +868,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void openAuthorProfile(long fromId) {
-        if (fromId == 0) return;
+        if (fromId == 0 || fromId >= 2_000_000_000L) return;
         startActivity(new Intent(this, com.vktea.MainActivity.class)
                 .putExtra(com.vktea.MainActivity.EXTRA_OPEN_PROFILE, fromId));
     }
@@ -1010,15 +1003,26 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void showAttachmentActions(ChatAttachment attachment) {
-        if (!"doc".equals(attachment.type) && !"link".equals(attachment.type)
+        boolean wall = ("wall".equals(attachment.type) || "wall_reply".equals(attachment.type))
+                && attachment.ownerId != 0 && attachment.id != 0;
+        if (!wall && !"doc".equals(attachment.type) && !"link".equals(attachment.type)
                 && !"article".equals(attachment.type)) return;
         List<String> items = new ArrayList<>();
         List<Runnable> actions = new ArrayList<>();
+        if (wall) {
+            items.add(getString(R.string.chat_forward_action));
+            actions.add(() -> chooseWallRecipient(attachment));
+            items.add(getString(R.string.chat_doc_open));
+            actions.add(() -> com.vktea.feed.PostActivity.startById(this,
+                    attachment.ownerId, attachment.id));
+        }
         if (!attachment.url.isEmpty()) {
             items.add(getString(R.string.chat_doc_download));
             actions.add(() -> downloadAttachment(attachment));
-            items.add(getString(R.string.chat_doc_open));
-            actions.add(() -> ChatAttachmentActions.open(this, attachment));
+            if (!wall) {
+                items.add(getString(R.string.chat_doc_open));
+                actions.add(() -> ChatAttachmentActions.open(this, attachment));
+            }
             items.add(getString(R.string.chat_doc_share));
             actions.add(() -> shareAttachmentLink(attachment));
         }
@@ -1026,6 +1030,65 @@ public class ChatActivity extends AppCompatActivity {
         new AlertDialog.Builder(this)
                 .setItems(items.toArray(new String[0]), (dialog, which) -> actions.get(which).run())
                 .show();
+    }
+
+    /** Пересылка поста как вложения wall{owner}_{id} выбранному получателю. */
+    private void chooseWallRecipient(ChatAttachment attachment) {
+        if (forwardBusy) return;
+        forwardBusy = true;
+        if (forwarder != null) forwarder.close();
+        MessageForwarder operation = createMessageForwarder();
+        forwarder = operation;
+        operation.recipients(new MessageForwarder.Callback() {
+            @Override public void complete(JSONObject response) {
+                if (isFinishing() || isDestroyed() || forwarder != operation) return;
+                JSONObject data = response.optJSONObject("response");
+                if (data == null || data.optJSONArray("items") == null) { failed(); return; }
+                List<Dialog> dialogs = DialogsParser.parse(response);
+                if (dialogs.isEmpty()) {
+                    forwardBusy = false;
+                    Toast.makeText(ChatActivity.this, R.string.chat_forward_no_recipients,
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String[] titles = new String[dialogs.size()];
+                for (int i = 0; i < dialogs.size(); i++) titles[i] = dialogs.get(i).title;
+                new AlertDialog.Builder(ChatActivity.this).setTitle(R.string.chat_forward_choose)
+                        .setItems(titles, (dialog, which) -> {
+                            forwardBusy = false;
+                            String payload = "wall" + attachment.ownerId + "_" + attachment.id;
+                            if (!attachment.accessKey.isEmpty()) payload += "_" + attachment.accessKey;
+                            operation.sendAttachment(dialogs.get(which).peerId, payload,
+                                    new MessageForwarder.Callback() {
+                                        @Override public void complete(JSONObject result) {
+                                            if (!isFinishing() && !isDestroyed())
+                                                Toast.makeText(ChatActivity.this,
+                                                        R.string.chat_forward_sent,
+                                                        Toast.LENGTH_SHORT).show();
+                                            operation.close();
+                                        }
+                                        @Override public void failed() {
+                                            if (!isFinishing() && !isDestroyed())
+                                                Toast.makeText(ChatActivity.this,
+                                                        R.string.chat_forward_send_failed,
+                                                        Toast.LENGTH_LONG).show();
+                                            operation.close();
+                                        }
+                                    });
+                        })
+                        .setNegativeButton(android.R.string.cancel,
+                                (dialog, which) -> { forwardBusy = false; operation.close(); })
+                        .setOnCancelListener(dialog -> { forwardBusy = false; operation.close(); })
+                        .show();
+            }
+            @Override public void failed() {
+                forwardBusy = false;
+                operation.close();
+                if (!isFinishing() && !isDestroyed())
+                    Toast.makeText(ChatActivity.this, R.string.chat_forward_load_failed,
+                            Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     /** Coffee DocAttachView: файлы без превью скачиваются в Downloads через DownloadManager. */

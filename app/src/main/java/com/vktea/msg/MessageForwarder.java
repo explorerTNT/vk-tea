@@ -132,6 +132,21 @@ final class MessageForwarder implements AutoCloseable {
         execute("messages.send", args, true, replyTo > 0 ? "5.92" : null, callback);
     }
 
+    /** Пересылка вложения (например поста wall{owner}_{id}) в указанный диалог. */
+    void sendAttachment(long peerId, String attachment, Callback callback) {
+        if (peerId == 0 || peerId == Long.MIN_VALUE || peerId == 2_000_000_000L
+                || attachment == null || attachment.isEmpty()) {
+            callback.failed(); return;
+        }
+        LinkedHashMap<String, String> args = new LinkedHashMap<>();
+        args.put("peer_id", Long.toString(peerId));
+        int randomId;
+        do { randomId = new SecureRandom().nextInt(); } while (randomId == 0);
+        args.put("random_id", Integer.toString(randomId));
+        args.put("attachment", attachment);
+        execute("messages.send", args, true, callback);
+    }
+
     /** messages.edit с сохранением пересылок, как в Coffee MessagesEdit. */
     void editMessage(long peerId, long messageId, String text, Callback callback) {
         if (peerId == 0 || messageId <= 0 || text == null || text.trim().isEmpty()) {
