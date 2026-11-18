@@ -11,7 +11,7 @@
 ## 1. Хост и навигация
 
 - [ ] P0 **Тулбар-дропдаун** «Новости ▼» - переключение разделов из заголовка + бейдж уведомлений на бургере - `ui/navigation/ToolbarHelper`, `navigation/Navigator`
-- [ ] P0 **Быстрый поиск** по кнопке лупы - `fragments/search/QuickSearchActivity`, `fragments/search/ExtendedSearchFragment`
+- [x] P0 **Быстрый поиск** по кнопке лупы - `fragments/search/QuickSearchActivity`, `fragments/search/ExtendedSearchFragment` — готово: подсказки (`search.getHints`), люди (`users.search`), сообщества (`groups.search`); расширенный поиск по параметрам (пол/возраст/город) остаётся
 - [ ] P1 **Мини-плеер в меню** (закреплён над пунктами) - layout `menu_audio_player.xml`, логика в `ui/widget/MenuListView` (~строка 900: play/pause, прогресс, обложка)
 - [ ] P1 **Пользовательская сортировка меню** - `ui/widget/MenuListData` (порядок пунктов хранится в prefs)
 - [ ] P1 **Друзья/группы в меню** - раскрытые секции с онлайн-статусами - `MenuListView$UserViewHolder`, `left_menu_item2.xml`
@@ -46,6 +46,8 @@
 - [x] P0 **LongPoll realtime** - `MessageLongPoll`: новые сообщения в открытых экранах и счётчиках (реалтайм проверен на реальном аккаунте); фоновые push-уведомления не реализованы
 - [x] P1 **Переписка** (чат, вложения, голосовые) - пузыри Coffee 9-patch, фото/видео/wall-вложения (открываются нативно), тёмная тема
 - [x] P1 **Пересылка сообщений** - `MessageForwarder`
+- [x] P1 **Работа с сообщениями** (багрепорт «невозможно работать с текстом») — контекстное меню (ответ/копировать/редактировать/удалить/обращение), мультивыделение, ссылки; `reply_to` требует API 5.92 (проверено живым запросом), быстрая пересылка в текущий чат через бар поля ввода (WriteBar Coffee)
+- [x] P1 **Цитаты и пересланные** (багрепорт «ужасное отражение») — вложенные блоки `message_fwd_include`, цитата-полоска с перемоткой к оригиналу, статусы иконками; ответ официального клиента на чтении в 5.82 - урезанный `fwd` без `id`, детект по этому признаку
 - [x] P1 **Закреплённые сообщения** - планка под шапкой чата (`messages.getConversationsById`: `getConversations` игнорирует `peer_ids`), тап подгружает историю от закрепа (`start_message_id`) и матает к нему
 - [x] P0 **Постинг на стену** (записи + фото) - `NewPostActivity` + `WallPostPublisher`; экран и кнопки профиля по макетам Coffee (`update_status.xml`, `profile_post_buttons.xml`)
 - [ ] P1 **Отключение «прочитано»/«набирает»** - фирменные фичи Coffee: `ic_menu_disable_read`, `in_menu_disable_type` (реализация в отправке API-флагов, смотреть `OnlineData.setLP` и вызовы markAsRead)
@@ -57,10 +59,10 @@
 - [x] P1 **Профиль** — `fragments/ProfileFragment` (+ `fragments/discussions/ProfileUtils`): обложка, кнопки, счётчики, стена с нативным открытием постов
 - [x] P1 **Друзья: основной раздел** — «Все» / «Онлайн», поиск по полному списку, сортировка по имени, аватарки / статусы, обновление свайпом, переходы в профиль и диалог; состояние удерживает `FriendsViewModel`. Референс — `fragments/friends/FriendsFragment`, `FriendsListFragment`, `data/Friends`. Заявки, папки, дни рождения и дисковый кеш остаются отдельными задачами.
 - [x] P1 **Сообщества: основной список** — вкладки «Все» / «Управление», поиск по названию / короткому адресу, аватарки, тип и число участников, обновление свайпом; `GroupsViewModel` удерживает полный снимок при повороте, строка открывает нативную страницу сообщества со стеной. Референс — `fragments/groups/GroupsFragment`, `AllGroupsFragment`, `data/Groups`, `api/groups/GroupsGet`. Приглашения, отдельный календарь мероприятий, вступление / выход, создание и дисковый кеш остаются отдельными задачами.
-- [ ] P1 **Фото** — `fragments/photos/*`, `ImagePickerActivity`, `PostPhotoActivity`
-- [ ] P1 **Видео** — `activities/VideoPlayerActivity`, `YouTubeVideoPlayerActivity`, `VideoEmbedPlayerActivity`, `fragments/videos/VideosFragment`
+- [x] P1 **Фото** — `fragments/photos/*`, `ImagePickerActivity`, `PostPhotoActivity` — готово: раздел «Все фото»/«Альбомы» (`photos.getAll`, `photos.getAlbums`, `photos.get`) и просмотрщик; создание альбомов, отметки и загрузка в альбом остаются
+- [x] P1 **Видео** — `activities/VideoPlayerActivity`, `YouTubeVideoPlayerActivity`, `VideoEmbedPlayerActivity`, `fragments/videos/VideosFragment` — готово: список своих видео + поиск (`video.get`, `video.search`), Media3-плеер; альбомы видео и загрузка остаются
 - [x] P1 **Ответы/уведомления: основной список** — `notifications.get`, обновление, страницы и переходы к распознанным объектам; права токена и полнота истории зависят от VK. Фильтры, фоновая доставка и сброс счётчика остаются отдельными задачами. Референс — `fragments/feedback/NotificationsFragment`, `api/notifications/NotificationsGet`.
-- [ ] P1 **Закладки** — `fragments/fave/FaveFragment`
+- [x] P1 **Закладки** — `fragments/fave/FaveFragment` — готово на современном едином `fave.get` (старые `fave.getUsers/getPosts/...` мертвы); удаление закладок остаётся
 - [ ] P2 **Документы** — `fragments/documents/DocumentsViewFragment`
 - [ ] P2 **Игры** — `fragments/GamesFragment`, `GameCardActivity` (часть роутов мертва → WebView)
 - [ ] P2 **Репост** — `RepostActivity`
