@@ -27,6 +27,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 
 /** Recycled display rows only; API requests and opening viewers belong to the activity. */
@@ -35,6 +36,10 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         void onAttachmentClicked(ChatAttachment attachment);
         default void onVoiceSeek(ChatAttachment attachment, float fraction) { }
         default void onMessageLongClicked(ChatMessage message) { }
+        default void onMessageClicked(ChatMessage message) { }
+        default void onAuthorClicked(long fromId) { }
+        default void onAttachmentLongClicked(ChatAttachment attachment) { }
+        default void onLinkClicked(String url) { }
     }
     interface ImageSize { void onSize(int width, int height); }
     interface Images {
@@ -54,6 +59,8 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
     @Nullable private ChatAttachment activeVoice;
     private boolean voicePlaying;
     private long voicePositionMs, voiceDurationMs;
+    @Nullable private Set<Long> selectedIds;
+    private boolean selectionMode;
 
     public ChatMessagesAdapter(Callback callback) { this(callback, new GlideImages()); }
 
@@ -87,6 +94,24 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         return -1;
     }
 
+    @Nullable public ChatMessage findMessage(long messageId) {
+        for (ChatMessage message : messages) if (message.id == messageId) return message;
+        return null;
+    }
+
+    public List<ChatMessage> currentMessages() { return new ArrayList<>(messages); }
+
+    public void setSelectionMode(boolean active) {
+        if (selectionMode == active) return;
+        selectionMode = active;
+        notifyDataSetChanged();
+    }
+
+    public void setSelectedIds(@Nullable Set<Long> ids) {
+        selectedIds = ids;
+        notifyDataSetChanged();
+    }
+
     @NonNull @Override public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         return new Holder(LayoutInflater.from(parent.getContext()).inflate(
                 viewType == 1 ? R.layout.item_msg_out : R.layout.item_msg_in, parent, false));
@@ -95,17 +120,30 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
     @Override public void onBindViewHolder(@NonNull Holder holder, int position) {
         clearImages(holder.itemView);
         holder.attachments.removeAllViews();
+        holder.header.removeAllViews();
         ChatMessage message = messages.get(position);
-        holder.bubble.setOnLongClickListener(message.id > 0 && callback != null ? v -> {
-            callback.onMessageLongClicked(message);
-            return true;
-        } : null);
-        int group = groupAt(position);
-        holder.bubble.setBackgroundResource((message.out ? OUT_BACKGROUNDS : IN_BACKGROUNDS)[group]);
         boolean night = (holder.itemView.getResources().getConfiguration().uiMode
                 & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
                 == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-        if (night && !message.out) {
+        boolean selected = selectedIds != null && selectedIds.contains(message.id);
+        if (selectionMode && callback != null) {
+            holder.bubble.setOnClickListener(v -> callback.onMessageClicked(message));
+            holder.bubble.setOnLongClickListener(v -> {
+                callback.onMessageClicked(message);
+                return true;
+            });
+        } else {
+            holder.bubble.setOnClickListener(null);
+            holder.bubble.setOnLongClickListener(message.id > 0 && callback != null ? v -> {
+                callback.onMessageLongClicked(message);
+                return true;
+            } : null);
+        }
+        int group = groupAt(position);
+        holder.bubble.setBackgroundResource((message.out ? OUT_BACKGROUNDS : IN_BACKGROUNDS)[group]);
+        if (selected) {
+            holder.bubble.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0x334774A8));
+        } else if (night && !message.out) {
             holder.bubble.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF2C2D2E));
             holder.text.setTextColor(0xFFE7E8EA);
         } else {
@@ -120,25 +158,23 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         boolean showDate = position == 0 || !sameDay(messages.get(position - 1).date, message.date);
         holder.date.setVisibility(showDate ? View.VISIBLE : View.GONE);
         holder.date.setText(showDate ? formatDate(message.date) : "");
+        renderReply(holder, message, night);
+        renderForwarded(holder.header, message, 0, night);
+        holder.header.setVisibility(holder.header.getChildCount() == 0 ? View.GONE : View.VISIBLE);
         holder.text.setText(message.body.isEmpty() && message.attachments.isEmpty()
-                ? holder.text.getContext().getString(R.string.chat_message_empty) : message.body);
+                && message.forwarded.isEmpty() && message.replyTo == null
+                ? holder.text.getContext().getString(R.string.chat_message_empty)
+                : com.vktea.util.VkTextUtils.parse(message.body, linkColor(holder, night),
+                        url -> {
+                            if (callback != null) callback.onLinkClicked(url);
+                        }));
         holder.text.setVisibility(holder.text.length() == 0 ? View.GONE : View.VISIBLE);
         String time = new SimpleDateFormat("HH:mm", Locale.getDefault())
                 .format(new Date(message.date * 1000L));
-        if (message.out && message.sendStatus != ChatMessage.SendStatus.NONE) {
-            int label = message.sendStatus == ChatMessage.SendStatus.SENDING
-                    ? R.string.chat_status_sending : R.string.chat_status_unconfirmed;
-            String status = holder.time.getContext().getString(label);
-            holder.time.setText(time + " · " + status);
-            holder.time.setContentDescription(time + ", " + status);
-        } else if (message.out && message.readState >= 0) {
-            holder.time.setText(time + (message.readState == 1 ? "  ✓✓" : "  ✓"));
-            holder.time.setContentDescription(time + ", " + holder.time.getContext().getString(
-                    message.readState == 1 ? R.string.chat_status_read : R.string.chat_status_sent));
-        } else {
-            holder.time.setText(time);
-            holder.time.setContentDescription(time);
-        }
+        bindStatusIcon(holder, message, night, time);
+        ((LinearLayout.LayoutParams) holder.text.getLayoutParams()).topMargin =
+                holder.text.getVisibility() == View.VISIBLE && holder.header.getChildCount() > 0
+                        && message.replyTo == null ? dp(holder.text, 4) : 0;
 
         if (holder.avatar != null) {
             boolean endOfGroup = group == SINGLE || group == BOTTOM;
@@ -147,16 +183,123 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
             holder.avatar.setContentDescription(message.author);
             if (endOfGroup && !message.avatar.isEmpty()) images.load(holder.avatar, message.avatar, true, null);
         }
-        for (ChatAttachment attachment : message.attachments) addAttachment(holder, attachment);
+        for (ChatAttachment attachment : message.attachments) addAttachment(holder.attachments, holder.text, attachment);
         holder.attachments.setVisibility(holder.attachments.getChildCount() == 0 ? View.GONE : View.VISIBLE);
     }
 
-    private void addAttachment(Holder holder, ChatAttachment attachment) {
+    /** Coffee MessageStatusDrawable: часы при отправке, точка при доставке, пусто при прочтении, ошибка. */
+    private void bindStatusIcon(Holder holder, ChatMessage message, boolean night, String time) {
+        if (!message.out) {
+            holder.time.setText(time);
+            holder.time.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null);
+            holder.time.setContentDescription(time);
+            return;
+        }
+        android.graphics.drawable.Drawable icon = null;
+        String status = null;
+        if (message.sendStatus == ChatMessage.SendStatus.SENDING) {
+            icon = statusDrawable(holder, R.drawable.ic_chat_sending_13dp);
+            status = holder.time.getContext().getString(R.string.chat_status_sending);
+        } else if (message.sendStatus == ChatMessage.SendStatus.UNCONFIRMED) {
+            icon = statusDrawable(holder, R.drawable.ic_msg_error);
+            status = holder.time.getContext().getString(R.string.chat_status_unconfirmed);
+        } else if (message.readState == 0 || message.readState < 0) {
+            icon = statusDrawable(holder, R.drawable.dot_unread);
+            status = holder.time.getContext().getString(R.string.chat_status_sent);
+        } else if (message.readState >= 0) {
+            status = holder.time.getContext().getString(R.string.chat_status_read);
+        }
+        holder.time.setText(time);
+        holder.time.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, null, null, null);
+        holder.time.setCompoundDrawablePadding(dp(holder.time, 3));
+        holder.time.setContentDescription(status == null ? time : time + ", " + status);
+    }
+
+    private android.graphics.drawable.Drawable statusDrawable(Holder holder, int res) {
+        android.graphics.drawable.Drawable drawable = holder.time.getContext().getDrawable(res);
+        if (drawable == null) return null;
+        drawable = drawable.mutate();
+        drawable.setColorFilter(new android.graphics.PorterDuffColorFilter(
+                0xFF7AA0CC, android.graphics.PorterDuff.Mode.SRC_ATOP));
+        return drawable;
+    }
+
+    private static int linkColor(Holder holder, boolean night) {
+        return night ? 0xFF71AAEB : 0xFF4C75A3;
+    }
+
+    /** Короткая цитата ответа над содержимым: полоска акцента + автор + текст/вложение. */
+    private void renderReply(Holder holder, ChatMessage message, boolean night) {
+        if (message.replyTo == null) return;
+        View block = LayoutInflater.from(holder.itemView.getContext())
+                .inflate(R.layout.item_msg_reply, holder.header, false);
+        TextView name = block.findViewById(R.id.reply_name);
+        TextView text = block.findViewById(R.id.reply_text);
+        name.setText(message.replyTo.author.isEmpty() ? "Сообщение" : message.replyTo.author);
+        String body = message.replyTo.body;
+        if (body.isEmpty()) for (ChatAttachment attachment : message.replyTo.attachments) {
+            body = body.isEmpty() ? attachment.title : body + " · " + attachment.title;
+        }
+        if (body.isEmpty() && !message.replyTo.forwarded.isEmpty()) body = "Пересланное сообщение";
+        text.setText(body);
+        text.setTextColor(night && !message.out ? 0xFF939CA5 : 0xFF8A939C);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.bottomMargin = dp(block, 4);
+        holder.header.addView(block, params);
+    }
+
+    /** Вложенные пересланные в стиле Coffee message_fwd_include: шапка автора + текст + вложения. */
+    private void renderForwarded(LinearLayout container, ChatMessage message, int depth, boolean night) {
+        for (ChatMessage fwd : message.forwarded) {
+            View block = LayoutInflater.from(container.getContext())
+                    .inflate(R.layout.item_msg_fwd, container, false);
+            View stripe = block.findViewById(R.id.fwd_stripe);
+            if (depth > 0) {
+                stripe.setVisibility(View.VISIBLE);
+                LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) stripe.getLayoutParams();
+                params.width = dp(stripe, 2);
+                params.leftMargin = dp(stripe, (depth - 1) * 8);
+                stripe.setLayoutParams(params);
+                block.setPaddingRelative(dp(block, 8), 0, 0, 0);
+            }
+            ImageView photo = block.findViewById(R.id.fwd_photo);
+            TextView name = block.findViewById(R.id.fwd_name);
+            TextView time = block.findViewById(R.id.fwd_time);
+            TextView text = block.findViewById(R.id.fwd_text);
+            LinearLayout attachments = block.findViewById(R.id.fwd_attachments);
+            View header = block.findViewById(R.id.fwd_header);
+            name.setText(fwd.author.isEmpty() ? "Сообщение" : fwd.author);
+            time.setText(new SimpleDateFormat("d MMMM HH:mm", Locale.getDefault())
+                    .format(new Date(fwd.date * 1000L)));
+            if (!fwd.avatar.isEmpty()) images.load(photo, fwd.avatar, true, null);
+            View.OnClickListener openAuthor = fwd.fromId != 0 && callback != null
+                    ? v -> callback.onAuthorClicked(fwd.fromId) : null;
+            header.setClickable(openAuthor != null);
+            header.setOnClickListener(openAuthor);
+            if (!fwd.body.isEmpty()) {
+                text.setText(fwd.body);
+                text.setTextColor(night && !message.out ? 0xFFE7E8EA : 0xFF20252B);
+                text.setVisibility(View.VISIBLE);
+            }
+            for (ChatAttachment attachment : fwd.attachments) addAttachment(attachments, text, attachment);
+            attachments.setVisibility(attachments.getChildCount() == 0 ? View.GONE : View.VISIBLE);
+            LinearLayout nested = block.findViewById(R.id.fwd_nested);
+            renderForwarded(nested, fwd, depth + 1, night);
+            nested.setVisibility(nested.getChildCount() == 0 ? View.GONE : View.VISIBLE);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            params.bottomMargin = dp(block, 4);
+            container.addView(block, params);
+        }
+    }
+
+    private void addAttachment(LinearLayout container, TextView textRef, ChatAttachment attachment) {
         boolean hasPreview = !attachment.previewUrl.isEmpty();
         boolean voice = "audio_message".equals(attachment.type);
         int layout = voice ? R.layout.item_msg_attachment_voice : hasPreview
                 ? R.layout.item_msg_attachment_media : R.layout.item_msg_attachment_label;
-        View child = LayoutInflater.from(holder.itemView.getContext()).inflate(layout, holder.attachments, false);
+        View child = LayoutInflater.from(container.getContext()).inflate(layout, container, false);
         child.setTag(attachment);
         if (hasPreview && !voice) {
             ChatMediaPreview preview = child.findViewById(R.id.chat_attachment_media);
@@ -193,6 +336,13 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         if (callback != null && canOpen) {
             child.setOnClickListener(v -> callback.onAttachmentClicked(attachment));
         }
+        if (callback != null && ("doc".equals(attachment.type) || "link".equals(attachment.type)
+                || "article".equals(attachment.type)) && !attachment.url.isEmpty()) {
+            child.setOnLongClickListener(v -> {
+                callback.onAttachmentLongClicked(attachment);
+                return true;
+            });
+        }
         if (voice) {
             SeekBar progress = child.findViewById(R.id.chat_voice_progress);
             progress.setProgressDrawable(new VoiceWaveformDrawable(child.getContext(), attachment.waveform()));
@@ -220,10 +370,11 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
             voiceRows.put(child, attachment);
             updateVoiceRow(child, attachment);
         }
-        if (holder.attachments.getChildCount() > 0 || holder.text.getVisibility() == View.VISIBLE) {
+        if (container.getChildCount() > 0 || textRef != null && textRef.getVisibility() == View.VISIBLE
+                && textRef.length() > 0) {
             ((LinearLayout.LayoutParams) child.getLayoutParams()).topMargin = dp(child, 5);
         }
-        holder.attachments.addView(child);
+        container.addView(child);
     }
 
     /** Updates bound rows in place so progress ticks never rebind or disturb message scrolling. */
@@ -337,6 +488,8 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         clearImages(holder.itemView);
         holder.attachments.removeAllViews();
         holder.attachments.setVisibility(View.GONE);
+        holder.header.removeAllViews();
+        holder.header.setVisibility(View.GONE);
         holder.text.setText("");
         holder.time.setText("");
         holder.date.setText("");
@@ -360,6 +513,7 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
         final TextView text, time, date;
         final ImageView avatar;
         final LinearLayout attachments;
+        final LinearLayout header;
         Holder(View itemView) {
             super(itemView);
             row = itemView.findViewById(R.id.msg_row);
@@ -369,6 +523,7 @@ public final class ChatMessagesAdapter extends RecyclerView.Adapter<ChatMessages
             date = itemView.findViewById(R.id.msg_date);
             avatar = itemView.findViewById(R.id.msg_sender_photo);
             attachments = itemView.findViewById(R.id.msg_attachments);
+            header = itemView.findViewById(R.id.msg_header);
         }
     }
 

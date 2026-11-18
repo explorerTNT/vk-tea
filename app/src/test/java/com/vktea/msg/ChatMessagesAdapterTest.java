@@ -48,16 +48,16 @@ public class ChatMessagesAdapterTest {
                 Collections.emptyList());
         adapter.replaceAll(Collections.singletonList(unread));
         ChatMessagesAdapter.Holder holder = bind(0, 320, 1f);
-        assertTrue(holder.time.getText().toString().endsWith("✓"));
-        assertTrue(holder.time.getContentDescription().toString().contains("не прочитано"));
+        assertTrue(holder.time.getContentDescription().toString().contains("Отправлено, не прочитано"));
+        assertNotNull(holder.time.getCompoundDrawablesRelative()[0]);
         adapter.replaceAll(Collections.singletonList(read));
         adapter.onBindViewHolder(holder, 0);
-        assertTrue(holder.time.getText().toString().endsWith("✓✓"));
         assertTrue(holder.time.getContentDescription().toString().contains("Прочитано"));
+        assertNull(holder.time.getCompoundDrawablesRelative()[0]);
         adapter.replaceAll(Collections.singletonList(unknown));
         adapter.onBindViewHolder(holder, 0);
-        assertFalse(holder.time.getText().toString().contains("✓"));
-        assertFalse(holder.time.getContentDescription().toString().contains("прочитано"));
+        assertTrue(holder.time.getContentDescription().toString().contains("Отправлено, не прочитано"));
+        assertNotNull(holder.time.getCompoundDrawablesRelative()[0]);
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
