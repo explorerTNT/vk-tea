@@ -225,6 +225,7 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
         else if (current instanceof com.vktea.groups.GroupsFragment) { title = R.string.section_groups; section = R.id.menu_groups; }
         else if (current instanceof com.vktea.notifications.NotificationsFragment) { title = R.string.section_feedback; section = R.id.menu_feedback; }
         else if (current instanceof com.vktea.documents.DocumentsFragment) { title = R.string.section_docs; section = R.id.menu_docs; }
+        else if (current instanceof com.vktea.photos.PhotosFragment) { title = R.string.section_photos; section = R.id.menu_photos; }
         else if (current instanceof com.vktea.msg.DialogsFragment) { title = R.string.section_messages; section = R.id.menu_messages; }
         else if (current instanceof com.vktea.ui.AudioFragment) { title = R.string.audio_my_music; section = R.id.menu_audios; }
         else if (current instanceof com.vktea.ui.SettingsFragment) { title = R.string.section_settings; section = R.id.menu_settings; }
@@ -484,6 +485,8 @@ public class MainActivity extends AppCompatActivity implements MenuEntry.Callbac
                     fragment = new com.vktea.notifications.NotificationsFragment();
                 } else if (menuId == R.id.menu_docs) {
                     fragment = new com.vktea.documents.DocumentsFragment();
+                } else if (menuId == R.id.menu_photos) {
+                    fragment = new com.vktea.photos.PhotosFragment();
                 } else {
                     fragment = PlaceholderFragment.newInstance(getString(entry.titleRes), entry.iconRes);
                 }

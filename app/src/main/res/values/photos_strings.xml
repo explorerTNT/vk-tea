@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="photos_tab_all">Все фото</string>
+    <string name="photos_tab_albums">Альбомы</string>
+    <string name="photos_open_photo">Открыть фото</string>
+    <string name="photos_empty_all">Здесь пока нет фотографий</string>
+    <string name="photos_empty_albums">Нет альбомов</string>
+    <string name="photos_load_failed">Не удалось загрузить фотографии</string>
+    <string name="photos_album_count">%1$d фотографий</string>
+</resources>
